@@ -1,0 +1,20 @@
+/planning
+
+# Rust build artifacts
+target/
+Cargo.lock
+.env
+forester/target/
+/worktrees
+
+# Forester data directory
+.sembly/
+
+# Bottlerocket component repositories
+/bottlerocket
+/kits
+/twoliter
+/sdk
+/host-containers
+/bottlerocket-settings-sdk
+/forester-semantic-types
