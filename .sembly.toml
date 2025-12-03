@@ -1,0 +1,55 @@
+# Forester configuration for bottlerocket-forest
+#
+# This file configures which directories forester should index for semantic search
+# and provides fine-grained control over what gets indexed.
+
+# File types to index (default: ["markdown", "rust"])
+enabled-file-types = ["markdown", "rust"]
+
+# Directories to scan
+targets = [
+    "docs",
+    "skills",
+    "bottlerocket",
+    "kits",
+    "twoliter",
+    "sdk",
+    "host-containers",
+    "bottlerocket-settings-sdk",
+]
+
+# Rust-specific indexing controls
+[file-types.rust]
+# Which visibility levels to index (default: ["public"])
+# Options: "public", "crate", "private"
+visibility = ["public"]
+
+# Which item types to index (default: ["all"])
+# Options: "all", "modules", "functions", "structs", "enums", "traits", "impls", "type-aliases", "constants"
+items = ["modules"]
+
+# Minimum doc comment length in characters (default: 0)
+min-doc-lines = 4
+
+# Search result score boosting rules
+# Rules are evaluated in order; first match wins
+# If not specified, default rules prioritize documentation over source code
+[[boost-rules]]
+description = "README files"
+pattern = "**/README.md"
+multiplier = 1.2
+
+[[boost-rules]]
+description = "Documentation directory"
+pattern = "**/docs/**"
+multiplier = 1.2
+
+[[boost-rules]]
+description = "changelogs"
+pattern = "**/CHANGELOG.md"
+multiplier = 0.8
+
+[[boost-rules]]
+description = "Markdown files"
+pattern = "**/*.md"
+multiplier = 1.1
