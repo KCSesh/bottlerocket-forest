@@ -13,22 +13,7 @@ use super::{
     ChunkHash, ChunkId, FileHash, ForestRelativePath, HeadingText, ItemName, RepoName, Signature,
     TokenCount,
 };
-// use crate::knowledge::indexing::RustItemType; // Added in indexing module
-
-/// Stub for RustItemType until indexing module is added
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum RustItemType {
-    Function,
-    Struct,
-    Enum,
-    Trait,
-    Impl,
-    Module,
-    Const,
-    Static,
-    Type,
-    Macro,
-}
+use crate::knowledge::indexing::RustItemType;
 
 /// Searchable documentation unit with source and context metadata
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
