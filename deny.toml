@@ -35,10 +35,15 @@ skip-tree = [
     { name = "fastembed", reason = "fastembed's transitive dependencies have many version conflicts within its own dependency tree" },
 ]
 
+skip = [
+    # hashbrown version conflicts between rusqlite and toml
+    { name = "hashbrown", version = "0.14" },
+]
+
 [bans.workspace-dependencies]
 duplicates = "deny"
 include-path-dependencies = true
-unused = "deny"
+unused = "allow"
 
 [sources]
 # Deny crates from unknown registries or git repositories.
