@@ -53,13 +53,27 @@ cat skills/README.md
 - Complete index of available skills with descriptions
 - When and how to use each skill
 
-**Use the index in skills/README.md to determine if a skill exists for your task.**
+**This file contains the REQUIRED protocol you must follow when a skill applies.**
 
 **If you skip reading skills/README.md:**
 - ❌ Won't know the correct announcement format
 - ❌ Won't know which skills are available
 - ❌ Will reinvent tested procedures incorrectly
 - ❌ Will miss validation steps
+
+### Step 4: Identify Applicable Skill
+
+**Before responding, check if a skill exists for your task.**
+
+Using the index in skills/README.md:
+1. Determine if a skill applies to the user's request
+2. If yes: You MUST announce it to the user before executing (see protocol in skills/README.md)
+3. If no: Proceed with the appropriate approach (e.g., `sembly search` for research)
+
+**If you skip this:**
+- ❌ Will reinvent tested procedures
+- ❌ Will miss validation steps
+- ❌ May produce inconsistent results
 
 ### Verification Checklist
 
@@ -68,6 +82,12 @@ Before answering, confirm you completed:
 - [ ] Read `./docs/ARCHITECTURE.md`
 - [ ] Read `./docs/build-system.md`
 - [ ] Read `./skills/README.md` (contains protocol and skill index)
+- [ ] Identified applicable skill (or confirmed none exists)
+
+**⚠️ STOP: If a skill applies, announce it to the user before executing.**
+
+Tell the user which skill you're using with `USING SKILL "skill-name"` before proceeding.
+This is a user-facing checkpoint, not an internal process step.
 
 ## Multi-Step Workflows
 
