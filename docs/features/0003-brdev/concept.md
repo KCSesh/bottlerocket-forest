@@ -1,10 +1,10 @@
 markdown
 ---
-feature: 0004-forester
+feature: 0004-brdev
 status: proposed
 ---
 
-# Forester: Forest Orchestration Tool
+# Brdev: Forest Orchestration Tool
 
 ## Problem
 
@@ -16,35 +16,35 @@ We need to shift these common meta-repository actions into deterministic, well-t
 
 ## Solution
 
-Forester will be a Rust CLI tool that provides deterministic, higher-level commands for orchestrating development workflows across the forest. It will wrap and coordinate lower-level operations (like twoliter builds and Docker commands) into cohesive workflows that are easy to invoke and hard to misuse.
+Brdev will be a Rust CLI tool that provides deterministic, higher-level commands for orchestrating development workflows across the forest. It will wrap and coordinate lower-level operations (like twoliter builds and Docker commands) into cohesive workflows that are easy to invoke and hard to misuse.
 
-The first capability will be local OCI registry management. Forester will handle starting, stopping, and managing a local Docker registry container where kits, SDKs, and host-container images can be pushed during development. This eliminates the need for external registry access (like AWS ECR) during local iteration, making development faster and safer—especially for AI agents that shouldn't have cloud credentials.
+The first capability will be local OCI registry management. Brdev will handle starting, stopping, and managing a local Docker registry container where kits, SDKs, and host-container images can be pushed during development. This eliminates the need for external registry access (like AWS ECR) during local iteration, making development faster and safer—especially for AI agents that shouldn't have cloud credentials.
 
 ## How It Works
 
 A developer or AI agent working on a Bottlerocket kit needs to test their changes. Instead of manually starting a Docker registry, remembering the correct port and volume names, and checking if it's healthy, they run:
 
 
-forester registry start
+brdev registry start
 
-Forester creates and starts the registry container, waits for it to become healthy, and reports the URL. If the registry is already running, the command is idempotent—it simply confirms the registry is available.
+Brdev creates and starts the registry container, waits for it to become healthy, and reports the URL. If the registry is already running, the command is idempotent—it simply confirms the registry is available.
 
 When building a kit with twoliter, they can now push it to `localhost:5000` without any external dependencies. To see what's in the registry:
 
 
-forester registry list
+brdev registry list
 
 This shows all images and tags currently stored, helping them verify their kit was published correctly.
 
 When they're done for the day:
 
 
-forester registry stop
+brdev registry stop
 
 The registry stops but preserves its data. Tomorrow they can start it again and their images are still there. If they want a clean slate:
 
 
-forester registry clean
+brdev registry clean
 
 This removes the container and all stored data, ready for a fresh start.
 
@@ -56,7 +56,7 @@ For AI agents, this is especially valuable. Agents don't need AWS credentials or
 
 The registry's persistent storage means work isn't lost between sessions. Developers can stop the registry to free resources without losing their locally-built kits. This makes it practical to run the registry only when needed.
 
-By implementing this in Rust, we leverage the type system and compiler to guide correct implementations. The typestate pattern in the Docker module makes invalid operations impossible at compile time—you can't stop a container that isn't running, for example. This design philosophy will extend to future Forester capabilities.
+By implementing this in Rust, we leverage the type system and compiler to guide correct implementations. The typestate pattern in the Docker module makes invalid operations impossible at compile time—you can't stop a container that isn't running, for example. This design philosophy will extend to future Brdev capabilities.
 
 ## Technical Notes
 
@@ -64,4 +64,4 @@ The registry uses the official `registry:2` Docker image on `localhost:5000` by 
 
 Health checking ensures the registry is actually ready before returning from `start`, preventing race conditions in build scripts. The catalog API integration allows listing images without requiring external tools.
 
-Future Forester capabilities will include build orchestration (coordinating kit builds, publishing, and variant builds), development status reporting (what's built, what's running), and test environment management. Each capability will follow the same principles: deterministic, agent-friendly, and composable.
+Future Brdev capabilities will include build orchestration (coordinating kit builds, publishing, and variant builds), development status reporting (what's built, what's running), and test environment management. Each capability will follow the same principles: deterministic, agent-friendly, and composable.

@@ -65,7 +65,7 @@ The index downloads ML models automatically on first use (~90MB for the embeddin
 
 ## Configuration
 
-Sembly looks for a `.sembly.toml` configuration file in the forest root to determine which repositories and paths to index. If not found, it uses sensible defaults.
+Sembly looks for a `sembly.toml` configuration file in the forest root to determine which repositories and paths to index. If not found, it uses sensible defaults.
 
 ## Library Usage
 

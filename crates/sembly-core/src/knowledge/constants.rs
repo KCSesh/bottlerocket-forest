@@ -9,7 +9,7 @@
 pub const SEMBLY_DIR: &str = ".sembly";
 
 /// The sembly configuration file name.
-pub const SEMBLY_CONFIG: &str = ".sembly.toml";
+pub const SEMBLY_CONFIG: &str = "sembly.toml";
 
 /// The sembly ignore file name.
 pub const SEMBLY_IGNORE: &str = ".semblyignore";

@@ -3,9 +3,10 @@ resolver = "2"
 members = [
     "crates/sembly-core",
     "crates/sembly-cli",
+    "crates/brdev",
     "crates/forester",
 ]
-default-members = ["crates/sembly-cli", "crates/forester"]
+default-members = ["crates/sembly-cli", "crates/brdev", "crates/forester"]
 
 [workspace.package]
 edition = "2024"
@@ -82,3 +83,6 @@ mockall = "0.13"
 serial_test = "3"
 tempfile = "3"
 test-case = "3"
+
+[workspace.lints.clippy]
+all = "deny"

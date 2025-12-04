@@ -13,24 +13,6 @@ log() {
     fi
 }
 
-clone_if_missing() {
-    local dir=$1
-    local repo=$2
-    
-    if [ -d "$dir" ]; then
-        log "✓ $dir already exists"
-    else
-        log "Cloning $repo into $dir..."
-        if ! git clone "git@github.com:bottlerocket-os/${repo}.git" "$dir" 2>&1 | \
-             grep -E "(Cloning|Receiving|Resolving)" >/dev/null; then
-            echo "❌ Failed to clone $repo. Check SSH authentication:" >&2
-            echo "   ssh -T git@github.com" >&2
-            return 1
-        fi
-        log "✓ Cloned $dir"
-    fi
-}
-
 get_workspace_version() {
     local crate_name=$1
     grep '^version = ' "crates/${crate_name}/Cargo.toml" | head -1 | cut -d'"' -f2
@@ -66,30 +48,17 @@ install_if_needed() {
     log "✓ $binary installed"
 }
 
-# Clone repositories
-log "Cloning repositories..."
-clone_if_missing "bottlerocket" "bottlerocket"
-clone_if_missing "kits/bottlerocket-core-kit" "bottlerocket-core-kit"
-clone_if_missing "kits/bottlerocket-kernel-kit" "bottlerocket-kernel-kit"
-clone_if_missing "twoliter" "twoliter"
-clone_if_missing "sdk/bottlerocket-sdk" "bottlerocket-sdk"
-clone_if_missing "host-containers/bottlerocket-admin-container" "bottlerocket-admin-container"
-clone_if_missing "host-containers/bottlerocket-control-container" "bottlerocket-control-container"
-clone_if_missing "bottlerocket-settings-sdk" "bottlerocket-settings-sdk"
-
-# Install forest tools
+# Install forest tools first
 log "Checking forest tools..."
 install_if_needed "sembly" "sembly-cli"
 install_if_needed "forester" "forester"
+install_if_needed "brdev" "brdev"
 
-# Build knowledge index
-chunk_count=$(sembly status 2>/dev/null | grep "Chunks:" | awk '{print $2}')
-if [ "$chunk_count" = "0" ] || [ -z "$chunk_count" ]; then
-    log "Building knowledge index..."
-    sembly rebuild &>/dev/null
-    log "✓ Knowledge index built"
+# Use forester to seed the forest
+if [ "$VERBOSE" = true ]; then
+    forester seed --verbose
 else
-    log "✓ Knowledge index already exists"
+    forester seed
 fi
 
 # Verify

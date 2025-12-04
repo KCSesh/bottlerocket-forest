@@ -37,7 +37,8 @@ bottlerocket-forest/
 ├── crates/                    # Rust workspace
 │   ├── sembly-core/           # Semantic search library
 │   ├── sembly-cli/            # Sembly CLI tool
-│   └── forester/              # Forest orchestration CLI
+│   ├── forester/              # Generic forest management CLI
+│   └── brdev/                 # Bottlerocket-specific dev tooling
 ├── skills/                    # AI agent skills for common workflows
 ├── docs/                      # High-level Bottlerocket documentation
 └── planning/                  # Scratch space for notes and planning (gitignored)
@@ -77,15 +78,27 @@ Sembly is a standalone open-source tool that can be applied to any codebase. See
 
 ## Forester
 
-Forest orchestration tool. **Must run from forest root directory.**
+Generic forest management tool. **Must run from forest root directory.**
 
 ```bash
-forester registry start    # Start local registry
-forester registry status   # Check registry status
-forester registry list     # List published images
+brdev registry start    # Start local registry
+brdev registry status   # Check registry status
+brdev registry list     # List published images
 ```
 
 See `crates/forester/README.md` for complete documentation.
+
+## brdev
+
+Bottlerocket-specific development tooling. **Must run from forest root directory.**
+
+```bash
+brdev registry start    # Start local registry
+brdev registry status   # Check registry status
+brdev registry list     # List published images
+```
+
+See `crates/brdev/README.md` for complete documentation.
 
 ## Development
 

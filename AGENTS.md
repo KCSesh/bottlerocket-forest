@@ -13,12 +13,12 @@ This document contains the mandatory workflow for AI agents working in the Bottl
 ```
 
 **Run this every session.** It ensures:
-- Sembly and forester tools are built and available
+- Sembly, forester, and brdev tools are built and available
 - Knowledge index is current
 - All repositories are present
 
 **If you skip this:**
-- ❌ Sembly and forester commands will fail
+- ❌ Sembly, forester, and brdev commands will fail
 - ❌ Documentation search won't work
 - ❌ You'll reference outdated code
 
@@ -171,13 +171,13 @@ Forester provides registry management for local kit development.
 
 ```bash
 # Start local OCI registry for kit development
-forester registry start
+brdev registry start
 
 # Check if registry is running
-forester registry status
+brdev registry status
 
 # List published images
-forester registry list
+brdev registry list
 ```
 
 ## Common Patterns

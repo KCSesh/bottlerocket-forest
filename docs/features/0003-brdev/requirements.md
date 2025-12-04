@@ -8,17 +8,17 @@ This specification defines the requirements for managing a local Docker-based OC
 
 ### FR-1: Registry Container Creation
 
-WHEN the user executes forester registry start  
+WHEN the user executes brdev registry start  
 WHERE no registry container exists  
 THEN the system SHALL create a Docker container with the following properties:
 - Image: registry:2
-- Container name: forester-registry-{port} where port defaults to 5000
+- Container name: brdev-registry-{port} where port defaults to 5000
 - Port binding: localhost:{port}:5000
-- Volume mount: forester-registry-data-{port}:/var/lib/registry
+- Volume mount: brdev-registry-data-{port}:/var/lib/registry
 
 ### FR-2: Idempotent Registry Start
 
-WHEN the user executes forester registry start  
+WHEN the user executes brdev registry start  
 WHERE the registry container already exists and is running  
 THEN the system SHALL return successfully without creating a new container
 
@@ -27,7 +27,7 @@ THEN the system SHALL start the existing container
 
 ### FR-3: Registry Health Verification
 
-WHEN the user executes forester registry start  
+WHEN the user executes brdev registry start  
 THEN the system SHALL wait for the registry to respond to HTTP health checks before returning
 
 WHERE the registry does not become healthy within 10 seconds  
@@ -35,14 +35,14 @@ THEN the system SHALL fail with a timeout error
 
 ### FR-4: Registry Start Output
 
-WHEN forester registry start completes successfully  
+WHEN brdev registry start completes successfully  
 THEN the system SHALL display:
 - A success indicator
 - The registry URL in the format http://localhost:{port}
 
 ### FR-5: Registry Stop
 
-WHEN the user executes forester registry stop  
+WHEN the user executes brdev registry stop  
 WHERE the registry container is running  
 THEN the system SHALL stop the container
 
@@ -51,12 +51,12 @@ THEN the system SHALL return successfully without error
 
 ### FR-6: Data Volume Preservation
 
-WHEN the user executes forester registry stop  
+WHEN the user executes brdev registry stop  
 THEN the system SHALL preserve the data volume containing registry contents
 
 ### FR-7: Registry Status Check
 
-WHEN the user executes forester registry status  
+WHEN the user executes brdev registry status  
 THEN the system SHALL display:
 - Container state (not created, stopped, or running)
 - Registry URL if running
@@ -64,7 +64,7 @@ THEN the system SHALL display:
 
 ### FR-8: Registry Status Exit Code
 
-WHEN the user executes forester registry status  
+WHEN the user executes brdev registry status  
 WHERE the registry is running  
 THEN the system SHALL exit with code 0
 
@@ -73,7 +73,7 @@ THEN the system SHALL exit with a non-zero code
 
 ### FR-9: Registry Image Listing
 
-WHEN the user executes forester registry list  
+WHEN the user executes brdev registry list  
 WHERE the registry is running  
 THEN the system SHALL display all images stored in the registry with their tags
 
@@ -82,7 +82,7 @@ THEN the system SHALL fail with an appropriate error
 
 ### FR-10: Registry Log Display
 
-WHEN the user executes forester registry logs  
+WHEN the user executes brdev registry logs  
 WHERE the registry container is running  
 THEN the system SHALL display the container logs
 
@@ -94,7 +94,7 @@ THEN the system SHALL fail with an error indicating the container is not running
 
 ### FR-11: Registry Data Cleanup
 
-WHEN the user executes forester registry clean  
+WHEN the user executes brdev registry clean  
 THEN the system SHALL:
 1. Stop the registry container if running
 2. Remove the registry container if it exists
@@ -128,8 +128,8 @@ WHILE no explicit configuration is provided
 THEN the system SHALL use the following defaults:
 - Port: 5000
 - Image: registry:2
-- Container name: forester-registry-5000
-- Volume name: forester-registry-data-5000
+- Container name: brdev-registry-5000
+- Volume name: brdev-registry-data-5000
 
 ## Error Handling
 

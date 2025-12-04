@@ -4,7 +4,7 @@
 target/
 Cargo.lock
 .env
-forester/target/
+.forest/
 /worktrees
 
 # Forester data directory

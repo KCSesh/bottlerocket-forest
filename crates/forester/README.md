@@ -1,102 +1,100 @@
 # Forester
 
-Forester is a Rust CLI tool that orchestrates development workflows across the Bottlerocket Forest. It provides higher-level commands for managing local development infrastructure.
+Generic forest management for multi-repo projects.
 
-## Purpose
+A forest is a collection of related git repositories that are developed together but maintained as separate repos (not submodules). Forester provides:
 
-Forester provides:
-
-- **Local OCI Registry** - Run a local Docker registry for kit development
+- Forest configuration via `forester.toml`
+- Coordinated worktree management across all member repos
+- Integration with sembly for semantic search
 
 ## Installation
 
-Build from source:
-
 ```bash
-cd bottlerocket-forest
-cargo build --release -p forester
+cargo install forester
 ```
-
-The binary will be at `target/release/forester`.
 
 ## Usage
 
-### Registry Management
+### Seed a Forest
 
-Start a local OCI registry for development:
-
-```bash
-forester registry start
-```
-
-Check registry status:
+Clone all member repositories and set up the forest:
 
 ```bash
-forester registry status
+forester seed
+forester seed --verbose
 ```
 
-List published images:
+### Manage Worktrees
+
+Create a new forest worktree (creates worktrees for all member repos):
 
 ```bash
-forester registry list
+forester worktree create feature-x
+forester worktree create feature-x --branch my-branch
 ```
 
-View registry logs:
+List existing worktrees:
 
 ```bash
-forester registry logs
+forester worktree list
 ```
 
-Stop the registry (preserves data):
+Remove a worktree:
 
 ```bash
-forester registry stop
+forester worktree remove feature-x
+forester worktree remove feature-x --force
 ```
 
-Remove registry and all data:
+## Configuration
 
-```bash
-forester registry clean
+### forester.toml
+
+Defines the forest members:
+
+```toml
+[forest]
+name = "my-project"
+
+[[member]]
+name = "main-repo"
+remote = "git@github.com:org/main-repo.git"
+path = "main-repo"
+default_branch = "main"
+
+[[member]]
+name = "lib-repo"
+remote = "git@github.com:org/lib-repo.git"
+path = "libs/lib-repo"
+default_branch = "develop"
 ```
 
-### Configuration
+### sembly.toml
 
-Forester uses environment variables for configuration. Create a `.env` file in the forest root or set environment variables:
+Defines what to index for semantic search. See [sembly documentation](../sembly-cli/README.md).
 
-```bash
-# Registry port (default: 5000, minimum: 1024)
-FORESTER_REGISTRY_PORT=5000
+## Directory Structure
 
-# Registry image (default: registry:2)
-FORESTER_REGISTRY_IMAGE=registry:2
+After seeding:
+
 ```
+my-forest/
+  forester.toml
+  sembly.toml
+  .forest/
+    bare/                     # Bare clones of all member repos
+      main-repo.git/
+      lib-repo.git/
+  
+  # Main worktree
+  main-repo/
+  libs/lib-repo/
+  .sembly/                    # Sembly index
 
-Note: Container and volume names are automatically derived from the port as `forester-registry-{port}` and `forester-registry-data-{port}`.
-
-## Requirements
-
-- Rust toolchain (for building)
-- Docker installed and running
-- User must be in the `docker` group (or have Docker permissions)
-
-## Development
-
-### Building
-
-Build from the workspace root:
-
-```bash
-make build          # Development build
-make release-build  # Optimized build
+  worktrees/
+    feature-x/
+      main-repo/
+      libs/lib-repo/
+      .sembly/
 ```
-
-### Code Quality
-
-Run all quality checks from the workspace root:
-
-```bash
-make integ  # Full test suite (fmt, clippy, deny, tests)
-make check  # Quick validation (fmt, clippy, deny, unit tests)
-```
-
-Integration tests use the `serial_test` crate with `#[serial(registry)]` to ensure tests that manipulate the Docker registry run one at a time. Tests use a dedicated test port (5555), and each test starts with a clean state and cleans up after itself.

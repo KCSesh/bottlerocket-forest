@@ -35,9 +35,9 @@ fn error_unregistered_context_lists_available() {
 #[test]
 #[ignore]
 fn error_missing_database_suggests_build() {
-    // Given: A directory with only .sembly.toml (no database)
+    // Given: A directory with only sembly.toml (no database)
     let temp = TempDir::new().unwrap();
-    std::fs::write(temp.path().join(".sembly.toml"), "targets = [\".\"]").unwrap();
+    std::fs::write(temp.path().join("sembly.toml"), "targets = [\".\"]").unwrap();
 
     // When: Running sembly search
     let (code, _, stderr) = sembly_cmd(temp.path(), &["search", "test"]);

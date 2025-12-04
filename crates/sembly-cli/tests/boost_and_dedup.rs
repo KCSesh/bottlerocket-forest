@@ -90,9 +90,9 @@ fn deduplication_adding_identical_context_does_not_grow_db() {
     // Given: A temp workspace with two identical directories
     let temp = TempDir::new().unwrap();
 
-    // Create .sembly.toml
+    // Create sembly.toml
     std::fs::write(
-        temp.path().join(".sembly.toml"),
+        temp.path().join("sembly.toml"),
         r#"targets = ["."]
 "#,
     )

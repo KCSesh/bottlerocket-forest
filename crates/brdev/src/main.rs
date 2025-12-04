@@ -1,6 +1,6 @@
-use forester::cli;
+use brdev::cli;
 
 fn main() -> miette::Result<()> {
     miette::set_panic_hook();
-    cli::run()
+    Ok(cli::run()?)
 }

@@ -1,8 +1,16 @@
-//! Forester orchestrates development workflows across the Bottlerocket Forest.
+//! Forester provides generic forest management for multi-repo projects.
 //!
-//! This library provides functionality for managing local OCI registries,
-//! coordinating builds, and managing development environments.
+//! A forest is a collection of related git repositories that are developed together
+//! but maintained as separate repos (not submodules). Forester provides:
+//!
+//! - Forest configuration via `forester.toml`
+//! - Coordinated worktree management across all member repos
+//! - Integration with sembly for semantic search
 
 pub mod cli;
-pub mod config;
-pub mod registry;
+pub mod error;
+pub mod forest;
+pub mod worktree;
+
+pub use error::Error;
+pub use forest::ForestConfig;

@@ -1,6 +1,6 @@
 //! Configuration loading and parsing for semblying
 //!
-//! Loads and validates `.sembly.toml` configuration files that control indexing
+//! Loads and validates `sembly.toml` configuration files that control indexing
 //! behavior. Configuration includes file type filtering, Rust-specific options,
 //! scan targets, and search result boosting rules.
 
@@ -14,7 +14,7 @@ use crate::knowledge::constants::SEMBLY_CONFIG;
 use crate::knowledge::domain::{FileType, Visibility};
 use crate::knowledge::scoring::BoostRule;
 
-/// Configuration loaded from `.sembly.toml` in the forest root
+/// Configuration loaded from `sembly.toml` in the forest root
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct SemblyConfig {
@@ -161,7 +161,7 @@ fn default_rust_items() -> Vec<RustItemType> {
     ]
 }
 
-/// Load and validate sembly configuration from `.sembly.toml`
+/// Load and validate sembly configuration from `sembly.toml`
 ///
 /// Returns `None` if the config file doesn't exist. Returns an error if the file
 /// exists but contains invalid TOML or violates validation rules (e.g., paths
@@ -245,12 +245,12 @@ mod test {
 
     #[test]
     fn test_load_sembly_config_with_valid_toml() {
-        // Given A forest root with valid .sembly.toml
+        // Given A forest root with valid sembly.toml
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 targets = ["docs", "kits/core-kit"]
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -267,7 +267,7 @@ targets = ["docs", "kits/core-kit"]
 
     #[test]
     fn test_load_sembly_config_with_missing_file() {
-        // Given A forest root without .sembly.toml
+        // Given A forest root without sembly.toml
         let temp_dir = TempDir::new().unwrap();
 
         // When Loading the config
@@ -283,7 +283,7 @@ targets = ["docs", "kits/core-kit"]
         // Given A forest root with malformed TOML
         let temp_dir = TempDir::new().unwrap();
         let invalid_toml = "targets = [invalid syntax";
-        fs::write(temp_dir.path().join(".sembly.toml"), invalid_toml).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), invalid_toml).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -294,10 +294,10 @@ targets = ["docs", "kits/core-kit"]
 
     #[test]
     fn test_load_sembly_config_with_empty_targets() {
-        // Given A .sembly.toml with empty targets array
+        // Given A sembly.toml with empty targets array
         let temp_dir = TempDir::new().unwrap();
         let config_content = "targets = []";
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -310,12 +310,12 @@ targets = ["docs", "kits/core-kit"]
 
     #[test]
     fn test_load_sembly_config_validates_path_escaping() {
-        // Given A .sembly.toml with paths that escape forest root
+        // Given A sembly.toml with paths that escape forest root
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 targets = ["../outside"]
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -329,12 +329,12 @@ targets = ["../outside"]
 
     #[test]
     fn test_load_sembly_config_with_relative_paths() {
-        // Given A .sembly.toml with relative paths
+        // Given A sembly.toml with relative paths
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 targets = ["docs", "bottlerocket", "kits/bottlerocket-core-kit"]
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -353,7 +353,7 @@ targets = ["docs", "bottlerocket", "kits/bottlerocket-core-kit"]
 
     #[test]
     fn test_sembly_config_with_file_type_filters() {
-        // Given A .sembly.toml with file type configuration
+        // Given A sembly.toml with file type configuration
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 enabled-file-types = ["markdown", "rust"]
@@ -364,7 +364,7 @@ visibility = ["public", "crate"]
 items = ["modules", "structs"]
 min-doc-lines = 30
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -428,7 +428,7 @@ min-doc-lines = 30
 
     #[test]
     fn test_load_sembly_config_with_boost_rules() {
-        // Given A .sembly.toml with boost rules
+        // Given A sembly.toml with boost rules
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 targets = ["docs"]
@@ -441,7 +441,7 @@ multiplier = 1.5
 pattern = "**/*.md"
 multiplier = 1.2
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -456,7 +456,7 @@ multiplier = 1.2
 
     #[test]
     fn test_load_sembly_config_with_boost_rules_and_descriptions() {
-        // Given A .sembly.toml with boost rules including descriptions
+        // Given A sembly.toml with boost rules including descriptions
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 [[boost-rules]]
@@ -464,7 +464,7 @@ description = "README files"
 pattern = "**/README.md"
 multiplier = 1.3
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());
@@ -478,14 +478,14 @@ multiplier = 1.3
 
     #[test]
     fn test_load_sembly_config_boost_rules_optional_description() {
-        // Given A .sembly.toml with boost rules without descriptions
+        // Given A sembly.toml with boost rules without descriptions
         let temp_dir = TempDir::new().unwrap();
         let config_content = r#"
 [[boost-rules]]
 pattern = "docs/**"
 multiplier = 1.1
 "#;
-        fs::write(temp_dir.path().join(".sembly.toml"), config_content).unwrap();
+        fs::write(temp_dir.path().join("sembly.toml"), config_content).unwrap();
 
         // When Loading the config
         let result = load_sembly_config(temp_dir.path());

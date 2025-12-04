@@ -2,7 +2,7 @@
 
 ## Overview
 
-Forester will manage a local Docker-based OCI registry for development workflows. The registry stores Bottlerocket kits and SDKs, eliminating the need for external registry access during local development.
+Brdev will manage a local Docker-based OCI registry for development workflows. The registry stores Bottlerocket kits and SDKs, eliminating the need for external registry access during local development.
 
 Design Philosophy: Use Rust's type system to enforce container lifecycle correctness at compile time. Wrap Docker operations in domain types that prevent invalid state transitions. Keep Docker interaction isolated behind clean abstractions.
 
@@ -47,11 +47,11 @@ RegistryPort
 - Used to derive container/volume names
 
 ContainerName
-- Non-empty string, format: forester-registry-{port}
+- Non-empty string, format: brdev-registry-{port}
 - Unique identifier for Docker container
 
 VolumeName
-- Non-empty string, format: forester-registry-data-{port}
+- Non-empty string, format: brdev-registry-data-{port}
 - Persistent storage identifier
 
 ImageRef
@@ -242,10 +242,10 @@ Implications: Slightly more complex type signatures, but eliminates entire class
 
 ### DD-2: Port-based naming for container and volume
 
-Decision: Derive names from port number (forester-registry-{port})
+Decision: Derive names from port number (brdev-registry-{port})
 
 Alternatives considered:
-1. Hardcoded singleton names (forester-registry)
+1. Hardcoded singleton names (brdev-registry)
 2. User-specified names in config
 3. Port-based derivation (chosen)
 
