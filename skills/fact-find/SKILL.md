@@ -59,9 +59,10 @@ cat path/to/file.md
 Sembly indexes documentation, not source code. If you can't find the answer in docs, search the codebase directly:
 
 ```bash
-rg "search_term" --type rust
-find . -name "*relevant_name*"
-# etc. - use whatever tools help you find the answer
+# IMPORTANT: Always scope searches to specific directories!
+# The forest is 80GB+ - unscoped searches will hang.
+rg "search_term" --type rust bottlerocket/sources/
+find bottlerocket/sources -name "*relevant_name*"
 ```
 
 This indicates a documentation gap - note it in your Research Quality Indicator.

@@ -115,7 +115,7 @@ Never guess or rely on training data for Bottlerocket-specific questions.
 
 ## Reading Code
 
-**Use `./scripts/show` when you need accurate line numbers.**
+**Use a tool that displays line numbers when you need accurate citations.**
 
 This is essential when:
 - Citing code in documentation or responses
@@ -124,21 +124,41 @@ This is essential when:
 - Creating implementation plans with file:line references
 
 ```bash
-# View specific line range
-./scripts/show path/to/file.rs:50:100
+# View file with line numbers
+cat -n path/to/file.rs | head -100
 
-# View from line to end of file
-./scripts/show path/to/file.rs:200:
+# View specific line range (lines 50-100)
+sed -n '50,100p' path/to/file.rs | cat -n
 
-# Search for pattern and show context
-./scripts/show path/to/file.rs -p "function_name"
-
-# View whole file with line numbers
-./scripts/show path/to/file.rs
+# Search for pattern with line numbers
+grep -n "function_name" path/to/file.rs
 ```
 
-**When citing code**, use the `file.rs:45-60` format and verify line numbers with `./scripts/show`.
+**When citing code**, use the `file.rs:45-60` format and verify line numbers.
 
+
+## ⚠️ Searching Code (ripgrep/grep)
+
+**CRITICAL: Never run `rg` or `grep -r` from the forest root without path constraints.**
+
+The forest contains 80GB+ across multiple repositories. Unscoped searches will hang or take forever.
+
+```bash
+# ❌ BAD - searches entire 80GB forest
+rg "pattern" --type rust
+grep -r "pattern" .
+
+# ✅ GOOD - scope to specific directory
+rg "pattern" --type rust bottlerocket/sources/
+grep -r "pattern" bottlerocket/sources/api/
+
+# ✅ GOOD - search specific files
+grep "pattern" skills/*.md AGENTS.md
+```
+
+The forest's `.gitignore` excludes component repos from git tracking, but `rg` still searches them because each has its own `.git/` directory.
+
+**Always specify a path when searching.**
 ## Sembly Usage
 
 Sembly provides semantic search for Bottlerocket documentation.
