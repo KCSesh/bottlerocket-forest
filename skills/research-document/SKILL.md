@@ -5,7 +5,7 @@ description: Create educational documents that build understanding progressively
 
 # Research Document
 
-A systematic approach to creating educational documentation that builds understanding progressively.
+A systematic approach to creating educational documentation through tiered research.
 
 ## Purpose
 
@@ -32,79 +32,173 @@ For quick factual lookups, use **fact-find** instead.
 
 **If this fails, STOP and fix the error.**
 
-## Procedure
+## Research Model: Scout → Decompose → Research → Assemble
 
-💡 TIP: If you have todolist functionality, create a task list for these steps.
+Research happens in tiers, not all at once. All artifacts go to the filesystem.
 
-### 1. Plan the Document Structure
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TIERED RESEARCH MODEL                       │
+└─────────────────────────────────────────────────────────────────┘
 
-**CRITICAL: Overview-first, details-last.**
-
-Before searching, plan the information architecture:
-
-1. **Overview** - Visual summary (diagram, flowchart, or table) showing the whole system at a glance
-2. **Fundamentals** - Underlying concepts/models the reader needs to understand the specifics
-3. **Main Body** - How the system works, organized by concept not by component
-4. **Reference/Appendix** - Dense details, tables of components, configuration options
-
-**Information placement rules:**
-- If it's a list of similar items → table, not paragraphs
-- If it's implementation detail → appendix, not main body
-- If it requires prerequisite knowledge → explain the prerequisite first
-
-❌ **Anti-patterns to avoid:**
-
-| Anti-pattern | Problem | Fix |
-|--------------|---------|-----|
-| Verbose item descriptions | Paragraphs for each service/component | Use tables |
-| Implementation-first | Jumping into details before explaining the model | Add Fundamentals section |
-| Flat structure | All details in main body | Move reference material to appendix |
-| Text-only overview | Prose summary that's hard to scan | Lead with diagram or table |
-
-✅ **Good structure:**
-- Reader sees the whole system in 10 seconds (overview visual)
-- Reader understands the model before seeing specifics (fundamentals)
-- Reader can skip to appendix for details without wading through prose
-
-### 2. Research with Multiple Searches
-
-```bash
-# High-level architecture and purpose
-sembly search "system-name architecture overview purpose"
-
-# Implementation details
-sembly search "system-name implementation components"
-
-# Configuration and behavior
-sembly search "system-name configuration settings behavior"
+     TIER 0: SCOUT                    TIER 1: FOCUSED RESEARCH
+     ─────────────────                ────────────────────────
+     
+     ┌─────────────┐                  ┌─────────────┐
+     │   Initial   │                  │ Sub-question│──▶ Cited answer
+     │   Question  │                  │ (fact-find) │    (short)
+     └──────┬──────┘                  └─────────────┘
+            │                         ┌─────────────┐
+            ▼                         │ Sub-question│──▶ Cited answer
+     ┌─────────────┐    Decompose     │ (fact-find) │    (short)
+     │    Scout    │────────────────▶ └─────────────┘
+     │   Search    │                  ┌─────────────┐
+     └──────┬──────┘                  │ Sub-question│──▶ RECURSE
+            │                         │ (research)  │    (own scout/decompose)
+            ▼                         └─────────────┘
+     ┌─────────────┐                         │
+     │ Write to:   │                         ▼
+     │ planning/   │                  ┌─────────────┐
+     │ <slug>/     │                  │  Assemble   │──▶ Final document
+     │ 00-scout.md │                  │  from files │
+     └─────────────┘                  └─────────────┘
 ```
 
-### 3. Read and Organize Information
+**Why this works:** 
+- Agents struggle to admit uncertainty mid-task. Scouting first identifies gaps before the pressure to produce output.
+- Writing to filesystem enables collaboration between agents (or context window resets for single-agent systems).
+- Classifying sub-questions prevents "too big" questions from getting shallow treatment.
 
-Read identified files and categorize by document section:
+## Workspace Setup
 
-| Information Type | Goes In |
-|------------------|--------|
-| Purpose, problem solved | Overview |
-| Underlying models, concepts | Fundamentals |
-| How things work together | Main body |
-| Lists of components/services | Tables (main body or appendix) |
-| Configuration options, flags | Appendix |
-| Edge cases, advanced topics | Appendix |
+All research artifacts go to `planning/<question-slug>/`:
 
-### 4. If Documentation Is Insufficient
+```
+planning/
+└── how-twoliter-builds-kits/
+    ├── 00-scout.md           # Scout findings + sub-questions
+    ├── 01-kit-structure.md   # Sub-question answer (fact-find)
+    ├── 02-build-command.md   # Sub-question answer (fact-find)
+    ├── 03-buildsys/          # Sub-question that needed recursion
+    │   ├── 00-scout.md
+    │   ├── 01-spec-parsing.md
+    │   └── 02-docker-build.md
+    └── FINAL.md              # Assembled document
+```
 
-Sembly indexes documentation, not source code. When docs don't fully answer the question:
+**Slug format:** lowercase, hyphens, descriptive (e.g., `how-twoliter-builds-kits`)
 
-1. **Use what you learned** - Documentation often names components, files, or concepts
-2. **Search code informed by docs** - Use discovered names/paths to target your search:
-   ```bash
-   rg "component_name" --type rust
-   find . -name "*component_name*"
-   ```
-3. **Note the gap** - Reflect in Research Quality Indicator
+### For Multi-Agent Systems
 
-### 5. Structure the Document
+- **Lead agent**: Scout, decompose, assemble
+- **Subagents**: Each sub-question becomes a task; subagent writes answer to the workspace
+- Subagents can recursively spawn if their question is too big
+
+### For Single-Agent Systems
+
+Execute tiers sequentially, using the filesystem as your "memory":
+1. Scout and write `00-scout.md`
+2. Research each sub-question, writing `01-*.md`, `02-*.md`, etc.
+3. Read all files back and assemble `FINAL.md`
+
+This allows context window resets between phases if needed.
+
+## Procedure
+
+### Phase 1: Scout (Learn the Shape)
+
+**Goal:** Understand what you're dealing with. Write findings to `00-scout.md`.
+
+```bash
+mkdir -p planning/<question-slug>
+```
+
+```bash
+# Broad search to find relevant areas
+sembly search "system-name overview"
+sembly search "system-name architecture"
+```
+
+Read 2-3 top results. Capture in `00-scout.md`:
+
+```markdown
+# Scout: <Original Question>
+
+## Key Concepts Discovered
+- [Concept 1]: [Brief description]
+- [Concept 2]: [Brief description]
+
+## Relevant Files Found
+- `path/to/file.md` - [What it covers]
+- `path/to/code.rs` - [What it covers]
+
+## Terminology
+- [Term]: [Definition as used in this codebase]
+
+## Sub-Questions
+
+### 1. [Sub-question text]
+- **Type:** fact-find | research-document
+- **Why:** [Why this classification]
+- **Key files:** [Files likely to answer this]
+
+### 2. [Sub-question text]
+...
+```
+
+**Sub-question classification:**
+
+| If the sub-question... | Type | Action |
+|------------------------|------|--------|
+| Has a concrete, specific answer | fact-find | Answer in 1-2 paragraphs |
+| Asks "what is X" or "where is Y" | fact-find | Answer in 1-2 paragraphs |
+| Asks "how does X work" | research-document | Recurse (own scout/decompose) |
+| Involves multiple components interacting | research-document | Recurse |
+| Would need 3+ source files to answer | research-document | Recurse |
+
+**Recursion check:** If more than 2 sub-questions are type `research-document`, consider whether the original question is too broad.
+
+### Phase 2: Research Sub-Questions
+
+For each sub-question, write to `NN-<slug>.md`:
+
+**For fact-find sub-questions:**
+
+```markdown
+# <Sub-Question>
+
+<Direct answer with inline citations>
+
+The kit directory must contain a `Twoliter.toml` file <sup>[1]</sup> and a `Cargo.toml` 
+that lists packages as dependencies <sup>[2]</sup>.
+
+## Sources
+
+<sup>[1]</sup> [`twoliter/README.md`](../twoliter/README.md) - Kit requirements section
+<sup>[2]</sup> [`kits/bottlerocket-core-kit/Cargo.toml`](../kits/bottlerocket-core-kit/Cargo.toml) - Example kit manifest
+```
+
+**For research-document sub-questions:**
+
+Create a subdirectory and recurse:
+
+```
+planning/how-twoliter-builds-kits/03-buildsys/
+├── 00-scout.md
+├── 01-....md
+└── FINAL.md
+```
+
+The sub-question's `FINAL.md` becomes the answer.
+
+**If you can't answer from sources:**
+- Write "Could not determine from available sources"
+- Note what you searched
+- Do NOT guess
+
+### Phase 3: Assemble Final Document
+
+Read all sub-question answers from the workspace. Combine into `FINAL.md`:
 
 ```markdown
 # [System Name]
@@ -113,148 +207,66 @@ Sembly indexes documentation, not source code. When docs don't fully answer the 
 
 ## Overview
 
-[Visual summary - diagram, flowchart, or table showing the whole system]
+[Visual summary - diagram or table showing the whole system]
 
-| Component | Purpose | Result |
-|-----------|---------|--------|
-| ... | ... | ... |
-
-[1-2 sentences of context. No more.]
+[1-2 sentences of context]
 
 ## How [Underlying Model] Works
 
-[Explain the conceptual model the reader needs.
-This section answers: "What do I need to understand before the specifics make sense?"]
+[Synthesize from sub-question answers about fundamentals]
 
-### [Key Concept 1]
+## [Main Topic]
 
-[Brief explanation with example if helpful]
-
-### [Key Concept 2]
-
-[Brief explanation]
-
-## [Main Topic] Reference
-
-[Organized by concept, not by component. Use tables for lists.]
+[Synthesize from sub-question answers about the core process]
 
 ### [Subtopic]
 
 **Goal:** [One sentence]
 
-**Key components:**
-
-| Component | Purpose |
-|-----------|---------|
-| ... | ... |
-
-[Brief prose only if needed to explain interactions]
+[Content with citations carried forward from sub-questions]
 
 ## Appendix: [Detailed Reference]
 
-[Dense details, configuration options, etc.]
-
-### [Detail Category]
-
-| Item | Description |
-|------|-------------|
-| ... | ... |
+[Dense details, tables, configuration options]
 
 ## Sources
 
-[Numbered citations]
+[Consolidated numbered citations from all sub-questions]
 ```
 
-### 6. Writing Guidelines
+### Writing Guidelines
 
 **Overview section:**
 - Lead with a visual (ASCII diagram, flowchart, or summary table)
 - Maximum 2-3 sentences of prose after the visual
 - Reader should grasp the whole system in 10 seconds
 
-**Fundamentals section:**
-- Explain the model/concepts before using them
-- Use concrete examples
-- Keep it short—just enough to understand what follows
-
-**Main body:**
-- Organize by concept, not by component
-- Use tables when listing 3+ similar items
-- Prose explains relationships and flow; tables list facts
-- Each subsection should have a clear "Goal:" statement
-
 **Tables vs prose:**
-
-```markdown
-❌ BAD - Verbose paragraphs:
-"The foo service is responsible for initializing the bar subsystem. 
-It runs early in boot and creates the necessary directories. The baz 
-service handles network configuration. It waits for foo to complete..."
-
-✅ GOOD - Table:
-| Service | Purpose |
-|---------|---------|
-| foo | Initialize bar subsystem, create directories |
-| baz | Configure network (after foo) |
-```
-
-**Appendix:**
-- Put detailed reference material here
-- Configuration options, all flags, advanced topics
-- Readers who need details can find them; others skip it
-
-### 7. Add Complete Citations
-
-Use superscript citations inline, with a Sources section at the end:
-
-```markdown
-The system uses an A/B partition scheme <sup>[1]</sup>.
-
-## Sources
-
-<sup>[1]</sup> [`SECURITY_FEATURES.md`](https://github.com/org/repo/blob/develop/SECURITY_FEATURES.md)
-- Dual partition sets for updates
-```
-
-**Citation path guidelines:**
-- Use paths relative to the repository where documentation will live
-- Make file paths into markdown links
-- For same repo: `[path/to/file.md](../path/to/file.md)`
-- For other repos: `[FILE.md](https://github.com/org/repo/blob/develop/FILE.md)`
-
-### 8. Validate Document Quality
-
-**Structure checklist:**
-- ✓ Overview has a visual (diagram or table) before prose
-- ✓ Fundamentals section explains underlying model
-- ✓ Main body organized by concept, not component
-- ✓ Dense lists use tables, not paragraphs
-- ✓ Detailed reference material in appendix
-
-**Conciseness checklist:**
-- ✓ No verbose paragraphs describing list items
-- ✓ Prose explains relationships; tables list facts
-- ✓ Each section earns its length
-
-**Progressive disclosure:**
-- ✓ Reader can understand overview without reading further
-- ✓ Fundamentals come before they're needed
-- ✓ Details are available but not forced on reader
+- If listing 3+ similar items → use a table
+- Prose explains relationships; tables list facts
 
 **Citations:**
-- ✓ Superscript inline references throughout
-- ✓ Numbered Sources section at end
+- Use `<sup>[1]</sup>` inline with facts
+- Every factual claim needs a citation
+- Consolidate sources at the end
+- When assembling, renumber citations sequentially
+
+## Validation Checklist
+
+Before finalizing:
+
+- [ ] Every factual claim has a citation
+- [ ] No claims marked "could not determine" remain unexplained
+- [ ] Overview has a visual before prose
+- [ ] Dense lists use tables, not paragraphs
+- [ ] Sources section has all referenced citations
+- [ ] All sub-question files exist in workspace
 
 ## Research Quality Indicator
 
-End your response with:
+End your document with:
 
 - ✅ **Answered from documentation** - Fully answered from README files, design docs, or narrative documentation.
 - ⚠️ **Answered from source code** - Had to read implementation files because documentation was insufficient.
 - 🔍 **Partial documentation** - Required both docs and source code to answer fully.
-
-**Guidelines:**
-- If you read more than 2-3 source/config files, it's NOT "from documentation"
-- README files and markdown docs count as documentation
-- Systemd units, .rs files, .spec files, .toml configs are source code
-- Reflects whether someone else could answer from docs alone
+- ❓ **Gaps remain** - Some sub-questions could not be answered; noted in document.
