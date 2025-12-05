@@ -32,7 +32,7 @@ For quick factual lookups, use **fact-find** instead.
 
 **If this fails, STOP and fix the error.**
 
-## Research Model: Scout → Decompose → Research → Assemble
+## Research Model: Scout → Decompose → Research → Assemble → Verify
 
 Research happens in tiers, not all at once. All artifacts go to the filesystem.
 
@@ -59,15 +59,22 @@ Research happens in tiers, not all at once. All artifacts go to the filesystem.
      ┌─────────────┐                         │
      │ Write to:   │                         ▼
      │ planning/   │                  ┌─────────────┐
-     │ <slug>/     │                  │  Assemble   │──▶ Final document
+     │ <slug>/     │                  │  Assemble   │──▶ Draft document
      │ 00-scout.md │                  │  from files │
-     └─────────────┘                  └─────────────┘
+     └─────────────┘                  └──────┬──────┘
+                                             │
+                                             ▼
+                                      ┌─────────────┐
+                                      │   Verify    │──▶ Final document
+                                      │  citations  │
+                                      └─────────────┘
 ```
 
 **Why this works:** 
 - Agents struggle to admit uncertainty mid-task. Scouting first identifies gaps before the pressure to produce output.
 - Writing to filesystem enables collaboration between agents (or context window resets for single-agent systems).
 - Classifying sub-questions prevents "too big" questions from getting shallow treatment.
+- Verification catches hallucinated or unsupported claims before finalizing.
 
 ## Workspace Setup
 
@@ -90,8 +97,9 @@ planning/
 
 ### For Multi-Agent Systems
 
-- **Lead agent**: Scout, decompose, assemble
+- **Lead agent**: Scout, decompose, assemble, coordinate verification
 - **Subagents**: Each sub-question becomes a task; subagent writes answer to the workspace
+- **Verifiers**: Lightweight agents that check citations (no tools needed)
 - Subagents can recursively spawn if their question is too big
 
 ### For Single-Agent Systems
@@ -100,6 +108,7 @@ Execute tiers sequentially, using the filesystem as your "memory":
 1. Scout and write `00-scout.md`
 2. Research each sub-question, writing `01-*.md`, `02-*.md`, etc.
 3. Read all files back and assemble `FINAL.md`
+4. Self-check citations (less reliable but still valuable)
 
 This allows context window resets between phases if needed.
 
@@ -196,7 +205,7 @@ The sub-question's `FINAL.md` becomes the answer.
 - Note what you searched
 - Do NOT guess
 
-### Phase 3: Assemble Final Document
+### Phase 3: Assemble Draft Document
 
 Read all sub-question answers from the workspace. Combine into `FINAL.md`:
 
@@ -251,6 +260,55 @@ Read all sub-question answers from the workspace. Combine into `FINAL.md`:
 - Consolidate sources at the end
 - When assembling, renumber citations sequentially
 
+### Phase 4: Verify
+
+**Goal:** Confirm citations support their claims. Catch unsupported statements.
+
+#### For Multi-Agent Systems
+
+Spawn lightweight verifiers with pre-loaded context. Each verifier needs NO tools - just reasoning.
+
+**Citation Verifier (spawn one per citation):**
+
+```
+Prompt:
+  CLAIM: "The build process starts by loading Twoliter.toml"
+  CITED SOURCE: twoliter/twoliter/src/project/mod.rs
+  SOURCE CONTENT:
+  [paste relevant lines from the file]
+
+  Does the source content support the claim?
+  Reply: SUPPORTED | UNSUPPORTED | PARTIAL
+  If not fully supported, explain what's missing or wrong.
+```
+
+**Uncited Claim Detector (spawn once per document section):**
+
+```
+Prompt:
+  SECTION:
+  [paste section text]
+
+  List any factual claims that lack a <sup>[N]</sup> citation.
+  Factual claims include: file paths, behavior descriptions, 
+  configuration values, component names, process steps.
+  
+  Opinions, transitions, and summaries don't need citations.
+  
+  Reply with a list of uncited claims, or "None found."
+```
+
+**Batch these:** Run all citation verifiers in parallel. Collect results. Fix any UNSUPPORTED or PARTIAL before finalizing.
+
+#### For Single-Agent Systems
+
+Self-check is less reliable but still valuable:
+
+1. For each citation, re-read the source and ask "does this actually say what I claimed?"
+2. Scan each section for statements that feel like facts but lack citations
+
+Note: Agents checking their own work tend to confirm it. The filesystem-based workflow helps - you can reset context and review with fresh eyes.
+
 ## Validation Checklist
 
 Before finalizing:
@@ -261,6 +319,7 @@ Before finalizing:
 - [ ] Dense lists use tables, not paragraphs
 - [ ] Sources section has all referenced citations
 - [ ] All sub-question files exist in workspace
+- [ ] Verification phase completed (all citations checked)
 
 ## Research Quality Indicator
 
