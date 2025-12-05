@@ -26,7 +26,7 @@ impl ForestManager {
         self.root.join("worktrees")
     }
 
-    /// Seed the forest - clone bare repos and create main worktree.
+    /// Seed the forest - clone bare repos and create develop worktree.
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
         std::fs::create_dir_all(&bare_dir).map_err(|e| Error::CreateDir {
@@ -34,29 +34,21 @@ impl ForestManager {
             source: e,
         })?;
 
+        // Clone all bare repos first
         for member in &self.config.member {
-            self.seed_member(member, verbose)?;
+            self.clone_bare(member, verbose)?;
         }
 
-        // Build sembly index if sembly.toml exists
-        if self.root.join("sembly.toml").exists() {
-            if verbose {
-                println!("Building sembly index...");
-            }
-            let _ = Command::new("sembly")
-                .arg("build")
-                .current_dir(&self.root)
-                .status();
-        }
+        // Create the default "develop" worktree
+        self.create_worktree("develop", None, verbose)?;
 
         Ok(())
     }
 
-    fn seed_member(&self, member: &Member, verbose: bool) -> Result<(), Error> {
+    /// Clone a member repo as bare.
+    fn clone_bare(&self, member: &Member, verbose: bool) -> Result<(), Error> {
         let bare_path = self.bare_dir().join(format!("{}.git", member.name));
-        let worktree_path = self.root.join(&member.path);
 
-        // Clone bare if not exists
         if !bare_path.exists() {
             if verbose {
                 println!("Cloning {} (bare)...", member.name);
@@ -77,46 +69,17 @@ impl ForestManager {
             println!("✓ {} bare repo exists", member.name);
         }
 
-        // Create main worktree if not exists
-        if !worktree_path.exists() {
-            if verbose {
-                println!("Creating worktree for {}...", member.name);
-            }
-            // Ensure parent directory exists
-            if let Some(parent) = worktree_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| Error::CreateDir {
-                    path: parent.to_path_buf(),
-                    source: e,
-                })?;
-            }
-            let status = Command::new("git")
-                .args(["worktree", "add"])
-                .arg(&worktree_path)
-                .arg(member.branch())
-                .current_dir(&bare_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to create worktree for {}", member.name),
-                })?;
-            if !status.success() {
-                return Err(Error::Git {
-                    message: format!("git worktree add failed for {}", member.name),
-                });
-            }
-        } else if verbose {
-            println!("✓ {} worktree exists", member.name);
-        }
-
         Ok(())
     }
 
     /// Create a new forest worktree.
-    pub fn create_worktree(&self, name: &str, branch: &str) -> Result<(), Error> {
+    pub fn create_worktree(&self, name: &str, branch: Option<&str>, verbose: bool) -> Result<(), Error> {
         let wt_dir = self.worktrees_dir().join(name);
         if wt_dir.exists() {
-            return Err(Error::WorktreeExists {
-                name: name.to_string(),
-            });
+            if verbose {
+                println!("✓ worktree '{}' already exists", name);
+            }
+            return Ok(());
         }
 
         std::fs::create_dir_all(&wt_dir).map_err(|e| Error::CreateDir {
@@ -136,34 +99,41 @@ impl ForestManager {
                 })?;
             }
 
+            if verbose {
+                println!("Creating worktree for {} in {}...", member.name, name);
+            }
+
+            // Determine branch: explicit > member default
+            let target_branch = branch.unwrap_or_else(|| member.branch());
+
+            // Try to create worktree (branch may or may not exist)
             let status = Command::new("git")
-                .args(["worktree", "add", "-b", branch])
+                .args(["worktree", "add"])
                 .arg(&member_wt_path)
-                .arg(member.branch())
+                .arg(target_branch)
                 .current_dir(&bare_path)
                 .status()
                 .map_err(|_| Error::Git {
                     message: format!("Failed to create worktree for {}", member.name),
                 })?;
 
-            // If branch already exists, try without -b
-            if status.success() {
-                continue;
-            }
-            
-            let status = Command::new("git")
-                .args(["worktree", "add"])
-                .arg(&member_wt_path)
-                .arg(branch)
-                .current_dir(&bare_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to create worktree for {}", member.name),
-                })?;
             if !status.success() {
-                return Err(Error::Git {
-                    message: format!("git worktree add failed for {}", member.name),
-                });
+                // If branch doesn't exist, create it from default
+                let status = Command::new("git")
+                    .args(["worktree", "add", "-b", target_branch])
+                    .arg(&member_wt_path)
+                    .arg(member.branch())
+                    .current_dir(&bare_path)
+                    .status()
+                    .map_err(|_| Error::Git {
+                        message: format!("Failed to create worktree for {}", member.name),
+                    })?;
+
+                if !status.success() {
+                    return Err(Error::Git {
+                        message: format!("git worktree add failed for {}", member.name),
+                    });
+                }
             }
         }
 
@@ -171,6 +141,19 @@ impl ForestManager {
         let sembly_src = self.root.join("sembly.toml");
         if sembly_src.exists() {
             let _ = std::fs::copy(&sembly_src, wt_dir.join("sembly.toml"));
+        }
+
+        // Build sembly index for this worktree
+        if verbose {
+            println!("Building sembly index for {}...", name);
+        }
+        let _ = Command::new("sembly")
+            .arg("build")
+            .current_dir(&wt_dir)
+            .status();
+
+        if verbose {
+            println!("✓ Created worktree '{}'", name);
         }
 
         Ok(())
@@ -184,12 +167,16 @@ impl ForestManager {
         }
 
         let mut worktrees = Vec::new();
-        for entry in std::fs::read_dir(&wt_dir).map_err(|e| Error::CreateDir {
+        let entries = std::fs::read_dir(&wt_dir).map_err(|e| Error::CreateDir {
             path: wt_dir.clone(),
             source: e,
-        })?.flatten() {
-            if entry.path().is_dir() && let Some(name) = entry.file_name().to_str() {
-                worktrees.push(name.to_string());
+        })?;
+
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                if let Some(name) = entry.file_name().to_str() {
+                    worktrees.push(name.to_string());
+                }
             }
         }
 

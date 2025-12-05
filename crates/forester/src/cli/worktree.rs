@@ -41,8 +41,7 @@ pub fn run(cmd: WorktreeCommand) -> miette::Result<()> {
 
     match cmd {
         WorktreeCommand::Create(args) => {
-            let branch = args.branch.as_deref().unwrap_or(&args.name);
-            manager.create_worktree(&args.name, branch)?;
+            manager.create_worktree(&args.name, args.branch.as_deref(), true)?;
             println!("{} Created worktree '{}'", "✓".green(), args.name.cyan());
         }
         WorktreeCommand::List => {
