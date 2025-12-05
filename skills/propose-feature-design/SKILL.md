@@ -161,7 +161,5 @@ head -50 docs/features/NNNN-feature-name/design.md
 After creating the design:
 1. Review with implementors for feasibility
 2. Refine based on feedback
-3. Update status in concept.md frontmatter to `in-development`
-4. Begin implementation guided by the design
-5. Update design document as implementation reveals new insights
-6. When complete, update status to `completed`
+3. Once design is solid, create test plan using `propose-feature-test-plan` skill
+4. Then create implementation plan using `propose-implementation-plan` skill

@@ -44,6 +44,7 @@ When you identify that a skill should be used:
 - **propose-feature-concept** - Create a new feature concept document to pitch the idea and explain the problem/solution
 - **propose-feature-requirements** - Create or update feature requirements specification using EARS notation with examples and appendices
 - **propose-feature-design** - Create or update feature technical design document with architecture and implementation guidance
+- **propose-feature-test-plan** - Create a test plan mapping requirements and constraints to unit/integration tests
 - **propose-implementation-plan** - Create an implementation plan with atomic commits that build toward a complete feature
 
 ## Skill Format

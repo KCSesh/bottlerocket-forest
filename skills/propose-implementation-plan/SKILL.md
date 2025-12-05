@@ -20,7 +20,8 @@ The plan serves as a roadmap for implementation, ensuring each commit is self-co
 ## Prerequisites
 
 - Feature design exists in `docs/features/NNNN-feature-name/design.md`
-- Design has been reviewed and approved
+- Test plan exists in `docs/features/NNNN-feature-name/test-plan.md`
+- Design and test plan have been reviewed and approved
 - Implementor understands the technical approach
 
 ## Procedure
@@ -48,9 +49,16 @@ Read the design thoroughly, noting:
 - Module structure and affected files
 - Dependencies between components
 - Migration requirements from current state
-- Testing strategy
+- Critical Constraints table
 
-### 3a. Extract Critical Constraints
+### 3a. Study the Test Plan
+
+Read `test-plan.md` and note:
+- Which requirements map to which test types (unit/integration/out-of-scope)
+- Which Critical Constraints have test coverage vs. require review
+- Test names and descriptions that will be assigned to commits
+
+### 3b. Extract Critical Constraints
 
 Review the design's Critical Constraints table (CC-1, CC-2, etc.).
 For each constraint:
@@ -189,12 +197,11 @@ For each commit, document:
 
 **Key Changes**: Bullet points of specific modifications.
 
-**Acceptance Criteria** *(for commits implementing critical constraints)*:
-- Copy from design doc's Critical Constraints table
-- Make them checkable (e.g., "SQL query contains JOIN to indexed_files")
-- Include anti-patterns for reviewers to reject
+**Requirements Addressed**: List requirement IDs (REQ-*) this commit implements or advances. Reviewers use this as a checklist independent of test coverage.
 
-**Testing**: How to verify the commit works.
+**Constraints Addressed**: List constraint IDs (CC-*) this commit must satisfy. Copy the constraint and anti-pattern from the design doc for reviewer reference.
+
+**Testing**: Reference tests from the test plan that cover this commit's changes. Include test names and requirement IDs (e.g., "Adds test_search_returns_results for REQ-3"). For requirements marked not-testable, note what reviewers should verify manually.
 
 **Dependencies**: Which prior commits must be complete.
 
