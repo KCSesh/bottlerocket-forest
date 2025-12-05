@@ -1,5 +1,6 @@
 //! CLI for forester.
 
+mod init;
 mod seed;
 mod worktree;
 
@@ -16,6 +17,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Initialize a new forest in the current directory
+    Init(init::InitArgs),
     /// Clone all member repositories and set up the forest
     Seed(seed::SeedArgs),
     /// Manage forest worktrees
@@ -26,6 +29,7 @@ enum Command {
 pub fn run() -> miette::Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Command::Init(args) => init::run(args),
         Command::Seed(args) => seed::run(args),
         Command::Worktree(cmd) => worktree::run(cmd),
     }
