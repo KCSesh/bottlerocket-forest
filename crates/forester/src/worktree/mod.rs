@@ -106,23 +106,32 @@ impl ForestManager {
             // Determine branch: explicit > member default
             let target_branch = branch.unwrap_or_else(|| member.branch());
 
-            // Try to create worktree (branch may or may not exist)
-            let status = Command::new("git")
-                .args(["worktree", "add"])
-                .arg(&member_wt_path)
-                .arg(target_branch)
-                .current_dir(&bare_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to create worktree for {}", member.name),
-                })?;
+            // For non-develop worktrees, create a unique branch to avoid conflicts
+            let use_new_branch = name != "develop" && branch.is_none();
+            let new_branch_name = if use_new_branch {
+                format!("{}/{}", name, member.name)
+            } else {
+                target_branch.to_string()
+            };
 
-            if !status.success() {
-                // If branch doesn't exist, create it from default
-                let status = Command::new("git")
-                    .args(["worktree", "add", "-b", target_branch])
+            // Create worktree with appropriate branch strategy
+            let status = if use_new_branch {
+                // Create new branch from default branch
+                Command::new("git")
+                    .args(["worktree", "add", "-b", &new_branch_name])
                     .arg(&member_wt_path)
                     .arg(member.branch())
+                    .current_dir(&bare_path)
+                    .status()
+                    .map_err(|_| Error::Git {
+                        message: format!("Failed to create worktree for {}", member.name),
+                    })?
+            } else {
+                // Try to checkout existing branch
+                let status = Command::new("git")
+                    .args(["worktree", "add"])
+                    .arg(&member_wt_path)
+                    .arg(target_branch)
                     .current_dir(&bare_path)
                     .status()
                     .map_err(|_| Error::Git {
@@ -130,10 +139,25 @@ impl ForestManager {
                     })?;
 
                 if !status.success() {
-                    return Err(Error::Git {
-                        message: format!("git worktree add failed for {}", member.name),
-                    });
+                    // If branch doesn't exist, create it from default
+                    Command::new("git")
+                        .args(["worktree", "add", "-b", target_branch])
+                        .arg(&member_wt_path)
+                        .arg(member.branch())
+                        .current_dir(&bare_path)
+                        .status()
+                        .map_err(|_| Error::Git {
+                            message: format!("Failed to create worktree for {}", member.name),
+                        })?
+                } else {
+                    status
                 }
+            };
+
+            if !status.success() {
+                return Err(Error::Git {
+                    message: format!("git worktree add failed for {}", member.name),
+                });
             }
         }
 
