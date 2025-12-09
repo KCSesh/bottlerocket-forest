@@ -137,28 +137,24 @@ grep -n "function_name" path/to/file.rs
 **When citing code**, use the `file.rs:45-60` format and verify line numbers.
 
 
-## ⚠️ Searching Code (ripgrep/grep)
+## Searching Code (ripgrep/grep)
 
-**CRITICAL: Never run `rg` or `grep -r` from the forest root without path constraints.**
-
-The forest contains 80GB+ across multiple repositories. Unscoped searches will hang or take forever.
+You can run `rg` from the forest root to search across all repositories:
 
 ```bash
-# ❌ BAD - searches entire 80GB forest
+# Search all repos from forest root
 rg "pattern" --type rust
-grep -r "pattern" .
 
-# ✅ GOOD - scope to specific directory
-rg "pattern" --type rust bottlerocket/sources/
-grep -r "pattern" bottlerocket/sources/api/
-
-# ✅ GOOD - search specific files
-grep "pattern" skills/*.md AGENTS.md
+# Search specific directory
+rg "pattern" bottlerocket/sources/
 ```
 
-The forest's `.gitignore` excludes component repos from git tracking, but `rg` still searches them because each has its own `.git/` directory.
+The forest uses `.gitignore` and `.ignore` together:
+- `.gitignore` excludes component repos from git (keeps `git status` clean)
+- `.ignore` un-ignores them for ripgrep (enables cross-repo search)
+- Each repo's own `.gitignore` excludes `target/`, `vendor/`, etc.
 
-**Always specify a path when searching.**
+This gives you fast, focused searches without build artifacts.
 ## Sembly Usage
 
 Sembly provides semantic search for Bottlerocket documentation.
