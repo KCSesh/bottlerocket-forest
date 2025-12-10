@@ -9,14 +9,14 @@ use std::fs;
 
 fn setup_forest_with_local_repos() -> tempfile::TempDir {
     let temp = temp_forest();
-    
+
     // Create local bare repos to use as "remotes"
     let repos_dir = temp.path().join("repos");
     fs::create_dir_all(&repos_dir).unwrap();
-    
+
     let repo_a = create_bare_repo(&repos_dir, "repo-a");
     let repo_b = create_bare_repo(&repos_dir, "repo-b");
-    
+
     // Create forester.toml pointing to local repos
     let forester_toml = format!(
         r#"[forest]
@@ -38,10 +38,10 @@ default_branch = "main"
         repo_b.display()
     );
     fs::write(temp.path().join("forester.toml"), forester_toml).unwrap();
-    
+
     // Create sembly.toml
     fs::write(temp.path().join("sembly.toml"), "targets = [\".\"]\n").unwrap();
-    
+
     temp
 }
 
@@ -72,13 +72,17 @@ fn seed_creates_develop_worktree() {
 
     // Then: worktrees/develop is created
     assert!(temp.path().join("worktrees/develop").exists());
-    
+
     // And: Member repos are checked out in correct paths
     assert!(temp.path().join("worktrees/develop/repo-a").exists());
     assert!(temp.path().join("worktrees/develop/nested/repo-b").exists());
-    
+
     // And: README.md exists (from our test commit)
-    assert!(temp.path().join("worktrees/develop/repo-a/README.md").exists());
+    assert!(
+        temp.path()
+            .join("worktrees/develop/repo-a/README.md")
+            .exists()
+    );
 }
 
 #[test]
@@ -93,7 +97,7 @@ fn seed_is_idempotent() {
 
     // Then: Command succeeds
     assert_eq!(code, 0, "Second seed failed: {} {}", stdout, stderr);
-    
+
     // And: Shows repos already exist
     assert!(stdout.contains("already exists") || stdout.contains("✓"));
 }
@@ -114,7 +118,11 @@ fn worktree_create_makes_new_worktree() {
     // And: New worktree directory exists
     assert!(temp.path().join("worktrees/feature-x").exists());
     assert!(temp.path().join("worktrees/feature-x/repo-a").exists());
-    assert!(temp.path().join("worktrees/feature-x/nested/repo-b").exists());
+    assert!(
+        temp.path()
+            .join("worktrees/feature-x/nested/repo-b")
+            .exists()
+    );
 }
 
 #[test]
@@ -149,7 +157,7 @@ fn worktree_remove_deletes_worktree() {
 
     // And: Worktree directory is gone
     assert!(!temp.path().join("worktrees/feature-x").exists());
-    
+
     // And: develop worktree still exists
     assert!(temp.path().join("worktrees/develop").exists());
 }
@@ -163,20 +171,75 @@ fn no_repos_at_forest_root() {
     // Then: No repo directories at forest root (only in worktrees/)
     assert!(!temp.path().join("repo-a").exists());
     assert!(!temp.path().join("nested").exists());
-    
+
     // And: Only config files and directories at root
     let entries: Vec<_> = fs::read_dir(temp.path())
         .unwrap()
         .filter_map(|e| e.ok())
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
-    
-    // Should only have: forester.toml, sembly.toml, .forest, worktrees, repos (our test remotes)
+
+    // Should only have: forester.toml, sembly.toml, .forest, .sembly, worktrees, repos (our test remotes)
     for entry in &entries {
         assert!(
-            ["forester.toml", "sembly.toml", ".forest", "worktrees", "repos"].contains(&entry.as_str()),
+            [
+                "forester.toml",
+                "sembly.toml",
+                ".forest",
+                ".sembly",
+                "worktrees",
+                "repos"
+            ]
+            .contains(&entry.as_str()),
             "Unexpected entry at forest root: {}",
             entry
         );
     }
+}
+
+#[test]
+fn seed_generates_sembly_config_on_first_run() {
+    // Given: A forest without sembly.toml
+    let temp = setup_forest_with_local_repos();
+    fs::remove_file(temp.path().join("sembly.toml")).ok();
+
+    // When: Running forester seed
+    let (code, _, _) = forester_seed(temp.path(), false);
+    assert_eq!(code, 0);
+
+    // Then: sembly.toml is created with member paths as targets
+    let sembly_toml = fs::read_to_string(temp.path().join("sembly.toml")).unwrap();
+    assert!(sembly_toml.contains("repo-a"));
+    assert!(sembly_toml.contains("nested/repo-b"));
+}
+
+#[test]
+fn seed_warns_about_missing_members_in_sembly_config() {
+    // Given: A forest with sembly.toml missing a member
+    let temp = setup_forest_with_local_repos();
+    fs::write(temp.path().join("sembly.toml"), "targets = [\"repo-a\"]\n").unwrap();
+
+    // When: Running forester seed
+    let (code, stdout, stderr) = forester_seed(temp.path(), true);
+    assert_eq!(code, 0);
+
+    // Then: Warning about missing member in targets
+    let output = format!("{}{}", stdout, stderr);
+    assert!(output.contains("nested/repo-b") || output.contains("not in"));
+}
+
+#[test]
+fn seed_does_not_copy_sembly_to_worktree() {
+    // Given: A forest with sembly.toml
+    let temp = setup_forest_with_local_repos();
+
+    // When: Running forester seed
+    let (code, _, _) = forester_seed(temp.path(), false);
+    assert_eq!(code, 0);
+
+    // Then: sembly.toml exists at forest root
+    assert!(temp.path().join("sembly.toml").exists());
+
+    // And: sembly.toml does NOT exist in worktree
+    assert!(!temp.path().join("worktrees/develop/sembly.toml").exists());
 }

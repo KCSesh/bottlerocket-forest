@@ -64,36 +64,41 @@ pub fn git_init(path: &Path) {
 /// Create a bare git repo with a commit
 pub fn create_bare_repo(path: &Path, name: &str) -> std::path::PathBuf {
     let repo_path = path.join(format!("{}.git", name));
-    
+
     // Create a temp repo, add a commit, then clone as bare
     let temp = TempDir::new().unwrap();
     git_init(temp.path());
-    
+
     // Configure git user for commit
     Command::new("git")
         .current_dir(temp.path())
         .args(["config", "user.email", "test@test.com"])
-        .output().unwrap();
+        .output()
+        .unwrap();
     Command::new("git")
         .current_dir(temp.path())
         .args(["config", "user.name", "Test"])
-        .output().unwrap();
-    
+        .output()
+        .unwrap();
+
     // Create initial commit
     std::fs::write(temp.path().join("README.md"), "# Test").unwrap();
     Command::new("git")
         .current_dir(temp.path())
         .args(["add", "."])
-        .output().unwrap();
+        .output()
+        .unwrap();
     Command::new("git")
         .current_dir(temp.path())
         .args(["commit", "-m", "Initial commit"])
-        .output().unwrap();
+        .output()
+        .unwrap();
     Command::new("git")
         .current_dir(temp.path())
         .args(["branch", "-M", "main"])
-        .output().unwrap();
-    
+        .output()
+        .unwrap();
+
     // Clone as bare
     Command::new("git")
         .args(["clone", "--bare"])
@@ -101,7 +106,7 @@ pub fn create_bare_repo(path: &Path, name: &str) -> std::path::PathBuf {
         .arg(&repo_path)
         .output()
         .expect("Failed to create bare repo");
-    
+
     repo_path
 }
 

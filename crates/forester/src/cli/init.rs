@@ -28,12 +28,6 @@ name = "{name}"
 # default_branch = "main"
 "#;
 
-const SEMBLY_TOML_TEMPLATE: &str = r#"# Sembly configuration
-# See: https://github.com/bottlerocket-os/bottlerocket-forest
-
-targets = ["."]
-"#;
-
 pub fn run(args: InitArgs) -> miette::Result<()> {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
     let name = args.name.unwrap_or_else(|| {
@@ -54,10 +48,6 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
     fs::write("forester.toml", forester_toml).expect("Failed to write forester.toml");
     println!("{} Created forester.toml", "✓".green());
 
-    // Create sembly.toml
-    fs::write("sembly.toml", SEMBLY_TOML_TEMPLATE).expect("Failed to write sembly.toml");
-    println!("{} Created sembly.toml", "✓".green());
-
     // Create/update .gitignore
     let gitignore_path = Path::new(".gitignore");
     if gitignore_path.exists() {
@@ -73,7 +63,10 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
     }
 
     println!("\nForest '{}' initialized. Next steps:", name.cyan());
-    println!("  1. Edit {} to add member repositories", "forester.toml".cyan());
+    println!(
+        "  1. Edit {} to add member repositories",
+        "forester.toml".cyan()
+    );
     println!("  2. Run {} to clone and set up", "forester seed".cyan());
 
     Ok(())
