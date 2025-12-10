@@ -29,18 +29,18 @@ The plan serves as a roadmap for implementation, ensuring each commit is self-co
 ### 1. Verify Design Exists
 
 ```bash
-ls docs/features/NNNN-feature-name/design.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 ```
 
 If it doesn't exist, use `propose-feature-design` skill first.
 
 ### 2. Create Planning Directory and Copy Template
 
-Implementation plans go in `planning/` (gitignored scratch space), not `docs/features/`.
+Implementation plans go in `$FOREST_ROOT/planning/` (gitignored scratch space), not `$FOREST_ROOT/docs/features/`.
 
 ```bash
-mkdir -p planning/NNNN-feature-name
-cp docs/features/0000-templates/implementation-plan.md planning/NNNN-feature-name/
+mkdir -p $FOREST_ROOT/planning/NNNN-feature-name
+cp $FOREST_ROOT/docs/features/0000-templates/implementation-plan.md $FOREST_ROOT/planning/NNNN-feature-name/
 ```
 
 ### 3. Study the Design Document
@@ -53,7 +53,7 @@ Read the design thoroughly, noting:
 
 ### 3a. Study the Test Plan
 
-Read `test-plan.md` and note:
+Read `$FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md` and note:
 - Which requirements map to which test types (unit/integration/out-of-scope)
 - Which Critical Constraints have test coverage vs. require review
 - Test names and descriptions that will be assigned to commits
@@ -281,13 +281,13 @@ Verify the implementation plan:
 
 ```bash
 # Check file exists
-ls planning/NNNN-feature-name/implementation-plan.md
+ls $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
 
 # Verify it has the checklist
-grep -E "^\- \[ \]" planning/NNNN-feature-name/implementation-plan.md
+grep -E "^\- \[ \]" $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
 
 # Count commits planned
-grep -c "^#### Commit" planning/NNNN-feature-name/implementation-plan.md
+grep -c "^#### Commit" $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
 ```
 
 Review the plan for:

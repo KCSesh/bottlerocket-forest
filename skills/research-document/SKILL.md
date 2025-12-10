@@ -70,10 +70,10 @@ Research happens in tiers, not all at once. All artifacts go to the filesystem.
 
 ## Workspace Setup
 
-All research artifacts go to `planning/<question-slug>/`:
+All research artifacts go to `$FOREST_ROOT/planning/<question-slug>/`:
 
 ```
-planning/
+$FOREST_ROOT/planning/
 └── how-twoliter-builds-kits/
     ├── 00-scout.md           # Scout findings + sub-questions
     ├── 01-kit-structure.md   # Sub-question answer (fact-find)
@@ -123,13 +123,13 @@ This allows context window resets between phases if needed.
 **Goal:** Understand what you're dealing with. Write findings to `00-scout.md`.
 
 ```bash
-mkdir -p planning/<question-slug>
+mkdir -p $FOREST_ROOT/planning/<question-slug>
 ```
 
 ```bash
 # Broad search to find relevant areas
-sembly search "system-name overview"
-sembly search "system-name architecture"
+(cd $FOREST_ROOT && sembly search "system-name overview")
+(cd $FOREST_ROOT && sembly search "system-name architecture")
 ```
 
 Read 2-3 top results. Capture in `00-scout.md`:
@@ -201,7 +201,7 @@ that lists packages as dependencies <sup>[2]</sup>.
 Create a subdirectory and recurse:
 
 ```
-planning/how-twoliter-builds-kits/03-buildsys/
+$FOREST_ROOT/planning/how-twoliter-builds-kits/03-buildsys/
 ├── 00-scout.md
 ├── 01-....md
 └── FINAL.md

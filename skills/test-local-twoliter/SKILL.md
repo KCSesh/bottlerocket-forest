@@ -43,13 +43,7 @@ Override `TWOLITER_DIR` to point to your local build directory:
 
 ```bash
 cd kits/bottlerocket-core-kit
-make build TWOLITER_DIR=/home/ec2-user/bottlerocket-forest/twoliter/target/release
-```
-
-Or use a relative path from the kit:
-
-```bash
-make build TWOLITER_DIR=../../twoliter/target/release
+make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release
 ```
 
 ### 4. Iterate
@@ -57,12 +51,12 @@ make build TWOLITER_DIR=../../twoliter/target/release
 After making more changes:
 ```bash
 # Rebuild twoliter
-cd twoliter
+cd $FOREST_ROOT/twoliter
 cargo build --release
 
 # Test again
-cd ../kits/bottlerocket-core-kit
-make build TWOLITER_DIR=../../twoliter/target/release
+cd kits/bottlerocket-core-kit
+make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release
 ```
 
 ## Validation
@@ -71,7 +65,7 @@ Verify the local twoliter is being used by checking the path:
 
 ```bash
 cd kits/bottlerocket-core-kit
-make build TWOLITER_DIR=../../twoliter/target/release 2>&1 | head -5
+make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release 2>&1 | head -5
 ```
 
 You should see your modified twoliter being invoked.
@@ -81,7 +75,7 @@ You should see your modified twoliter being invoked.
 **Changes not taking effect:**
 - Ensure you ran `cargo build --release` after making changes
 - Verify the path in `TWOLITER_DIR` is correct
-- Check that the binary exists: `ls -lh twoliter/target/release/twoliter`
+- Check that the binary exists: `ls -lh $FOREST_ROOT/twoliter/target/release/twoliter`
 
 **Build errors in twoliter:**
 - Run `cargo check` to see detailed error messages

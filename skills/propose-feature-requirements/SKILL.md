@@ -27,7 +27,7 @@ Create a formal requirements specification for a feature using EARS notation. Th
 
 ```bash
 # Check that concept exists
-ls docs/features/NNNN-feature-name/concept.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
 ```
 
 If it doesn't exist, use `propose-feature-concept` skill first.
@@ -35,7 +35,7 @@ If it doesn't exist, use `propose-feature-concept` skill first.
 ### 2. Check for Idea Honing Document
 
 ```bash
-ls planning/NNNN-feature-name/idea-honing.md 2>/dev/null
+ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
 ```
 
 If it exists, review it for insights that inform requirements. The Q&A may reveal edge cases and constraints.
@@ -43,7 +43,7 @@ If it exists, review it for insights that inform requirements. The Q&A may revea
 ### 3. Copy Requirements Template
 
 ```bash
-cp docs/features/0000-templates/requirements.md docs/features/NNNN-feature-name/
+cp $FOREST_ROOT/docs/features/0000-templates/requirements.md $FOREST_ROOT/docs/features/NNNN-feature-name/
 ```
 
 ### 4. Determine Requirements Prefix
@@ -130,13 +130,13 @@ Verify the requirements document:
 
 ```bash
 # Check file exists
-ls docs/features/NNNN-feature-name/requirements.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 
 # Verify it has content
-head -50 docs/features/NNNN-feature-name/requirements.md
+head -50 $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 
 # Check for EARS keywords
-grep -E "WHILE|WHEN|WHERE|THEN|SHALL" docs/features/NNNN-feature-name/requirements.md
+grep -E "WHILE|WHEN|WHERE|THEN|SHALL" $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 ```
 
 ## Common Issues

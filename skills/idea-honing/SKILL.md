@@ -28,7 +28,7 @@ Clarify and refine feature ideas through structured questioning. This process he
 If not already determined:
 
 ```bash
-ls -1d docs/features/[0-9][0-9][0-9][0-9]-* 2>/dev/null | tail -1
+ls -1d $FOREST_ROOT/docs/features/[0-9][0-9][0-9][0-9]-* 2>/dev/null | tail -1
 ```
 
 Work with user to choose the next number and a descriptive name.
@@ -36,13 +36,13 @@ Work with user to choose the next number and a descriptive name.
 ### 2. Create Planning Directory
 
 ```bash
-mkdir -p planning/NNNN-feature-name
+mkdir -p $FOREST_ROOT/planning/NNNN-feature-name
 ```
 
 ### 3. Initialize Idea Honing Document
 
 ```bash
-cat > planning/NNNN-feature-name/idea-honing.md << 'EOF'
+cat > $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md << 'EOF'
 # Idea Honing: Feature Name
 
 ## Initial Idea
@@ -83,7 +83,7 @@ For each question:
 After each question is answered, append to the document:
 
 ```bash
-cat >> planning/NNNN-feature-name/idea-honing.md << 'EOF'
+cat >> $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md << 'EOF'
 
 ### Q: [Question text]
 
@@ -117,10 +117,10 @@ Check the idea-honing document:
 
 ```bash
 # Verify document exists
-ls planning/NNNN-feature-name/idea-honing.md
+ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md
 
 # Review content
-cat planning/NNNN-feature-name/idea-honing.md
+cat $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md
 ```
 
 ## Common Issues

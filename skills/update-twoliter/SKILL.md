@@ -37,7 +37,7 @@ curl -sSL "https://github.com/bottlerocket-os/twoliter/releases/download/vX.Y.Z/
 
 ### 2. Update all kits
 
-For each kit in `kits/` (e.g., `bottlerocket-core-kit`, `bottlerocket-kernel-kit`), edit the `Makefile`:
+For each kit in the worktree (e.g., `bottlerocket-core-kit`, `bottlerocket-kernel-kit`), edit the `Makefile`:
 
 ```makefile
 TWOLITER_VERSION ?= "X.Y.Z"
@@ -50,11 +50,12 @@ Commit each kit:
 cd kits/<kit-name>
 git add Makefile
 git commit -m "chore: bump to twoliter X.Y.Z"
+cd ../..
 ```
 
 ### 3. Update bottlerocket
 
-Edit `bottlerocket/Makefile.toml` (note the `v` prefix):
+Edit `bottlerocket/Makefile.toml` in the worktree (note the `v` prefix):
 
 ```toml
 TWOLITER_VERSION = "vX.Y.Z"
@@ -77,12 +78,11 @@ Verify commits were created in all kits and bottlerocket:
 # Check each kit
 for kit in kits/*/; do
   echo "=== $(basename $kit) ==="
-  cd "$kit" && git show HEAD --stat
-  cd - > /dev/null
+  (cd "$kit" && git show HEAD --stat)
 done
 
 # Check bottlerocket
-cd bottlerocket && git show HEAD --stat
+(cd bottlerocket && git show HEAD --stat)
 ```
 
 Each should show:

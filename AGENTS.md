@@ -100,6 +100,83 @@ For complex tasks with multiple steps:
 
 This helps track progress, prevents skipped steps, and provides clear status updates.
 
+## Worktree Workflow
+
+**Agents work in forest worktrees, not the forest root.**
+
+A worktree is an isolated working directory containing all forest repositories. Each worktree has its own branch state, allowing parallel development without conflicts.
+
+### Creating a Worktree
+
+```bash
+# From forest root, create a new worktree
+forester worktree create my-feature
+
+# This creates: ./worktrees/my-feature/
+# With all repos checked out and ready to use
+```
+
+### Working Directory Structure
+
+```
+bottlerocket-forest/           # $FOREST_ROOT
+├── worktrees/
+│   └── my-feature/            # Your working directory
+│       ├── bottlerocket/
+│       ├── kits/
+│       │   ├── bottlerocket-core-kit/
+│       │   └── bottlerocket-kernel-kit/
+│       └── ...
+├── docs/                      # Shared (not in worktrees)
+├── skills/                    # Shared (not in worktrees)
+├── planning/                  # Shared (not in worktrees)
+└── .sembly/                   # Shared search index
+```
+
+### The $FOREST_ROOT Variable
+
+`seed-forest.sh` sets `$FOREST_ROOT` to the forest root directory. Use it to access:
+- Shared resources: `$FOREST_ROOT/docs/`, `$FOREST_ROOT/skills/`, `$FOREST_ROOT/planning/`
+- Tools that must run from root: `sembly`, `brdev`
+
+### Commands That Must Run From Forest Root
+
+These commands require the forest root directory:
+
+```bash
+# sembly - semantic search
+(cd $FOREST_ROOT && sembly search "boot process")
+
+# brdev - registry management  
+(cd $FOREST_ROOT && brdev registry start)
+(cd $FOREST_ROOT && brdev registry status)
+```
+
+### Accessing Shared Resources
+
+From within a worktree, use `$FOREST_ROOT` for shared directories:
+
+```bash
+# Read documentation
+cat $FOREST_ROOT/docs/ARCHITECTURE.md
+
+# Read skills
+cat $FOREST_ROOT/skills/README.md
+
+# Create planning files
+mkdir -p $FOREST_ROOT/planning/my-feature
+```
+
+### Listing and Removing Worktrees
+
+```bash
+# List existing worktrees
+forester worktree list
+
+# Remove a worktree when done
+forester worktree remove my-feature
+```
+
 ## Documentation Research
 
 **ANY question about how Bottlerocket works requires research.**
@@ -159,41 +236,38 @@ This gives you fast, focused searches without build artifacts.
 
 Sembly provides semantic search for Bottlerocket documentation.
 
-**⚠️ CRITICAL: Always run from forest root directory**
+**⚠️ CRITICAL: Run from forest root (use subshell from worktrees)**
 
 ```bash
-# Build or rebuild the search index
-sembly build
-
-# Search documentation semantically
+# From forest root:
 sembly search "boot process"
-sembly search "systemd targets"
 
-# Check index status
-sembly status
+# From a worktree:
+(cd $FOREST_ROOT && sembly search "boot process")
 
-# Update index incrementally
-sembly update
-
-# Rebuild from scratch
-sembly rebuild
+# Other commands (run from forest root)
+sembly build      # Build search index
+sembly status     # Check index status
+sembly update     # Update incrementally
+sembly rebuild    # Rebuild from scratch
 ```
 
 ## Forester Usage
 
-Forester provides registry management for local kit development.
+Forester manages worktrees and the local OCI registry.
 
-**⚠️ CRITICAL: Always run from forest root directory**
+**⚠️ CRITICAL: Run from forest root (use subshell from worktrees)**
 
 ```bash
-# Start local OCI registry for kit development
-brdev registry start
+# Worktree management (from forest root)
+forester worktree create my-feature
+forester worktree list
+forester worktree remove my-feature
 
-# Check if registry is running
-brdev registry status
-
-# List published images
-brdev registry list
+# Registry management (from forest root or via subshell)
+(cd $FOREST_ROOT && brdev registry start)
+(cd $FOREST_ROOT && brdev registry status)
+(cd $FOREST_ROOT && brdev registry list)
 ```
 
 ## Common Patterns

@@ -27,8 +27,8 @@ Create a technical design document that guides implementation. This provides arc
 
 ```bash
 # Check that concept and requirements exist
-ls docs/features/NNNN-feature-name/concept.md
-ls docs/features/NNNN-feature-name/requirements.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 ```
 
 If either doesn't exist, complete those steps first.
@@ -36,7 +36,7 @@ If either doesn't exist, complete those steps first.
 ### 2. Check for Idea Honing Document
 
 ```bash
-ls planning/NNNN-feature-name/idea-honing.md 2>/dev/null
+ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
 ```
 
 If it exists, review it for design insights and technical considerations discussed during idea honing.
@@ -44,7 +44,7 @@ If it exists, review it for design insights and technical considerations discuss
 ### 3. Copy Design Template
 
 ```bash
-cp docs/features/0000-templates/design.md docs/features/NNNN-feature-name/
+cp $FOREST_ROOT/docs/features/0000-templates/design.md $FOREST_ROOT/docs/features/NNNN-feature-name/
 ```
 
 ### 4. Fill in Overview
@@ -140,10 +140,10 @@ Verify the design document:
 
 ```bash
 # Check file exists
-ls docs/features/NNNN-feature-name/design.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 
 # Verify it has content
-head -50 docs/features/NNNN-feature-name/design.md
+head -50 $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 ```
 
 ## Common Issues

@@ -30,7 +30,7 @@ For broader questions about architecture or design, use **research-document** in
 
 Create a focused query with key terms:
 ```bash
-sembly search "specific terms from question"
+(cd $FOREST_ROOT && sembly search "specific terms from question")
 ```
 
 Check top 3-5 results for relevant files.

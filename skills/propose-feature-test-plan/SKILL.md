@@ -17,18 +17,18 @@ Create a test plan that systematically maps requirements and constraints to conc
 
 ## Prerequisites
 
-- Feature concept exists in `docs/features/NNNN-feature-name/concept.md`
-- Requirements exist in `docs/features/NNNN-feature-name/requirements.md`
-- Design exists in `docs/features/NNNN-feature-name/design.md` (contains Critical Constraints)
+- Feature concept exists in `$FOREST_ROOT/docs/features/NNNN-feature-name/concept.md`
+- Requirements exist in `$FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md`
+- Design exists in `$FOREST_ROOT/docs/features/NNNN-feature-name/design.md` (contains Critical Constraints)
 
 ## Procedure
 
 ### 1. Verify Prerequisites Exist
 
 ```bash
-ls docs/features/NNNN-feature-name/concept.md
-ls docs/features/NNNN-feature-name/requirements.md
-ls docs/features/NNNN-feature-name/design.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 ```
 
 If any don't exist, complete those steps first.
@@ -40,7 +40,7 @@ Review design.md for all CC-* Critical Constraints.
 
 ### 3. Create Test Plan File
 
-Create `docs/features/NNNN-feature-name/test-plan.md` with this structure:
+Create `$FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md` with this structure:
 
 ```markdown
 # Test Plan: Feature Name
@@ -126,16 +126,16 @@ For tests requiring external authentication:
 
 ```bash
 # Check file exists
-ls docs/features/NNNN-feature-name/test-plan.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
 
 # Verify all requirements are covered
-grep -c "REQ-" docs/features/NNNN-feature-name/test-plan.md
-grep -c "REQ-" docs/features/NNNN-feature-name/requirements.md
+grep -c "REQ-" $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
+grep -c "REQ-" $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 # Counts should be comparable
 
 # Verify all constraints are covered
-grep -c "CC-" docs/features/NNNN-feature-name/test-plan.md
-grep -c "CC-" docs/features/NNNN-feature-name/design.md
+grep -c "CC-" $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
+grep -c "CC-" $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 # Counts should be comparable
 ```
 

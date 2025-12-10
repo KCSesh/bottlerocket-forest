@@ -25,7 +25,7 @@ Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI 
 ### 1. Ensure local registry is running
 
 ```bash
-brdev registry start
+(cd $FOREST_ROOT && brdev registry start)
 ```
 
 ### 2. Configure Infra.toml for local registry
@@ -84,7 +84,7 @@ Should return the published version tags.
 ```
 Error: connection refused
 ```
-Solution: Run `brdev registry start`
+Solution: Run `(cd $FOREST_ROOT && brdev registry start)`
 
 **Infra.toml not configured:**
 ```
@@ -99,5 +99,5 @@ Solution: Ensure user is in docker group and Docker daemon is running
 
 After publishing a kit:
 1. Update variant's `Twoliter.toml` to reference the new kit version
-2. Run `./tools/twoliter/twoliter update` in the variant repo
+2. Run `make update` in the variant repo
 3. Build the variant with `cargo make`
