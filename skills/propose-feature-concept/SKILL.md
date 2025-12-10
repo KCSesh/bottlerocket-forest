@@ -17,7 +17,6 @@ Create a feature concept document that pitches the feature idea and explains the
 
 ## Prerequisites
 
-- Forest is seeded (`./seed-forest.sh` has been run)
 - User has described the feature idea
 
 ## Procedure

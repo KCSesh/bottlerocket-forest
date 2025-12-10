@@ -18,7 +18,6 @@ Start and manage a local OCI registry for development. This allows building and 
 ## Prerequisites
 
 - Docker installed and running
-- Forest tools installed (run `./seed-forest.sh` from forest root)
 
 ## Procedure
 

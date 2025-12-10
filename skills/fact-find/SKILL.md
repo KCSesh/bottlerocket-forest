@@ -24,14 +24,6 @@ Quickly find and cite concrete facts about Bottlerocket:
 
 For broader questions about architecture or design, use **research-document** instead.
 
-## Prerequisites
-
-**YOU MUST COMPLETE THESE FIRST:**
-
-1. Run `./seed-forest.sh` from forest root (installs sembly and forester to PATH)
-
-**If this fails, STOP and fix the error.**
-
 ## Procedure
 
 ### 1. Search

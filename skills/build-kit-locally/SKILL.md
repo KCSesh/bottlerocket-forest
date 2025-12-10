@@ -17,7 +17,6 @@ Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI 
 
 ## Prerequisites
 
-- Forest tools installed (run `./seed-forest.sh` from forest root)
 - Docker installed and running
 - Kit repository cloned in `kits/` directory
 

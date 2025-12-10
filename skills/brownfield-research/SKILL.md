@@ -19,7 +19,6 @@ This skill answers "what does the code do today?" through automated research, fr
 ## Prerequisites
 
 - User has described a rough feature idea (1-2 paragraphs)
-- Forest is seeded and `sembly` index is current
 
 ## Procedure
 
