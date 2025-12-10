@@ -1,0 +1,9 @@
+# Un-ignore component repositories for ripgrep
+# (They're in .gitignore to keep git status clean, but we want rg to search them)
+!/bottlerocket
+!/kits
+!/twoliter
+!/sdk
+!/host-containers
+!/bottlerocket-settings-sdk
+!/forester-semantic-types

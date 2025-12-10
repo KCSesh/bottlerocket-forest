@@ -104,18 +104,7 @@ As you work through questions:
 - Continue with other questions
 - These will be addressed in follow-up research
 
-### 8. Follow-up Research (Brownfield Only)
-
-If brownfield research was done before idea-honing, check:
-- Did new "what does the code do?" questions emerge?
-- Are there code areas we didn't examine initially?
-
-If yes, do another `brownfield-research` pass:
-- Focus only on the new questions
-- Append findings to `current-state.md`
-- Return to honing if research reveals new ambiguities
-
-### 9. Conclude When Clear
+### 8. Conclude When Clear
 
 When the feature idea is sufficiently clear:
 - Summarize key insights
