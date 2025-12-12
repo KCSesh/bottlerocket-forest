@@ -121,7 +121,7 @@ forester worktree create my-feature
 ```
 bottlerocket-forest/           # $FOREST_ROOT
 ├── worktrees/
-│   └── my-feature/            # Your working directory
+│   └── my-feature/            # $WORKTREE_ROOT - Your working directory
 │       ├── bottlerocket/
 │       ├── kits/
 │       │   ├── bottlerocket-core-kit/
@@ -135,22 +135,21 @@ bottlerocket-forest/           # $FOREST_ROOT
 
 ### The $FOREST_ROOT Variable
 
-`seed-forest.sh` sets `$FOREST_ROOT` to the forest root directory. Use it to access:
-- Shared resources: `$FOREST_ROOT/docs/`, `$FOREST_ROOT/skills/`, `$FOREST_ROOT/planning/`
-- Tools that must run from root: `sembly`, `brdev`
-
-### Commands That Must Run From Forest Root
-
-These commands require the forest root directory:
+`$FOREST_ROOT` should be set to the forest root directory. **Lead agents must set this variable** when spawning subagents (it is not automatically set by `seed-forest.sh`).
 
 ```bash
-# sembly - semantic search
-(cd $FOREST_ROOT && sembly search "boot process")
-
-# brdev - registry management  
-(cd $FOREST_ROOT && brdev registry start)
-(cd $FOREST_ROOT && brdev registry status)
+# Set FOREST_ROOT (lead agents do this when spawning subagents)
+export FOREST_ROOT="/path/to/bottlerocket-forest"
 ```
+
+Use it to access:
+- Shared resources: `$FOREST_ROOT/docs/`, `$FOREST_ROOT/skills/`, `$FOREST_ROOT/planning/`
+
+### The $WORKTREE_ROOT Variable
+
+`$WORKTREE_ROOT` should be set to the worktree root directory. **Lead agents must set this variable** when spawning subagents (it is not automatically set by `seed-forest.sh`).
+
+**Note:** `sembly search` must run from the **worktree root** (where the index was built), not the forest root. See Sembly Usage section.
 
 ### Accessing Shared Resources
 
@@ -236,16 +235,16 @@ This gives you fast, focused searches without build artifacts.
 
 Sembly provides semantic search for Bottlerocket documentation.
 
-**⚠️ CRITICAL: Run from forest root (use subshell from worktrees)**
+**⚠️ CRITICAL: Run from the worktree root (where the index was built)**
+
+The sembly index is context-specific. If built from `worktrees/develop`, searches must run from there.
 
 ```bash
-# From forest root:
+# From the worktree where index was built:
+cd /path/to/bottlerocket-forest/worktrees/develop
 sembly search "boot process"
 
-# From a worktree:
-(cd $FOREST_ROOT && sembly search "boot process")
-
-# Other commands (run from forest root)
+# Index management (also from worktree root)
 sembly build      # Build search index
 sembly status     # Check index status
 sembly update     # Update incrementally
