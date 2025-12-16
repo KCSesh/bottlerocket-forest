@@ -99,12 +99,17 @@ $FOREST_ROOT/planning/
 If you have todolist functionality, use it to enforce workflow completion:
 
 **Before each phase, enumerate the work in your plan:**
-- Phase 2: One item per sub-question from scout
+- Phase 2: One item per sub-question from scout, with target filename
+  - [ ] Write 01-kit-structure.md (sub-question 1)
+  - [ ] Write 02-build-command.md (sub-question 2)
+  - [ ] ...
 - Phase 4: One item per citation to verify
 
 **The pattern:** Enumerate → Execute → Confirm count matches
 
-This prevents "doing some" instead of "doing all." The plan is a contract—once you've written "Verify citation [7]" you're committed to doing it.
+This prevents "doing some" instead of "doing all." The plan is a contract—once you've written "Write 01-kit-structure.md" you're committed to creating that file.
+
+**⛔ Anti-pattern:** Gathering answers during scouting, then skipping to FINAL.md. Even if you "know" the answers, write the individual files. They're the searchable artifacts.
 
 ### For Single-Agent Systems
 
@@ -120,7 +125,9 @@ This allows context window resets between phases if needed.
 
 ### Phase 1: Scout (Learn the Shape)
 
-**Goal:** Understand what you're dealing with. Write findings to `00-scout.md`.
+**Goal:** Discover what exists and formulate the right questions. Write findings to `00-scout.md`.
+
+**⚠️ Scouting is NOT research.** You're mapping the territory, not exploring it.
 
 ```bash
 mkdir -p $FOREST_ROOT/planning/<question-slug>
@@ -132,7 +139,25 @@ mkdir -p $FOREST_ROOT/planning/<question-slug>
 (cd $FOREST_ROOT && sembly search "system-name architecture")
 ```
 
-Read 2-3 top results. Capture in `00-scout.md`:
+**Skim 2-3 top results for structure, not content:**
+- Note file names and section headings
+- Identify key terms and component names
+- Find where detailed information lives
+- Do NOT read implementation details or try to understand "how it works"
+
+**Scout output should contain:**
+- Names of things (files, functions, concepts)
+- Where to look for answers
+- Questions to ask
+
+**Scout output should NOT contain:**
+- Answers to the questions
+- Implementation details
+- Code snippets or deep explanations
+
+If you finish scouting and feel like you "know the answer," you scouted too deep. The goal is informed ignorance—knowing what you don't know and where to find it.
+
+Capture in `00-scout.md`:
 
 ```markdown
 # Scout: <Original Question>
@@ -214,6 +239,33 @@ The sub-question's `FINAL.md` becomes the answer.
 - Note what you searched
 - Do NOT guess
 
+
+### Phase 2 Completion Gate (REQUIRED)
+
+**⚠️ STOP: Do not proceed to Phase 3 until this gate passes.**
+
+Before assembling FINAL.md, you MUST:
+
+1. **List the workspace files:**
+   ```bash
+   ls -la $FOREST_ROOT/planning/<question-slug>/
+   ```
+
+2. **Verify file count matches sub-question count:**
+   - Count of sub-questions in `00-scout.md`: N
+   - Count of `NN-*.md` files (excluding 00-scout.md): should be N
+   - If counts don't match, you skipped sub-questions. Go back.
+
+3. **Add to your plan/todolist:**
+   - [ ] Confirm N sub-question files written
+   - [ ] List files: 01-X.md ✓, 02-Y.md ✓, ...
+
+**Why this matters:** Sub-question files are the primary deliverable. FINAL.md is just a synthesis. Without individual Q&A files:
+- The research isn't searchable by future queries
+- You can't verify each answer independently
+- The doc-writer can't use them as source material
+
+**Common failure mode:** Gathering all the information during scouting, then jumping straight to FINAL.md because "I already know the answers." This defeats the purpose—write the files anyway.
 ### Phase 3: Assemble Draft Document
 
 Read all sub-question answers from the workspace. Combine into `FINAL.md`:
