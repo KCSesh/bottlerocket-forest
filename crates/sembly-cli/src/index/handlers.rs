@@ -98,13 +98,15 @@ pub fn handle_rebuild(args: RebuildArgs) -> Result<(), IndexError> {
 pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index = match args.forest_root {
+        Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
+        None => {
+            let cwd = std::env::current_dir().expect("Failed to get current directory");
+            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
+        }
+    };
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
-
-    let context_id = parse_context_arg(&forest_root, args.context)?;
+    let context_id = parse_context_arg(index.forest_root(), args.context)?;
 
     let progress = Arc::new(CliProgressReporter::default());
     let result = index
@@ -123,13 +125,15 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
 pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index = match args.forest_root {
+        Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
+        None => {
+            let cwd = std::env::current_dir().expect("Failed to get current directory");
+            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
+        }
+    };
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
-
-    let context_id = match parse_context_arg(&forest_root, args.context)? {
+    let context_id = match parse_context_arg(index.forest_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -166,15 +170,17 @@ pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
 pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
-
     let limit = args.limit.unwrap_or(10);
 
     let format = parse_output_format(args.format.as_deref())?;
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = match args.forest_root {
+        Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
+        None => {
+            let cwd = std::env::current_dir().expect("Failed to get current directory");
+            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
+        }
+    };
 
     // Check if database exists before trying to resolve context (MCI-ERR-1)
     if !index.db_path().exists() {
@@ -184,7 +190,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
         .context(KnowledgeIndexSnafu);
     }
 
-    let context_id = match parse_context_arg(&forest_root, args.context)? {
+    let context_id = match parse_context_arg(index.forest_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -211,11 +217,13 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
-
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = match args.forest_root {
+        Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
+        None => {
+            let cwd = std::env::current_dir().expect("Failed to get current directory");
+            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
+        }
+    };
 
     let status = index.status().context(KnowledgeIndexSnafu)?;
 
