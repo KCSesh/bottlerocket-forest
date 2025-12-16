@@ -40,4 +40,11 @@ pub enum Error {
 
     #[snafu(display("Worktree '{}' not found", name))]
     WorktreeNotFound { name: String },
+
+    #[snafu(display("Failed to create symlink from {} to {}", src.display(), tgt.display()))]
+    Symlink {
+        src: PathBuf,
+        tgt: PathBuf,
+        source: std::io::Error,
+    },
 }

@@ -9,12 +9,28 @@ pub struct ForestConfig {
     pub forest: ForestMeta,
     #[serde(default)]
     pub member: Vec<Member>,
+    #[serde(default)]
+    pub worktree: Option<WorktreeConfig>,
 }
 
 /// Forest metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForestMeta {
     pub name: String,
+}
+
+/// Worktree configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeConfig {
+    #[serde(default)]
+    pub symlink: Vec<SymlinkEntry>,
+}
+
+/// A symlink to create in worktrees.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymlinkEntry {
+    pub source: PathBuf,
+    pub target: PathBuf,
 }
 
 /// A member repository in the forest.

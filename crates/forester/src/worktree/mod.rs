@@ -250,6 +250,28 @@ targets = [
             }
         }
 
+        // Create configured symlinks
+        if let Some(wt_config) = &self.config.worktree {
+            for symlink in &wt_config.symlink {
+                let source = self.root.join(&symlink.source);
+                let target = wt_dir.join(&symlink.target);
+                if let Some(parent) = target.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| Error::CreateDir {
+                        path: parent.to_path_buf(),
+                        source: e,
+                    })?;
+                }
+                std::os::unix::fs::symlink(&source, &target).map_err(|e| Error::Symlink {
+                    src: source.clone(),
+                    tgt: target.clone(),
+                    source: e,
+                })?;
+                if verbose {
+                    println!("Created symlink: {} -> {}", target.display(), source.display());
+                }
+            }
+        }
+
         // Update shared sembly index with this worktree's context
         if verbose {
             println!("Updating sembly index for {}...", name);

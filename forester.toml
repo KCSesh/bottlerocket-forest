@@ -48,3 +48,20 @@ name = "settings-sdk"
 remote = "git@github.com:bottlerocket-os/bottlerocket-settings-sdk.git"
 path = "bottlerocket-settings-sdk"
 default_branch = "develop"
+
+[worktree]
+[[worktree.symlink]]
+source = "docs"
+target = "docs"
+
+[[worktree.symlink]]
+source = "skills"
+target = "skills"
+
+[[worktree.symlink]]
+source = "AGENTS.md"
+target = "AGENTS.md"
+
+[[worktree.symlink]]
+source = "README.md"
+target = "README.md"
