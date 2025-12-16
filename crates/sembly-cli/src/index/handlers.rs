@@ -205,9 +205,11 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 
     let file_results = group_results_by_file(&results);
 
+    let cwd = std::env::current_dir().expect("Failed to get current directory");
+
     match format {
-        OutputFormat::Human => format_file_results_human(&file_results, args.show_chunks),
-        OutputFormat::Json => format_file_results_json(&file_results)?,
+        OutputFormat::Human => format_file_results_human(&file_results, args.show_chunks, index.forest_root(), &cwd),
+        OutputFormat::Json => format_file_results_json(&file_results, index.forest_root(), &cwd)?,
     }
 
     Ok(())
@@ -348,8 +350,10 @@ mod test {
 
         // When Formatting file results in human format
         // Then It should print without panicking
-        format_file_results_human(&file_results, false);
-        format_file_results_human(&file_results, true);
+        let forest_root = std::path::Path::new("/tmp");
+        let cwd = std::path::Path::new("/tmp");
+        format_file_results_human(&file_results, false, forest_root, cwd);
+        format_file_results_human(&file_results, true, forest_root, cwd);
     }
 
     #[test]
@@ -359,7 +363,9 @@ mod test {
 
         // When Formatting empty file results
         // Then It should print without panicking
-        format_file_results_human(&file_results, false);
+        let forest_root = std::path::Path::new("/tmp");
+        let cwd = std::path::Path::new("/tmp");
+        format_file_results_human(&file_results, false, forest_root, cwd);
     }
 
     #[test]
@@ -405,7 +411,9 @@ mod test {
         ];
 
         // When Formatting file results as JSON
-        let result = format_file_results_json(&file_results);
+        let forest_root = std::path::Path::new("/tmp");
+        let cwd = std::path::Path::new("/tmp");
+        let result = format_file_results_json(&file_results, forest_root, cwd);
 
         // Then It should succeed
         assert!(result.is_ok());

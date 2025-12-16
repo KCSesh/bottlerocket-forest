@@ -7,6 +7,7 @@ use sembly_core::knowledge::domain::{
 
 use snafu::ResultExt;
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Parses the output format string into an OutputFormat enum
 pub(super) fn parse_output_format(format_str: Option<&str>) -> Result<OutputFormat, IndexError> {
@@ -94,9 +95,17 @@ pub(super) fn format_update_result(result: &sembly_core::knowledge::indexing::In
     );
 }
 
+fn compute_display_path(forest_root: &Path, file_path: &ForestRelativePath, cwd: &Path) -> String {
+    let abs_path = forest_root.join(file_path.to_string());
+    pathdiff::diff_paths(&abs_path, cwd)
+        .unwrap_or(abs_path)
+        .display()
+        .to_string()
+}
+
 /// Prints file search results in human-readable format with color-coded scores
 #[expect(clippy::excessive_nesting)]
-pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_chunks: bool) {
+pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_chunks: bool, forest_root: &Path, cwd: &Path) {
     if file_results.is_empty() {
         println!("No results");
         return;
@@ -106,13 +115,14 @@ pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_
 
     for (i, file_result) in file_results.iter().enumerate() {
         let score_value = file_result.best_score.into_inner();
+        let display_path = compute_display_path(forest_root, &file_result.file_path, cwd);
 
         println!(
             "{}. [Matches: {}, Best Score: {}] {}",
             theme::value(i + 1),
             theme::value(file_result.match_count),
             theme::score(score_value),
-            theme::label(&file_result.file_path)
+            theme::label(display_path)
         );
 
         if show_chunks {
@@ -136,10 +146,25 @@ pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_
 /// Prints file search results as JSON
 pub(super) fn format_file_results_json(
     file_results: &[FileSearchResult],
+    forest_root: &Path,
+    cwd: &Path,
 ) -> Result<(), IndexError> {
     use super::errors::index_error::*;
+    use serde_json::json;
 
-    let json = serde_json::to_string_pretty(file_results).context(JsonSerializationFailedSnafu)?;
+    let results_with_display_paths: Vec<_> = file_results
+        .iter()
+        .map(|fr| {
+            json!({
+                "file_path": compute_display_path(forest_root, &fr.file_path, cwd),
+                "repo_name": fr.repo_name,
+                "match_count": fr.match_count,
+                "best_score": fr.best_score,
+            })
+        })
+        .collect();
+
+    let json = serde_json::to_string_pretty(&results_with_display_paths).context(JsonSerializationFailedSnafu)?;
     println!("{}", json);
     Ok(())
 }
