@@ -8,8 +8,6 @@ use std::path::{Path, PathBuf};
 pub struct ForestConfig {
     pub forest: ForestMeta,
     #[serde(default)]
-    pub member: Vec<Member>,
-    #[serde(default)]
     pub worktree: Option<WorktreeConfig>,
 }
 
@@ -17,6 +15,8 @@ pub struct ForestConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForestMeta {
     pub name: String,
+    #[serde(default)]
+    pub member: Vec<Member>,
 }
 
 /// Worktree configuration.

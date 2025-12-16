@@ -1,49 +1,49 @@
 [forest]
 name = "bottlerocket"
 
-[[member]]
+[[forest.member]]
 name = "bottlerocket"
 remote = "git@github.com:bottlerocket-os/bottlerocket.git"
 path = "bottlerocket"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "core-kit"
 remote = "git@github.com:bottlerocket-os/bottlerocket-core-kit.git"
 path = "kits/bottlerocket-core-kit"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "kernel-kit"
 remote = "git@github.com:bottlerocket-os/bottlerocket-kernel-kit.git"
 path = "kits/bottlerocket-kernel-kit"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "twoliter"
 remote = "git@github.com:bottlerocket-os/twoliter.git"
 path = "twoliter"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "sdk"
 remote = "git@github.com:bottlerocket-os/bottlerocket-sdk.git"
 path = "sdk/bottlerocket-sdk"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "admin-container"
 remote = "git@github.com:bottlerocket-os/bottlerocket-admin-container.git"
 path = "host-containers/bottlerocket-admin-container"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "control-container"
 remote = "git@github.com:bottlerocket-os/bottlerocket-control-container.git"
 path = "host-containers/bottlerocket-control-container"
 default_branch = "develop"
 
-[[member]]
+[[forest.member]]
 name = "settings-sdk"
 remote = "git@github.com:bottlerocket-os/bottlerocket-settings-sdk.git"
 path = "bottlerocket-settings-sdk"
@@ -59,9 +59,13 @@ source = "skills"
 target = "skills"
 
 [[worktree.symlink]]
-source = "AGENTS.md"
+source = "scripts"
+target = "scripts"
+
+[[worktree.symlink]]
+source = "wt-docs/AGENTS.md"
 target = "AGENTS.md"
 
 [[worktree.symlink]]
-source = "README.md"
+source = "wt-docs/README.md"
 target = "README.md"

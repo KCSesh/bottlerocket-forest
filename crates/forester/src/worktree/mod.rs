@@ -35,7 +35,7 @@ impl ForestManager {
         })?;
 
         // Clone all bare repos first
-        for member in &self.config.member {
+        for member in &self.config.forest.member {
             self.clone_bare(member, verbose)?;
         }
 
@@ -81,7 +81,7 @@ impl ForestManager {
         let sembly_path = self.root.join("sembly.toml");
         let member_paths: Vec<String> = self
             .config
-            .member
+            .forest.member
             .iter()
             .map(|m| m.path.display().to_string())
             .collect();
@@ -176,7 +176,7 @@ targets = [
             source: e,
         })?;
 
-        for member in &self.config.member {
+        for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
             let member_wt_path = wt_dir.join(&member.path);
 
@@ -323,7 +323,7 @@ targets = [
         }
 
         // Remove git worktrees for each member
-        for member in &self.config.member {
+        for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
             let member_wt_path = wt_dir.join(&member.path);
 
