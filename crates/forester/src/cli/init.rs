@@ -1,11 +1,12 @@
 //! Init command - initialize a new forest.
 
 use clap::Args;
+use tracing::instrument;
 use owo_colors::OwoColorize;
 use std::fs;
 use std::path::Path;
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct InitArgs {
     /// Forest name
     #[arg(short, long)]
@@ -28,6 +29,7 @@ name = "{name}"
 # default_branch = "main"
 "#;
 
+#[instrument(err)]
 pub fn run(args: InitArgs) -> miette::Result<()> {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
     let name = args.name.unwrap_or_else(|| {

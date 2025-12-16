@@ -4,8 +4,10 @@ use crate::error::Error;
 use crate::forest::{ForestConfig, Member};
 use std::path::PathBuf;
 use std::process::Command;
+use tracing::instrument;
 
 /// Manages forest operations including seeding and worktrees.
+#[derive(Debug)]
 pub struct ForestManager {
     root: PathBuf,
     config: ForestConfig,
@@ -27,6 +29,7 @@ impl ForestManager {
     }
 
     /// Seed the forest - clone bare repos and create develop worktree.
+    #[instrument(err)]
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
         std::fs::create_dir_all(&bare_dir).map_err(|e| Error::CreateDir {
@@ -49,6 +52,7 @@ impl ForestManager {
     }
 
     /// Clone a member repo as bare.
+    #[instrument(err)]
     fn clone_bare(&self, member: &Member, verbose: bool) -> Result<(), Error> {
         let bare_path = self.bare_dir().join(format!("{}.git", member.name));
 
@@ -157,6 +161,7 @@ targets = [
     }
 
     /// Create a new forest worktree.
+    #[instrument(err)]
     pub fn create_worktree(
         &self,
         name: &str,
@@ -290,6 +295,7 @@ targets = [
     }
 
     /// List existing forest worktrees.
+    #[instrument(err)]
     pub fn list_worktrees(&self) -> Result<Vec<String>, Error> {
         let wt_dir = self.worktrees_dir();
         if !wt_dir.exists() {
@@ -303,10 +309,10 @@ targets = [
         })?;
 
         for entry in entries.flatten() {
-            if entry.path().is_dir() {
-                if let Some(name) = entry.file_name().to_str() {
-                    worktrees.push(name.to_string());
-                }
+            if entry.path().is_dir()
+                && let Some(name) = entry.file_name().to_str()
+            {
+                worktrees.push(name.to_string());
             }
         }
 
@@ -314,6 +320,7 @@ targets = [
     }
 
     /// Remove a forest worktree.
+    #[instrument(err)]
     pub fn remove_worktree(&self, name: &str, force: bool) -> Result<(), Error> {
         let wt_dir = self.worktrees_dir().join(name);
         if !wt_dir.exists() {

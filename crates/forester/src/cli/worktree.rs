@@ -3,9 +3,10 @@
 use crate::forest::ForestConfig;
 use crate::worktree::ForestManager;
 use clap::{Args, Subcommand};
+use tracing::instrument;
 use owo_colors::OwoColorize;
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum WorktreeCommand {
     /// Create a new forest worktree
     Create(CreateArgs),
@@ -15,7 +16,7 @@ pub enum WorktreeCommand {
     Remove(RemoveArgs),
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct CreateArgs {
     /// Name for the worktree
     name: String,
@@ -25,7 +26,7 @@ pub struct CreateArgs {
     branch: Option<String>,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct RemoveArgs {
     /// Name of the worktree to remove
     name: String,
@@ -35,6 +36,7 @@ pub struct RemoveArgs {
     force: bool,
 }
 
+#[instrument(err)]
 pub fn run(cmd: WorktreeCommand) -> miette::Result<()> {
     let (forest_root, config) = ForestConfig::find()?;
     let manager = ForestManager::new(forest_root, config);

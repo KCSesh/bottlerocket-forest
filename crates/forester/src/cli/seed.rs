@@ -3,10 +3,11 @@
 use crate::forest::ForestConfig;
 use crate::worktree::ForestManager;
 use clap::Args;
+use tracing::instrument;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct SeedArgs {
     /// Path to forester.toml (default: current directory)
     #[arg(short, long)]
@@ -17,6 +18,7 @@ pub struct SeedArgs {
     verbose: bool,
 }
 
+#[instrument(err)]
 pub fn run(args: SeedArgs) -> miette::Result<()> {
     let (forest_root, config) = if let Some(config_path) = args.config {
         let config = ForestConfig::load(&config_path)?;

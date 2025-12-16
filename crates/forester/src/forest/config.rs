@@ -1,10 +1,13 @@
 //! Forest configuration types.
 
+use bon::Builder;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Forest configuration loaded from `forester.toml`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[builder(on(_, into))]
+#[non_exhaustive]
 pub struct ForestConfig {
     pub forest: ForestMeta,
     #[serde(default)]
@@ -27,14 +30,18 @@ pub struct WorktreeConfig {
 }
 
 /// A symlink to create in worktrees.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[builder(on(_, into))]
+#[non_exhaustive]
 pub struct SymlinkEntry {
     pub source: PathBuf,
     pub target: PathBuf,
 }
 
 /// A member repository in the forest.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[builder(on(_, into))]
+#[non_exhaustive]
 pub struct Member {
     pub name: String,
     pub remote: String,
