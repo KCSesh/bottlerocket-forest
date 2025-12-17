@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/brdev",
     "crates/forester",
+    "crates/*",
 ]
 default-members = ["crates/brdev", "crates/forester"]
 
@@ -11,6 +12,8 @@ edition = "2024"
 license = "Apache-2.0 OR MIT"
 
 [workspace.dependencies]
+crumbly-core = { path = "crates/crumbly-core" }
+
 # CLI and parsing
 clap = { version = "4", features = ["derive", "color"] }
 clap-cargo = "0.14"
