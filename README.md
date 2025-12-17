@@ -128,7 +128,7 @@ Include a keywords line near the top of documentation files:
 ```
 
 Include 5-15 terms: technical concepts, component names, use cases, related features.
-Use lowercase, comma-separated. Improves `sembly search` discoverability.
+Use lowercase, comma-separated. Improves `crumbly search` discoverability.
 
 **Example:**
 ```markdown

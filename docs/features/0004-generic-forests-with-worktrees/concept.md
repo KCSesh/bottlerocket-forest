@@ -38,14 +38,14 @@ path = "kits/bottlerocket-core-kit"
 default_branch = "develop"
 ```
 
-**`sembly.toml`** - What to index for semantic search (promoted from `.sembly.toml`).
+**`crumbly.toml`** - What to index for semantic search (promoted from `.crumbly.toml`).
 
 ### Directory Structure
 
 ```
 my-forest/
   forester.toml
-  sembly.toml
+  crumbly.toml
   .forest/
     bare/                     # Bare clones of all member repos
       bottlerocket.git/
@@ -54,13 +54,13 @@ my-forest/
   # "Main" worktree (default)
   bottlerocket/               # Worktree from .forest/bare/bottlerocket.git
   kits/bottlerocket-core-kit/
-  .sembly/                    # Sembly context for main
+  .crumbly/                    # Sembly context for main
 
   worktrees/
     feature-x/
       bottlerocket/           # Worktree on feature-x branch
       kits/bottlerocket-core-kit/
-      .sembly/                # Sembly context for feature-x
+      .crumbly/                # Sembly context for feature-x
 ```
 
 ### Commands
@@ -69,13 +69,13 @@ my-forest/
 
 1. Clone repos as bare to `.forest/bare/`
 1. Create main worktree for each repo in expected locations
-1. Build sembly index
+1. Build crumbly index
 
 **`forester worktree create <name>`**
 
 1. Create new worktree for each member repo
 1. Assemble into `worktrees/<name>/`
-1. Initialize sembly context
+1. Initialize crumbly context
 
 **`forester worktree list`** - Show existing worktrees
 
@@ -84,7 +84,7 @@ my-forest/
 **`forester new <name>`** - Create new forest with templates:
 
 - `forester.toml` template
-- `sembly.toml` template
+- `crumbly.toml` template
 - `skills/` with generic skills
 - `AGENTS.md` template
 
@@ -96,19 +96,19 @@ my-forest/
 forester/
   crates/
     forester/       # Generic forest management
-    sembly-core/
-    sembly-cli/
+    crumbly-core/
+    crumbly-cli/
     brdev/          # Bottlerocket-specific (registry, etc.)
 ```
 
-Installed via `cargo install forester sembly brdev`
+Installed via `cargo install forester crumbly brdev`
 
 **New `bottlerocket-forest` repo:**
 
 ```
 bottlerocket-forest/
   forester.toml
-  sembly.toml
+  crumbly.toml
   skills/           # Bottlerocket-specific skills only
   docs/
   AGENTS.md
@@ -154,4 +154,4 @@ Just config and documentation.
 ## Open Questions
 
 - Repo name: keep as `forester` or rename to `forest-tools`?
-- Should sembly eventually move to its own repo?
+- Should crumbly eventually move to its own repo?

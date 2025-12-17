@@ -39,8 +39,8 @@ default_branch = "main"
     );
     fs::write(temp.path().join("forester.toml"), forester_toml).unwrap();
 
-    // Create sembly.toml
-    fs::write(temp.path().join("sembly.toml"), "targets = [\".\"]\n").unwrap();
+    // Create crumbly.toml
+    fs::write(temp.path().join("crumbly.toml"), "targets = [\".\"]\n").unwrap();
 
     temp
 }
@@ -179,14 +179,14 @@ fn no_repos_at_forest_root() {
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
 
-    // Should only have: forester.toml, sembly.toml, .forest, .sembly, worktrees, repos (our test remotes)
+    // Should only have: forester.toml, crumbly.toml, .forest, .crumbly, worktrees, repos (our test remotes)
     for entry in &entries {
         assert!(
             [
                 "forester.toml",
-                "sembly.toml",
+                "crumbly.toml",
                 ".forest",
-                ".sembly",
+                ".crumbly",
                 "worktrees",
                 "repos"
             ]
@@ -198,26 +198,26 @@ fn no_repos_at_forest_root() {
 }
 
 #[test]
-fn seed_generates_sembly_config_on_first_run() {
-    // Given: A forest without sembly.toml
+fn seed_generates_crumbly_config_on_first_run() {
+    // Given: A forest without crumbly.toml
     let temp = setup_forest_with_local_repos();
-    fs::remove_file(temp.path().join("sembly.toml")).ok();
+    fs::remove_file(temp.path().join("crumbly.toml")).ok();
 
     // When: Running forester seed
     let (code, _, _) = forester_seed(temp.path(), false);
     assert_eq!(code, 0);
 
-    // Then: sembly.toml is created with member paths as targets
-    let sembly_toml = fs::read_to_string(temp.path().join("sembly.toml")).unwrap();
-    assert!(sembly_toml.contains("repo-a"));
-    assert!(sembly_toml.contains("nested/repo-b"));
+    // Then: crumbly.toml is created with member paths as targets
+    let crumbly_toml = fs::read_to_string(temp.path().join("crumbly.toml")).unwrap();
+    assert!(crumbly_toml.contains("repo-a"));
+    assert!(crumbly_toml.contains("nested/repo-b"));
 }
 
 #[test]
-fn seed_warns_about_missing_members_in_sembly_config() {
-    // Given: A forest with sembly.toml missing a member
+fn seed_warns_about_missing_members_in_crumbly_config() {
+    // Given: A forest with crumbly.toml missing a member
     let temp = setup_forest_with_local_repos();
-    fs::write(temp.path().join("sembly.toml"), "targets = [\"repo-a\"]\n").unwrap();
+    fs::write(temp.path().join("crumbly.toml"), "targets = [\"repo-a\"]\n").unwrap();
 
     // When: Running forester seed
     let (code, stdout, stderr) = forester_seed(temp.path(), true);
@@ -229,17 +229,17 @@ fn seed_warns_about_missing_members_in_sembly_config() {
 }
 
 #[test]
-fn seed_does_not_copy_sembly_to_worktree() {
-    // Given: A forest with sembly.toml
+fn seed_does_not_copy_crumbly_to_worktree() {
+    // Given: A forest with crumbly.toml
     let temp = setup_forest_with_local_repos();
 
     // When: Running forester seed
     let (code, _, _) = forester_seed(temp.path(), false);
     assert_eq!(code, 0);
 
-    // Then: sembly.toml exists at forest root
-    assert!(temp.path().join("sembly.toml").exists());
+    // Then: crumbly.toml exists at forest root
+    assert!(temp.path().join("crumbly.toml").exists());
 
-    // And: sembly.toml does NOT exist in worktree
-    assert!(!temp.path().join("worktrees/develop/sembly.toml").exists());
+    // And: crumbly.toml does NOT exist in worktree
+    assert!(!temp.path().join("worktrees/develop/crumbly.toml").exists());
 }

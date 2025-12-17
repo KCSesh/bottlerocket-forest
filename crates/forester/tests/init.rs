@@ -20,8 +20,8 @@ fn init_creates_config_files() {
     let forester_toml = fs::read_to_string(temp.path().join("forester.toml")).unwrap();
     assert!(forester_toml.contains("name = \"test-forest\""));
 
-    // And: sembly.toml is NOT created (generated on seed instead)
-    assert!(!temp.path().join("sembly.toml").exists());
+    // And: crumbly.toml is NOT created (generated on seed instead)
+    assert!(!temp.path().join("crumbly.toml").exists());
 
     // And: .gitignore is created with correct entries
     let gitignore = fs::read_to_string(temp.path().join(".gitignore")).unwrap();
@@ -80,7 +80,7 @@ fn init_appends_to_existing_gitignore() {
 }
 
 #[test]
-fn init_does_not_create_sembly_toml() {
+fn init_does_not_create_crumbly_toml() {
     // Given: An empty directory
     let temp = temp_forest();
 
@@ -88,6 +88,6 @@ fn init_does_not_create_sembly_toml() {
     let (code, _, _) = forester_init(temp.path(), Some("test-forest"));
     assert_eq!(code, 0);
 
-    // Then: sembly.toml is NOT created
-    assert!(!temp.path().join("sembly.toml").exists());
+    // Then: crumbly.toml is NOT created
+    assert!(!temp.path().join("crumbly.toml").exists());
 }

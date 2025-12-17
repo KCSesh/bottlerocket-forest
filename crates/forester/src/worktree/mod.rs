@@ -42,8 +42,8 @@ impl ForestManager {
             self.clone_bare(member, verbose)?;
         }
 
-        // Ensure sembly.toml exists, generate if needed
-        self.ensure_sembly_config(verbose)?;
+        // Ensure crumbly.toml exists, generate if needed
+        self.ensure_crumbly_config(verbose)?;
 
         // Create the default "develop" worktree
         self.create_worktree("develop", None, verbose)?;
@@ -78,11 +78,11 @@ impl ForestManager {
 
         Ok(())
     }
-    /// Ensure sembly.toml exists, generating it if needed or warning about missing members.
-    fn ensure_sembly_config(&self, verbose: bool) -> Result<(), Error> {
+    /// Ensure crumbly.toml exists, generating it if needed or warning about missing members.
+    fn ensure_crumbly_config(&self, verbose: bool) -> Result<(), Error> {
         use owo_colors::OwoColorize;
 
-        let sembly_path = self.root.join("sembly.toml");
+        let crumbly_path = self.root.join("crumbly.toml");
         let member_paths: Vec<String> = self
             .config
             .forest.member
@@ -90,30 +90,30 @@ impl ForestManager {
             .map(|m| m.path.display().to_string())
             .collect();
 
-        if !sembly_path.exists() {
-            // Generate initial sembly.toml
-            let config = Self::generate_sembly_config(&member_paths);
-            std::fs::write(&sembly_path, config).map_err(|e| Error::CreateDir {
-                path: sembly_path.clone(),
+        if !crumbly_path.exists() {
+            // Generate initial crumbly.toml
+            let config = Self::generate_crumbly_config(&member_paths);
+            std::fs::write(&crumbly_path, config).map_err(|e| Error::CreateDir {
+                path: crumbly_path.clone(),
                 source: e,
             })?;
             if verbose {
                 println!(
-                    "{} Generated sembly.toml with {} targets",
+                    "{} Generated crumbly.toml with {} targets",
                     "✓".green(),
                     member_paths.len()
                 );
             }
         } else {
             // Check for missing members
-            let content = std::fs::read_to_string(&sembly_path).unwrap_or_default();
+            let content = std::fs::read_to_string(&crumbly_path).unwrap_or_default();
             let missing: Vec<_> = member_paths
                 .iter()
                 .filter(|p| !content.contains(p.as_str()))
                 .collect();
             if !missing.is_empty() {
                 println!(
-                    "{} Some members not in sembly.toml targets: {}",
+                    "{} Some members not in crumbly.toml targets: {}",
                     "!".yellow(),
                     missing
                         .iter()
@@ -126,8 +126,8 @@ impl ForestManager {
         Ok(())
     }
 
-    /// Generate a sembly.toml config with member paths as targets.
-    fn generate_sembly_config(member_paths: &[String]) -> String {
+    /// Generate a crumbly.toml config with member paths as targets.
+    fn generate_crumbly_config(member_paths: &[String]) -> String {
         let targets: Vec<String> = member_paths
             .iter()
             .map(|p| format!("    \"{}\"", p))
@@ -277,12 +277,12 @@ targets = [
             }
         }
 
-        // Update shared sembly index with this worktree's context
+        // Update shared crumbly index with this worktree's context
         if verbose {
-            println!("Updating sembly index for {}...", name);
+            println!("Updating crumbly index for {}...", name);
         }
         let context_path = format!("worktrees/{}", name);
-        let _ = Command::new("sembly")
+        let _ = Command::new("crumbly")
             .args(["update", "--context", &context_path])
             .current_dir(&self.root)
             .status();

@@ -6,7 +6,7 @@ A forest is a collection of related git repositories that are developed together
 
 - Forest configuration via `forester.toml`
 - Coordinated worktree management across all member repos
-- Integration with sembly for semantic search
+- Integration with crumbly for semantic search
 
 ## Installation
 
@@ -70,9 +70,9 @@ path = "libs/lib-repo"
 default_branch = "develop"
 ```
 
-### sembly.toml
+### crumbly.toml
 
-Defines what to index for semantic search. See [sembly documentation](../sembly-cli/README.md).
+Defines what to index for semantic search. See [crumbly documentation](../crumbly-cli/README.md).
 
 ## Directory Structure
 
@@ -81,7 +81,7 @@ After seeding:
 ```
 my-forest/
   forester.toml
-  sembly.toml
+  crumbly.toml
   .forest/
     bare/                     # Bare clones of all member repos
       main-repo.git/
@@ -90,11 +90,11 @@ my-forest/
   # Main worktree
   main-repo/
   libs/lib-repo/
-  .sembly/                    # Sembly index
+  .crumbly/                    # Sembly index
 
   worktrees/
     feature-x/
       main-repo/
       libs/lib-repo/
-      .sembly/
+      .crumbly/
 ```

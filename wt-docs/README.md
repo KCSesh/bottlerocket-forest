@@ -40,9 +40,9 @@ bottlerocket-forest/
 Semantic search tool for exploring Bottlerocket documentation.
 
 ```bash
-sembly search "boot process"    # Search documentation
-sembly status                   # Check index status
-sembly update                   # Update index incrementally
+crumbly search "boot process"    # Search documentation
+crumbly status                   # Check index status
+crumbly update                   # Update index incrementally
 ```
 ## brdev
 
@@ -67,7 +67,7 @@ Include a keywords line near the top of documentation files:
 ```
 
 Include 5-15 terms: technical concepts, component names, use cases, related features.
-Use lowercase, comma-separated. Improves `sembly search` discoverability.
+Use lowercase, comma-separated. Improves `crumbly search` discoverability.
 
 **Example:**
 ```markdown

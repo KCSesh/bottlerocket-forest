@@ -49,7 +49,7 @@ cat skills/README.md
 Using the index in skills/README.md:
 1. Determine if a skill applies to the user's request
 2. If yes: You MUST announce it to the user before executing (see protocol in skills/README.md)
-3. If no: Proceed with the appropriate approach (e.g., `sembly search` for research)
+3. If no: Proceed with the appropriate approach (e.g., `crumbly search` for research)
 
 **If you skip this:**
 - ❌ Will reinvent tested procedures
@@ -88,7 +88,7 @@ Process:
 1. **Read `skills/README.md`** to see the skill index
 2. Check if a skill exists for your task (e.g., `research-with-citations`)
 3. If yes: Follow the protocol from skills/README.md
-4. If no: Use `sembly search` to find relevant documentation
+4. If no: Use `crumbly search` to find relevant documentation
 5. Always cite sources in your response
 
 Never guess or rely on training data for Bottlerocket-specific questions.
@@ -123,15 +123,15 @@ This is *substantially more efficient* for finding information if documentation 
 Consider executing several queries simultaneously.
 
 ```bash
-sembly search "boot process"
-sembly search "disk partition layout"
+crumbly search "boot process"
+crumbly search "disk partition layout"
 ```
 ## Common Patterns
 
 ### Answering "How does X work?" Questions
 
 1. Check for `research-with-citations` skill
-2. Use `sembly search` to find relevant docs
+2. Use `crumbly search` to find relevant docs
 3. Read the source files
 4. Cite specific files and line numbers in your answer
 

@@ -11,7 +11,7 @@ Create a feature concept document that pitches the feature idea and explains the
 
 ## When to Use
 
-- User wants to propose a new feature for sembly, forester, or other forest crates
+- User wants to propose a new feature for crumbly, forester, or other forest crates
 - Starting to document a feature idea
 - Need to explain "why" and "what" before diving into requirements
 

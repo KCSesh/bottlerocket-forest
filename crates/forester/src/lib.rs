@@ -5,7 +5,7 @@
 //!
 //! - Forest configuration via `forester.toml`
 //! - Coordinated worktree management across all member repos
-//! - Integration with sembly for semantic search
+//! - Integration with crumbly for semantic search
 
 pub mod cli;
 pub mod error;
