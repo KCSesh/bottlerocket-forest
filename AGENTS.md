@@ -2,47 +2,7 @@
 
 This document contains the mandatory workflow for AI agents working in the Bottlerocket Forest.
 
-## 🚨 MANDATORY WORKFLOW - START HERE
-
-**Complete these steps IN ORDER before ANY response:**
-
-### Step 1: Seed the Forest
-
-```bash
-./seed-forest.sh
-```
-
-**Run this every session.** It ensures:
-- Crumbly, forester, and brdev tools are installed and available
-- Knowledge index is current
-- All repositories are present
-
-**If you skip this:**
-- ❌ Crumbly, forester, and brdev commands will fail
-- ❌ Documentation search won't work
-- ❌ You'll reference outdated code
-
-### Step 2: Read Core Documentation
-
-```bash
-cat ./docs/ARCHITECTURE.md
-cat ./docs/build-system.md
-```
-
-**Always read these files.** They explain:
-- How kits and variants relate
-- The build system workflow
-- Component dependencies
-- Common development patterns
-
-Takes 30 seconds, prevents hours of mistakes.
-
-**If you skip this:**
-- ❌ Will guess instead of citing facts
-- ❌ Will misunderstand component relationships
-- ❌ Will give outdated or incorrect guidance
-
-### Step 3: Read Skills Documentation
+### Read Skills Documentation
 
 ```bash
 cat skills/README.md
@@ -61,9 +21,9 @@ cat skills/README.md
 - ❌ Will reinvent tested procedures incorrectly
 - ❌ Will miss validation steps
 
-### Step 4: Identify Applicable Skill
+### Identify Applicable Skill
 
-**Before responding, check if a skill exists for your task.**
+**Before responding to a user message, check if a skill exists for your task.**
 
 Using the index in skills/README.md:
 1. Determine if a skill applies to the user's request
@@ -100,13 +60,7 @@ For complex tasks with multiple steps:
 
 This helps track progress, prevents skipped steps, and provides clear status updates.
 
-## Worktree Workflow
-
-**Agents work in forest worktrees, not the forest root.**
-
-A worktree is an isolated working directory containing all forest repositories. Each worktree has its own branch state, allowing parallel development without conflicts.
-
-### Creating a Worktree
+### Creating a Bottlerocket Worktree
 
 ```bash
 # From forest root, create a new worktree
@@ -131,49 +85,6 @@ bottlerocket-forest/           # $FOREST_ROOT
 ├── skills/                    # Shared (not in worktrees)
 ├── planning/                  # Shared (not in worktrees)
 └── .crumbly/                   # Shared search index
-```
-
-### The $FOREST_ROOT Variable
-
-`$FOREST_ROOT` should be set to the forest root directory. **Lead agents must set this variable** when spawning subagents (it is not automatically set by `seed-forest.sh`).
-
-```bash
-# Set FOREST_ROOT (lead agents do this when spawning subagents)
-export FOREST_ROOT="/path/to/bottlerocket-forest"
-```
-
-Use it to access:
-- Shared resources: `$FOREST_ROOT/docs/`, `$FOREST_ROOT/skills/`, `$FOREST_ROOT/planning/`
-
-### The $WORKTREE_ROOT Variable
-
-`$WORKTREE_ROOT` should be set to the worktree root directory. **Lead agents must set this variable** when spawning subagents (it is not automatically set by `seed-forest.sh`).
-
-**Note:** `crumbly search` must run from the **worktree root** (where the index was built), not the forest root. See Sembly Usage section.
-
-### Accessing Shared Resources
-
-From within a worktree, use `$FOREST_ROOT` for shared directories:
-
-```bash
-# Read documentation
-cat $FOREST_ROOT/docs/ARCHITECTURE.md
-
-# Read skills
-cat $FOREST_ROOT/skills/README.md
-
-# Create planning files
-mkdir -p $FOREST_ROOT/planning/my-feature
-```
-
-### Listing and Removing Worktrees
-
-```bash
-# List existing worktrees
-forester worktree list
-
-# Remove a worktree when done
-forester worktree remove my-feature
 ```
 
 ## Documentation Research

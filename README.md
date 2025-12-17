@@ -6,11 +6,6 @@ A meta-repository for Bottlerocket development.
 
 **Read [AGENTS.md](./AGENTS.md) first** - it contains the mandatory workflow and detailed guidance.
 
-**Quick checklist:**
-1. Run `./seed-forest.sh` (every session)
-2. Read `./docs/*.md`, the top-level documents are almost always applicable to development
-3. Read `./skills/README.md` - contains skill protocol and index of available skills
-
 ## Purpose
 
 The forest provides:
@@ -23,42 +18,14 @@ The forest provides:
 
 ```
 bottlerocket-forest/
-├── bottlerocket/              # Main Bottlerocket OS repository (variants, build configs)
-├── kits/
-│   ├── bottlerocket-core-kit/     # Core OS packages and dependencies
-│   └── bottlerocket-kernel-kit/   # Kernel packages
-├── sdk/
-│   └── bottlerocket-sdk/          # Build SDK and toolchain
-├── host-containers/
-│   ├── bottlerocket-admin-container/   # Admin container for system access
-│   └── bottlerocket-control-container/ # Control container for orchestration
-├── twoliter/                  # Bottlerocket build tool
-├── bottlerocket-settings-sdk/ # SDK for settings plugins
 ├── crates/                    # Rust workspace
 │   ├── forester/              # Generic forest management CLI
 │   └── brdev/                 # Bottlerocket-specific dev tooling
+├── worktrees/                 # Forest worktrees for doing work on bottlerocket
 ├── skills/                    # AI agent skills for common workflows
 ├── docs/                      # High-level Bottlerocket documentation
 └── planning/                  # Scratch space for notes and planning (gitignored)
 ```
-
-## Getting Started
-
-### First-Time Setup
-
-```bash
-./seed-forest.sh
-```
-
-This script will:
-1. Clone all Bottlerocket repositories
-2. Install crumbly and forester to your PATH (via `cargo install`)
-3. Build the knowledge index
-4. Verify everything works
-
-The script is idempotent and quiet by default. Use `./seed-forest.sh --verbose` for detailed output.
-
-After running, `crumbly` and `forester` will be available as commands in your shell.
 
 ## Crumbly
 
