@@ -253,6 +253,14 @@ targets = [
                     message: format!("git worktree add failed for {}", member.name),
                 });
             }
+
+            Command::new("git")
+                .args(["remote", "remove", "origin"])
+                .current_dir(&member_wt_path)
+                .status()
+                .map_err(|_| Error::Git {
+                    message: format!("Failed to remove origin remote for {}", member.name),
+                })?;
         }
 
         // Create configured symlinks
