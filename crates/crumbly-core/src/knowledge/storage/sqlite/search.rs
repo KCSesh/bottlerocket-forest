@@ -11,9 +11,8 @@
 //! # Context Filtering
 //!
 //! sqlite-vec's `k` parameter limits results BEFORE any JOIN/WHERE filters are applied.
-//! To properly filter by context, we use a two-phase approach:
-//! 1. First, get the set of valid file_hashes for the context
-//! 2. Then, request extra results from KNN (multiplier of limit) and filter in application code
+//! However, sqlite-vec supports `chunk_hash IN (subquery)` to pre-filter at the vector
+//! search level. We use this to constrain KNN search to only chunks in the target context.
 //!
 //! This ensures context isolation is maintained (MCI-15).
 
@@ -23,13 +22,6 @@ use snafu::ResultExt;
 use super::serialization::{indexed_chunk_from_row, serialize_embedding};
 use crate::knowledge::domain::{ContextId, IndexedChunk};
 use crate::knowledge::storage::repository::StorageError;
-
-/// Multiplier for KNN search when filtering by context.
-/// We request more results than needed to account for filtering.
-const CONTEXT_FILTER_MULTIPLIER: usize = 10;
-
-/// Maximum k value for KNN queries (sqlite-vec default limit is 4096)
-const MAX_KNN_K: usize = 4096;
 
 /// Performs k-nearest-neighbor search using cosine distance
 ///
@@ -57,8 +49,7 @@ pub fn search_semantic(
         return Ok(Vec::new());
     }
 
-    // Phase 2: KNN search with extra results, then filter
-    let knn_limit = (limit * CONTEXT_FILTER_MULTIPLIER).min(MAX_KNN_K);
+    // Use IN subquery to pre-filter at sqlite-vec level
 
     let query = r#"
                 SELECT c.chunk_hash, c.chunk_hash, c.file_hash, '', c.repo_name,
@@ -66,7 +57,13 @@ pub fn search_semantic(
                     v.distance
                 FROM vec_chunks v
                 JOIN chunks c ON lower(hex(c.chunk_hash)) = v.chunk_hash
-                WHERE v.embedding MATCH ? AND k = ?
+                WHERE v.embedding MATCH ?1 AND k = ?2
+                  AND v.chunk_hash IN (
+                    SELECT lower(hex(c2.chunk_hash))
+                    FROM chunks c2
+                    JOIN indexed_files f ON c2.file_hash = f.file_hash
+                    WHERE f.context_id = ?3
+                  )
                 ORDER BY v.distance
             "#;
 
@@ -75,7 +72,8 @@ pub fn search_semantic(
         .query_map(
             [
                 &embedding_bytes as &dyn rusqlite::ToSql,
-                &(knn_limit as i64),
+                &(limit as i64),
+                &context_id.as_str(),
             ],
             |row| {
                 let distance: f32 = row.get(10)?;
@@ -420,6 +418,72 @@ mod test {
         assert!(
             results.is_empty(),
             "Chunks from context_a should not leak into context_b search results"
+        );
+    }
+    #[test]
+    fn search_semantic_works_without_multiplier_hack() {
+        let conn = setup_connection();
+
+        let file_hash_a = FileHash::new([1u8; 32]);
+        for i in 0..100 {
+            let mut embedding = vec![0.99; EMBEDDING_DIM];
+            embedding[0] = 0.99 - (i as f32 * 0.0001);
+            let chunk = create_chunk_with_embedding(
+                &format!("context A chunk {}", i),
+                file_hash_a,
+                embedding,
+            );
+            insert_chunk_and_embedding(&conn, &chunk);
+        }
+
+        let file_hash_b = FileHash::new([2u8; 32]);
+        for i in 0..5 {
+            let mut embedding = vec![0.5; EMBEDDING_DIM];
+            embedding[0] = 0.5 + (i as f32 * 0.01);
+            let chunk = create_chunk_with_embedding(
+                &format!("context B chunk {}", i),
+                file_hash_b,
+                embedding,
+            );
+            insert_chunk_and_embedding(&conn, &chunk);
+        }
+
+        let context_a = ContextId::from_path("context-a").unwrap();
+        let context_b = ContextId::from_path("context-b").unwrap();
+
+        insert_indexed_file(
+            &conn,
+            &IndexedFile::builder()
+                .context_id(context_a)
+                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
+                .file_hash(file_hash_a)
+                .mtime_ns(1000)
+                .build(),
+        )
+        .unwrap();
+
+        insert_indexed_file(
+            &conn,
+            &IndexedFile::builder()
+                .context_id(context_b.clone())
+                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
+                .file_hash(file_hash_b)
+                .mtime_ns(2000)
+                .build(),
+        )
+        .unwrap();
+
+        let query = vec![0.99; EMBEDDING_DIM];
+        let results = search_semantic(&conn, &query, 5, context_b).unwrap();
+
+        assert_eq!(
+            results.len(),
+            5,
+            "Should return all 5 chunks from Context B despite Context A having closer matches"
+        );
+        assert!(
+            results.iter().all(|(c, _)| c.chunk.file_hash == file_hash_b),
+            "All results should be from Context B"
         );
     }
 }
