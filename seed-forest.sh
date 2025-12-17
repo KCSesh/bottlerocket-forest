@@ -50,7 +50,8 @@ install_if_needed() {
 
 # Install forest tools first
 log "Checking forest tools..."
-install_if_needed "sembly" "sembly-cli"
+cargo install crumbly &>/dev/null || true
+    log "✓ crumbly installed"
 install_if_needed "forester" "forester"
 install_if_needed "brdev" "brdev"
 
@@ -62,7 +63,7 @@ else
 fi
 
 # Verify
-if ! sembly search "test" 2>/dev/null | head -1 | grep -q "Found"; then
+if ! crumbly search "test" 2>/dev/null | head -1 | grep -q "Found"; then
     echo "❌ Setup verification failed" >&2
     exit 1
 fi

@@ -13,12 +13,12 @@ This document contains the mandatory workflow for AI agents working in the Bottl
 ```
 
 **Run this every session.** It ensures:
-- Sembly, forester, and brdev tools are built and available
+- Crumbly, forester, and brdev tools are installed and available
 - Knowledge index is current
 - All repositories are present
 
 **If you skip this:**
-- ❌ Sembly, forester, and brdev commands will fail
+- ❌ Crumbly, forester, and brdev commands will fail
 - ❌ Documentation search won't work
 - ❌ You'll reference outdated code
 
@@ -68,7 +68,7 @@ cat skills/README.md
 Using the index in skills/README.md:
 1. Determine if a skill applies to the user's request
 2. If yes: You MUST announce it to the user before executing (see protocol in skills/README.md)
-3. If no: Proceed with the appropriate approach (e.g., `sembly search` for research)
+3. If no: Proceed with the appropriate approach (e.g., `crumbly search` for research)
 
 **If you skip this:**
 - ❌ Will reinvent tested procedures
@@ -130,7 +130,7 @@ bottlerocket-forest/           # $FOREST_ROOT
 ├── docs/                      # Shared (not in worktrees)
 ├── skills/                    # Shared (not in worktrees)
 ├── planning/                  # Shared (not in worktrees)
-└── .sembly/                   # Shared search index
+└── .crumbly/                   # Shared search index
 ```
 
 ### The $FOREST_ROOT Variable
@@ -149,7 +149,7 @@ Use it to access:
 
 `$WORKTREE_ROOT` should be set to the worktree root directory. **Lead agents must set this variable** when spawning subagents (it is not automatically set by `seed-forest.sh`).
 
-**Note:** `sembly search` must run from the **worktree root** (where the index was built), not the forest root. See Sembly Usage section.
+**Note:** `crumbly search` must run from the **worktree root** (where the index was built), not the forest root. See Sembly Usage section.
 
 ### Accessing Shared Resources
 
@@ -184,7 +184,7 @@ Process:
 1. **Read `skills/README.md`** to see the skill index
 2. Check if a skill exists for your task (e.g., `research-with-citations`)
 3. If yes: Follow the protocol from skills/README.md
-4. If no: Use `sembly search` to find relevant documentation
+4. If no: Use `crumbly search` to find relevant documentation
 5. Always cite sources in your response
 
 Never guess or rely on training data for Bottlerocket-specific questions.
@@ -231,24 +231,24 @@ The forest uses `.gitignore` and `.ignore` together:
 - Each repo's own `.gitignore` excludes `target/`, `vendor/`, etc.
 
 This gives you fast, focused searches without build artifacts.
-## Sembly Usage
+## Crumbly Usage
 
-Sembly provides semantic search for Bottlerocket documentation.
+Crumbly provides semantic search for Bottlerocket documentation.
 
 **⚠️ CRITICAL: Run from the worktree root (where the index was built)**
 
-The sembly index is context-specific. If built from `worktrees/develop`, searches must run from there.
+The crumbly index is context-specific. If built from `worktrees/develop`, searches must run from there.
 
 ```bash
 # From the worktree where index was built:
 cd /path/to/bottlerocket-forest/worktrees/develop
-sembly search "boot process"
+crumbly search "boot process"
 
 # Index management (also from worktree root)
-sembly build      # Build search index
-sembly status     # Check index status
-sembly update     # Update incrementally
-sembly rebuild    # Rebuild from scratch
+crumbly build      # Build search index
+crumbly status     # Check index status
+crumbly update     # Update incrementally
+crumbly rebuild    # Rebuild from scratch
 ```
 
 ## Forester Usage
@@ -274,7 +274,7 @@ forester worktree remove my-feature
 ### Answering "How does X work?" Questions
 
 1. Check for `research-with-citations` skill
-2. Use `sembly search` to find relevant docs
+2. Use `crumbly search` to find relevant docs
 3. Read the source files
 4. Cite specific files and line numbers in your answer
 

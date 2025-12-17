@@ -30,7 +30,7 @@ For broader questions about architecture or design, use **research-document** in
 
 Create a focused query with key terms:
 ```bash
-(cd $FOREST_ROOT && sembly search "specific terms from question")
+(cd $FOREST_ROOT && crumbly search "specific terms from question")
 ```
 
 Check top 3-5 results for relevant files.
@@ -48,7 +48,7 @@ cat path/to/file.md
 
 ### 3. If Documentation Is Insufficient
 
-Sembly indexes documentation, not source code. If you can't find the answer in docs, search the codebase directly:
+Crumbly indexes documentation, not source code. If you can't find the answer in docs, search the codebase directly:
 
 ```bash
 # IMPORTANT: Always scope searches to specific directories!

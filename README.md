@@ -35,8 +35,6 @@ bottlerocket-forest/
 ├── twoliter/                  # Bottlerocket build tool
 ├── bottlerocket-settings-sdk/ # SDK for settings plugins
 ├── crates/                    # Rust workspace
-│   ├── sembly-core/           # Semantic search library
-│   ├── sembly-cli/            # Sembly CLI tool
 │   ├── forester/              # Generic forest management CLI
 │   └── brdev/                 # Bottlerocket-specific dev tooling
 ├── skills/                    # AI agent skills for common workflows
@@ -54,27 +52,33 @@ bottlerocket-forest/
 
 This script will:
 1. Clone all Bottlerocket repositories
-2. Install sembly and forester to your PATH (via `cargo install`)
+2. Install crumbly and forester to your PATH (via `cargo install`)
 3. Build the knowledge index
 4. Verify everything works
 
 The script is idempotent and quiet by default. Use `./seed-forest.sh --verbose` for detailed output.
 
-After running, `sembly` and `forester` will be available as commands in your shell.
+After running, `crumbly` and `forester` will be available as commands in your shell.
 
-## Sembly
+## Crumbly
 
 Semantic search tool for exploring Bottlerocket documentation. **Must run from forest root directory.**
 
+Install via:
 ```bash
-sembly build                    # Build search index
-sembly search "boot process"    # Search documentation
-sembly status                   # Check index status
-sembly update                   # Update index incrementally
-sembly rebuild                  # Rebuild from scratch
+cargo install crumbly
 ```
 
-Sembly is a standalone open-source tool that can be applied to any codebase. See `crates/sembly-cli/` for details.
+Usage:
+```bash
+crumbly build                    # Build search index
+crumbly search "boot process"    # Search documentation
+crumbly status                   # Check index status
+crumbly update                   # Update index incrementally
+crumbly rebuild                  # Rebuild from scratch
+```
+
+Crumbly is a standalone open-source tool that can be applied to any codebase.
 
 ## Forester
 
@@ -111,7 +115,7 @@ make integ          # Run full test suite (fmt, clippy, deny, unit tests, integ 
 make release-build  # Build optimized binaries
 ```
 
-Binaries are output to `./target/release/sembly` and `./target/release/forester`.
+Binaries are output to `./target/release/forester` and `./target/release/brdev`.
 
 ## Documentation Guidelines
 

@@ -135,8 +135,8 @@ mkdir -p $FOREST_ROOT/planning/<question-slug>
 
 ```bash
 # Broad search to find relevant areas
-(cd $FOREST_ROOT && sembly search "system-name overview")
-(cd $FOREST_ROOT && sembly search "system-name architecture")
+(cd $FOREST_ROOT && crumbly search "system-name overview")
+(cd $FOREST_ROOT && crumbly search "system-name architecture")
 ```
 
 **Skim 2-3 top results for structure, not content:**

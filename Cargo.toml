@@ -1,21 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/sembly-core",
-    "crates/sembly-cli",
     "crates/brdev",
     "crates/forester",
 ]
-default-members = ["crates/sembly-cli", "crates/brdev", "crates/forester"]
+default-members = ["crates/brdev", "crates/forester"]
 
 [workspace.package]
 edition = "2024"
 license = "Apache-2.0 OR MIT"
 
 [workspace.dependencies]
-# Internal crates
-sembly-core = { path = "crates/sembly-core", version = "0.1.0" }
-
 # CLI and parsing
 clap = { version = "4", features = ["derive", "color"] }
 clap-cargo = "0.14"
