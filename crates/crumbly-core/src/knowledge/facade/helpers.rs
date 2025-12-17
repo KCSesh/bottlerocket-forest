@@ -86,7 +86,8 @@ impl KnowledgeIndex {
     pub(super) fn load_score_booster(&self) -> Result<ScoreBooster, IndexError> {
         use super::types::index_error::*;
 
-        let crumbly_config = load_crumbly_config(&self.index_root).context(ConfigLoadFailedSnafu)?;
+        let crumbly_config =
+            load_crumbly_config(&self.index_root).context(ConfigLoadFailedSnafu)?;
 
         let booster = crumbly_config
             .filter(|c| !c.boost_rules.is_empty())

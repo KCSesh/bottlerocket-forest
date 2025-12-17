@@ -7,8 +7,8 @@ use snafu::ResultExt;
 
 use super::serialization::{indexed_chunk_from_row, serialize_context, serialize_embedding};
 use crate::knowledge::domain::{
-    ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexRelativePath,
-    IndexMetadata, IndexedChunk, Timestamp,
+    ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
+    IndexRelativePath, IndexedChunk, Timestamp,
 };
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 

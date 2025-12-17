@@ -3,8 +3,8 @@
 use crate::forest::ForestConfig;
 use crate::worktree::ForestManager;
 use clap::{Args, Subcommand};
-use tracing::instrument;
 use owo_colors::OwoColorize;
+use tracing::instrument;
 
 #[derive(Subcommand, Debug)]
 pub enum WorktreeCommand {

@@ -208,7 +208,9 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
 
     match format {
-        OutputFormat::Human => format_file_results_human(&file_results, args.show_chunks, index.index_root(), &cwd),
+        OutputFormat::Human => {
+            format_file_results_human(&file_results, args.show_chunks, index.index_root(), &cwd)
+        }
         OutputFormat::Json => format_file_results_json(&file_results, index.index_root(), &cwd)?,
     }
 

@@ -6,8 +6,8 @@ use snafu::Snafu;
 use std::collections::HashSet;
 
 use crate::knowledge::domain::{
-    ChunkHash, ChunkId, Context, ContextId, EmbeddingModelConfig, FileHash, IndexRelativePath,
-    IndexMetadata, IndexedChunk, Timestamp,
+    ChunkHash, ChunkId, Context, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
+    IndexRelativePath, IndexedChunk, Timestamp,
 };
 
 /// Abstract interface for chunk storage operations

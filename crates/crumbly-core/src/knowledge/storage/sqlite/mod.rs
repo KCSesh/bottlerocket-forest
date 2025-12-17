@@ -32,8 +32,8 @@ use std::path::Path;
 use super::repository::{ChunkRepository, StorageError, storage_error::*};
 use super::schema;
 use crate::knowledge::domain::{
-    ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexRelativePath,
-    IndexMetadata, IndexedChunk, Timestamp,
+    ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
+    IndexRelativePath, IndexedChunk, Timestamp,
 };
 
 /// SQLite-backed implementation of chunk repository with vector search

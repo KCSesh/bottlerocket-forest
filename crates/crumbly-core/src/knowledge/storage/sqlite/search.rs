@@ -482,7 +482,9 @@ mod test {
             "Should return all 5 chunks from Context B despite Context A having closer matches"
         );
         assert!(
-            results.iter().all(|(c, _)| c.chunk.file_hash == file_hash_b),
+            results
+                .iter()
+                .all(|(c, _)| c.chunk.file_hash == file_hash_b),
             "All results should be from Context B"
         );
     }

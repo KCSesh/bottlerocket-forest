@@ -105,7 +105,12 @@ fn compute_display_path(index_root: &Path, file_path: &IndexRelativePath, cwd: &
 
 /// Prints file search results in human-readable format with color-coded scores
 #[expect(clippy::excessive_nesting)]
-pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_chunks: bool, index_root: &Path, cwd: &Path) {
+pub(super) fn format_file_results_human(
+    file_results: &[FileSearchResult],
+    show_chunks: bool,
+    index_root: &Path,
+    cwd: &Path,
+) {
     if file_results.is_empty() {
         println!("No results");
         return;
@@ -164,7 +169,8 @@ pub(super) fn format_file_results_json(
         })
         .collect();
 
-    let json = serde_json::to_string_pretty(&results_with_display_paths).context(JsonSerializationFailedSnafu)?;
+    let json = serde_json::to_string_pretty(&results_with_display_paths)
+        .context(JsonSerializationFailedSnafu)?;
     println!("{}", json);
     Ok(())
 }

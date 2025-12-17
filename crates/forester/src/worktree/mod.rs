@@ -85,7 +85,8 @@ impl ForestManager {
         let crumbly_path = self.root.join("crumbly.toml");
         let member_paths: Vec<String> = self
             .config
-            .forest.member
+            .forest
+            .member
             .iter()
             .map(|m| m.path.display().to_string())
             .collect();
@@ -280,7 +281,11 @@ targets = [
                     source: e,
                 })?;
                 if verbose {
-                    println!("Created symlink: {} -> {}", target.display(), source.display());
+                    println!(
+                        "Created symlink: {} -> {}",
+                        target.display(),
+                        source.display()
+                    );
                 }
             }
         }

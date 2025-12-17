@@ -6,8 +6,8 @@
 //! - Chunk bar: File chunking progress
 //! - Embed bar: Indexing generation progress
 
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crumbly_core::knowledge::indexing::ProgressReporter;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::path::Path;
 use std::sync::Arc;
 

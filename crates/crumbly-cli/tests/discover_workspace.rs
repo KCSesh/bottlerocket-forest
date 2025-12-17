@@ -27,28 +27,35 @@ fn crumbly_cmd_from_dir(workspace: &Path, subdir: &str, args: &[&str]) -> (i32, 
 #[ignore]
 fn discover_status_from_subdirectory() {
     let workspace = setup_fixture("rust_basic");
-    
+
     let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
-    
+
     let (code, stdout, stderr) = crumbly_cmd_from_dir(workspace.path(), "src", &["status"]);
     assert_eq!(code, 0, "Status from subdirectory failed: {}", stderr);
-    assert!(stdout.contains("chunks") || stdout.contains("Chunks"), 
-            "Status should show chunk info: {}", stdout);
+    assert!(
+        stdout.contains("chunks") || stdout.contains("Chunks"),
+        "Status should show chunk info: {}",
+        stdout
+    );
 }
 
 #[test]
 #[ignore]
 fn discover_search_from_subdirectory() {
     let workspace = setup_fixture("rust_basic");
-    
+
     let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
-    
-    let (code, stdout, stderr) = crumbly_cmd_from_dir(workspace.path(), "src", &["search", "startup"]);
+
+    let (code, stdout, stderr) =
+        crumbly_cmd_from_dir(workspace.path(), "src", &["search", "startup"]);
     assert_eq!(code, 0, "Search from subdirectory failed: {}", stderr);
-    assert!(stdout.contains("Found") || stdout.contains("startup"), 
-            "Search should return results: {}", stdout);
+    assert!(
+        stdout.contains("Found") || stdout.contains("startup"),
+        "Search should return results: {}",
+        stdout
+    );
 }
 
 #[test]
@@ -56,9 +63,12 @@ fn discover_search_from_subdirectory() {
 fn discover_fails_without_database() {
     let workspace = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(workspace.path().join("subdir")).unwrap();
-    
+
     let (code, _, stderr) = crumbly_cmd_from_dir(workspace.path(), "subdir", &["status"]);
     assert_ne!(code, 0, "Status should fail without database");
-    assert!(stderr.contains("not found") || stderr.contains("No index"), 
-            "Error should mention missing database: {}", stderr);
+    assert!(
+        stderr.contains("not found") || stderr.contains("No index"),
+        "Error should mention missing database: {}",
+        stderr
+    );
 }

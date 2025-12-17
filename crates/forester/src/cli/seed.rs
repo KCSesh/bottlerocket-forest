@@ -3,9 +3,9 @@
 use crate::forest::ForestConfig;
 use crate::worktree::ForestManager;
 use clap::Args;
-use tracing::instrument;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
+use tracing::instrument;
 
 #[derive(Args, Debug)]
 pub struct SeedArgs {

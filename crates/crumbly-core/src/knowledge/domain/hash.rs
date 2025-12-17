@@ -94,7 +94,7 @@ mod test {
 
     use super::*;
     use crate::knowledge::domain::{
-        ChunkContent, ChunkContext, ChunkId, ChunkSource, IndexRelativePath, HeadingText,
+        ChunkContent, ChunkContext, ChunkId, ChunkSource, HeadingText, IndexRelativePath,
         MarkdownContext, RepoName, TokenCount,
     };
 

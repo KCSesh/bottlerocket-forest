@@ -10,7 +10,7 @@ use bon::Builder;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ChunkHash, ChunkId, FileHash, IndexRelativePath, HeadingText, ItemName, RepoName, Signature,
+    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, RepoName, Signature,
     TokenCount,
 };
 use crate::knowledge::indexing::RustItemType;

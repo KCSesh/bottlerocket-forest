@@ -49,14 +49,14 @@ pub use chunking::{ChunkingError, ChunkingInput, ChunkingStrategy};
 pub use context::{DiscoveryError, Workspace, discover_workspace};
 pub use domain::{
     Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, ChunkableContent, Embedding,
-    EmbeddingModelConfig, FileType, IndexRelativePath, IndexMetadata, IndexedChunk,
+    EmbeddingModelConfig, FileType, IndexMetadata, IndexRelativePath, IndexedChunk,
     MarkdownContext, RepoName, RustDocContext, ScanConfig, SearchQuery, SearchResult,
     SearchResults, Timestamp,
 };
 pub use facade::{IndexError, IndexStatus, KnowledgeIndex};
 pub use indexing::{
-    FileScanner, IndexResult, IndexStrategy, IndexableFile, Indexer, IndexingError, ScanError,
-    CrumblyConfig, CrumblyConfigError, load_crumbly_config,
+    CrumblyConfig, CrumblyConfigError, FileScanner, IndexResult, IndexStrategy, IndexableFile,
+    Indexer, IndexingError, ScanError, load_crumbly_config,
 };
 pub use scoring::{BoostMultiplier, BoostPattern, BoostRule, ScoreBooster, default_boost_rules};
 pub use search::{SearchEngine, SearchError, SemanticSearchEngine};

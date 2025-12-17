@@ -1,10 +1,10 @@
 //! Init command - initialize a new forest.
 
 use clap::Args;
-use tracing::instrument;
 use owo_colors::OwoColorize;
 use std::fs;
 use std::path::Path;
+use tracing::instrument;
 
 #[derive(Args, Debug)]
 pub struct InitArgs {

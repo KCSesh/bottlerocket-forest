@@ -266,7 +266,7 @@ mod test {
     use super::*;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, Embedding, EmbeddingModelConfig,
-        IndexRelativePath, HeadingText, MarkdownContext, RepoName, Timestamp, TokenCount,
+        HeadingText, IndexRelativePath, MarkdownContext, RepoName, Timestamp, TokenCount,
     };
     use crate::knowledge::storage::schema;
     use rusqlite::Connection;
