@@ -4,19 +4,19 @@
 
 mod common;
 
-use common::{sembly_build, sembly_search_with_chunks, setup_fixture};
+use common::{crumbly_build, crumbly_search_with_chunks, setup_fixture};
 
 #[test]
 #[ignore]
 fn markdown_docs_indexes_and_searches() {
     // Given: A workspace with markdown documentation
     let workspace = setup_fixture("markdown_docs");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for startup process content
     let (code, stdout, _) =
-        sembly_search_with_chunks(workspace.path(), "startup process stages configuration");
+        crumbly_search_with_chunks(workspace.path(), "startup process stages configuration");
 
     // Then: Startup process content is found
     assert_eq!(code, 0, "Search failed");
@@ -34,12 +34,12 @@ fn markdown_docs_indexes_and_searches() {
 fn markdown_docs_finds_configuration_content() {
     // Given: An indexed markdown workspace
     let workspace = setup_fixture("markdown_docs");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for database configuration
     let (code, stdout, _) =
-        sembly_search_with_chunks(workspace.path(), "database connection settings host port");
+        crumbly_search_with_chunks(workspace.path(), "database connection settings host port");
 
     // Then: Database configuration content is found
     assert_eq!(code, 0, "Search failed");

@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{sembly_build, sembly_search_with_chunks, setup_fixture};
+use common::{crumbly_build, crumbly_search_with_chunks, setup_fixture};
 
 // =============================================================================
 // Rust Visibility Filtering Tests
@@ -17,11 +17,11 @@ use common::{sembly_build, sembly_search_with_chunks, setup_fixture};
 fn rust_visibility_indexes_only_public_items() {
     // Given: A workspace with visibility = "public"
     let workspace = setup_fixture("rust_visibility");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for public function
-    let (code, stdout, _) = sembly_search_with_chunks(workspace.path(), "initialization app");
+    let (code, stdout, _) = crumbly_search_with_chunks(workspace.path(), "initialization app");
 
     // Then: Public function is found
     assert_eq!(code, 0, "Search failed");
@@ -37,12 +37,12 @@ fn rust_visibility_indexes_only_public_items() {
 fn rust_visibility_excludes_private_items() {
     // Given: A workspace with visibility = "public"
     let workspace = setup_fixture("rust_visibility");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for private function content
     let (code, stdout, _) =
-        sembly_search_with_chunks(workspace.path(), "memory pools caching layers allocates");
+        crumbly_search_with_chunks(workspace.path(), "memory pools caching layers allocates");
 
     // Then: Private function should not appear in results
     assert_eq!(code, 0, "Search failed");
@@ -62,11 +62,11 @@ fn rust_visibility_excludes_private_items() {
 fn rust_item_types_indexes_functions_and_structs() {
     // Given: A workspace with item_types = ["function", "struct"]
     let workspace = setup_fixture("rust_item_types");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for function content
-    let (code, stdout, _) = sembly_search_with_chunks(workspace.path(), "process request handler");
+    let (code, stdout, _) = crumbly_search_with_chunks(workspace.path(), "process request handler");
 
     // Then: Function is found
     assert_eq!(code, 0, "Search failed");
@@ -77,7 +77,7 @@ fn rust_item_types_indexes_functions_and_structs() {
     );
 
     // When: Searching for struct content
-    let (code, stdout, _) = sembly_search_with_chunks(workspace.path(), "request path method");
+    let (code, stdout, _) = crumbly_search_with_chunks(workspace.path(), "request path method");
 
     // Then: Struct is found
     assert_eq!(code, 0, "Search failed");
@@ -93,12 +93,12 @@ fn rust_item_types_indexes_functions_and_structs() {
 fn rust_item_types_excludes_enums_and_traits() {
     // Given: A workspace with item_types = ["function", "struct"]
     let workspace = setup_fixture("rust_item_types");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for enum content
     let (code, stdout, _) =
-        sembly_search_with_chunks(workspace.path(), "response status ok bad request error");
+        crumbly_search_with_chunks(workspace.path(), "response status ok bad request error");
 
     // Then: Enum should not be in results
     assert_eq!(code, 0, "Search failed");
@@ -110,7 +110,7 @@ fn rust_item_types_excludes_enums_and_traits() {
 
     // When: Searching for trait content
     let (code, stdout, _) =
-        sembly_search_with_chunks(workspace.path(), "handler trait implement endpoint");
+        crumbly_search_with_chunks(workspace.path(), "handler trait implement endpoint");
 
     // Then: Trait should not be in results
     assert_eq!(code, 0, "Search failed");

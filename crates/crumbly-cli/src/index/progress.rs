@@ -7,7 +7,7 @@
 //! - Embed bar: Indexing generation progress
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use sembly_core::knowledge::indexing::ProgressReporter;
+use crumbly_core::knowledge::indexing::ProgressReporter;
 use std::path::Path;
 use std::sync::Arc;
 

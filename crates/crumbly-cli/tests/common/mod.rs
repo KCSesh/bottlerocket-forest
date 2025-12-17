@@ -1,13 +1,13 @@
 #![allow(dead_code)]
-//! Common test utilities for sembly integration tests.
+//! Common test utilities for crumbly integration tests.
 
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 
-/// Get path to sembly binary
-pub fn sembly_bin() -> &'static Path {
-    assert_cmd::cargo::cargo_bin!("sembly")
+/// Get path to crumbly binary
+pub fn crumbly_bin() -> &'static Path {
+    assert_cmd::cargo::cargo_bin!("crumbly")
 }
 
 /// Copies a fixture directory to a temp location for testing
@@ -38,13 +38,13 @@ pub fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Run sembly build in the given directory
-pub fn sembly_build(workspace: &Path) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+/// Run crumbly build in the given directory
+pub fn crumbly_build(workspace: &Path) -> (i32, String, String) {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["build"])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -53,13 +53,13 @@ pub fn sembly_build(workspace: &Path) -> (i32, String, String) {
     (exit_code, stdout, stderr)
 }
 
-/// Run sembly build with --context flag
-pub fn sembly_build_context(workspace: &Path, context: &str) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+/// Run crumbly build with --context flag
+pub fn crumbly_build_context(workspace: &Path, context: &str) -> (i32, String, String) {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["build", "--context", context])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -68,13 +68,13 @@ pub fn sembly_build_context(workspace: &Path, context: &str) -> (i32, String, St
     (exit_code, stdout, stderr)
 }
 
-/// Run sembly search with --show-chunks flag
-pub fn sembly_search_with_chunks(workspace: &Path, query: &str) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+/// Run crumbly search with --show-chunks flag
+pub fn crumbly_search_with_chunks(workspace: &Path, query: &str) -> (i32, String, String) {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["search", "--show-chunks", query])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -83,13 +83,13 @@ pub fn sembly_search_with_chunks(workspace: &Path, query: &str) -> (i32, String,
     (exit_code, stdout, stderr)
 }
 
-/// Run sembly update with --context flag
-pub fn sembly_update_context(workspace: &Path, context: &str) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+/// Run crumbly update with --context flag
+pub fn crumbly_update_context(workspace: &Path, context: &str) -> (i32, String, String) {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["update", "--context", context])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -98,17 +98,17 @@ pub fn sembly_update_context(workspace: &Path, context: &str) -> (i32, String, S
     (exit_code, stdout, stderr)
 }
 
-/// Run sembly search with --context flag
-pub fn sembly_search_context(
+/// Run crumbly search with --context flag
+pub fn crumbly_search_context(
     workspace: &Path,
     query: &str,
     context: &str,
 ) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["search", "--show-chunks", "--context", context, query])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -117,13 +117,13 @@ pub fn sembly_search_context(
     (exit_code, stdout, stderr)
 }
 
-/// Run sembly status and return chunk count
-pub fn sembly_status_chunk_count(workspace: &Path) -> usize {
-    let output = Command::new(sembly_bin())
+/// Run crumbly status and return chunk count
+pub fn crumbly_status_chunk_count(workspace: &Path) -> usize {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(["status"])
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -143,13 +143,13 @@ pub fn sembly_status_chunk_count(workspace: &Path) -> usize {
     0
 }
 
-/// Run a sembly command and return (exit_code, stdout, stderr)
-pub fn sembly_cmd(workspace: &Path, args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(sembly_bin())
+/// Run a crumbly command and return (exit_code, stdout, stderr)
+pub fn crumbly_cmd(workspace: &Path, args: &[&str]) -> (i32, String, String) {
+    let output = Command::new(crumbly_bin())
         .current_dir(workspace)
         .args(args)
         .output()
-        .expect("Failed to execute sembly");
+        .expect("Failed to execute crumbly");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();

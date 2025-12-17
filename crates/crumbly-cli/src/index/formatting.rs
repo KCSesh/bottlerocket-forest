@@ -1,8 +1,8 @@
 use crate::index::errors::IndexError;
 use crate::theme;
-use sembly_core::knowledge::domain::SearchResult;
-use sembly_core::knowledge::domain::{
-    FileSearchResult, ForestRelativePath, RelevanceScore, RepoName, SearchResults,
+use crumbly_core::knowledge::domain::SearchResult;
+use crumbly_core::knowledge::domain::{
+    FileSearchResult, IndexRelativePath, RelevanceScore, RepoName, SearchResults,
 };
 
 use snafu::ResultExt;
@@ -23,7 +23,7 @@ pub(super) fn parse_output_format(format_str: Option<&str>) -> Result<OutputForm
 
 /// Groups search results by file path, aggregating chunks and computing best scores
 pub(super) fn group_results_by_file(results: &SearchResults) -> Vec<FileSearchResult> {
-    let mut file_map: HashMap<ForestRelativePath, (RepoName, Vec<SearchResult>)> = HashMap::new();
+    let mut file_map: HashMap<IndexRelativePath, (RepoName, Vec<SearchResult>)> = HashMap::new();
 
     for result in &results.results {
         let path = result.chunk.source.file_path.clone();
@@ -66,7 +66,7 @@ pub(super) fn group_results_by_file(results: &SearchResults) -> Vec<FileSearchRe
 }
 
 /// Prints a formatted summary of build operation results
-pub(super) fn format_build_result(result: &sembly_core::knowledge::indexing::IndexResult) {
+pub(super) fn format_build_result(result: &crumbly_core::knowledge::indexing::IndexResult) {
     println!("{} Index build complete!", theme::success("✓"));
     println!(
         "  Files processed: {}",
@@ -80,7 +80,7 @@ pub(super) fn format_build_result(result: &sembly_core::knowledge::indexing::Ind
 }
 
 /// Prints a formatted summary of update operation results
-pub(super) fn format_update_result(result: &sembly_core::knowledge::indexing::IndexResult) {
+pub(super) fn format_update_result(result: &crumbly_core::knowledge::indexing::IndexResult) {
     println!("{} Index update complete!", theme::success("✓"));
     println!("  Files added: {}", theme::value(result.files_added));
     println!("  Files updated: {}", theme::value(result.files_updated));
@@ -95,8 +95,8 @@ pub(super) fn format_update_result(result: &sembly_core::knowledge::indexing::In
     );
 }
 
-fn compute_display_path(forest_root: &Path, file_path: &ForestRelativePath, cwd: &Path) -> String {
-    let abs_path = forest_root.join(file_path.to_string());
+fn compute_display_path(index_root: &Path, file_path: &IndexRelativePath, cwd: &Path) -> String {
+    let abs_path = index_root.join(file_path.to_string());
     pathdiff::diff_paths(&abs_path, cwd)
         .unwrap_or(abs_path)
         .display()
@@ -105,7 +105,7 @@ fn compute_display_path(forest_root: &Path, file_path: &ForestRelativePath, cwd:
 
 /// Prints file search results in human-readable format with color-coded scores
 #[expect(clippy::excessive_nesting)]
-pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_chunks: bool, forest_root: &Path, cwd: &Path) {
+pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_chunks: bool, index_root: &Path, cwd: &Path) {
     if file_results.is_empty() {
         println!("No results");
         return;
@@ -115,7 +115,7 @@ pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_
 
     for (i, file_result) in file_results.iter().enumerate() {
         let score_value = file_result.best_score.into_inner();
-        let display_path = compute_display_path(forest_root, &file_result.file_path, cwd);
+        let display_path = compute_display_path(index_root, &file_result.file_path, cwd);
 
         println!(
             "{}. [Matches: {}, Best Score: {}] {}",
@@ -146,7 +146,7 @@ pub(super) fn format_file_results_human(file_results: &[FileSearchResult], show_
 /// Prints file search results as JSON
 pub(super) fn format_file_results_json(
     file_results: &[FileSearchResult],
-    forest_root: &Path,
+    index_root: &Path,
     cwd: &Path,
 ) -> Result<(), IndexError> {
     use super::errors::index_error::*;
@@ -156,7 +156,7 @@ pub(super) fn format_file_results_json(
         .iter()
         .map(|fr| {
             json!({
-                "file_path": compute_display_path(forest_root, &fr.file_path, cwd),
+                "file_path": compute_display_path(index_root, &fr.file_path, cwd),
                 "repo_name": fr.repo_name,
                 "match_count": fr.match_count,
                 "best_score": fr.best_score,
@@ -170,7 +170,7 @@ pub(super) fn format_file_results_json(
 }
 
 /// Prints index status information including metadata and statistics
-pub(super) fn format_status(status: &sembly_core::knowledge::facade::IndexStatus) {
+pub(super) fn format_status(status: &crumbly_core::knowledge::facade::IndexStatus) {
     println!("{}", theme::label("Knowledge Index Status"));
     println!("  Exists: {}", theme::value(status.exists));
     println!("  Chunks: {}", theme::value(status.chunk_count));

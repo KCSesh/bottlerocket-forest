@@ -14,9 +14,9 @@ mod progress;
 /// Arguments for building the knowledge index.
 #[derive(Parser)]
 pub struct BuildArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 
     /// Context path to operate on (defaults to workspace root)
     #[arg(long)]
@@ -26,9 +26,9 @@ pub struct BuildArgs {
 /// Arguments for rebuilding the knowledge index from scratch.
 #[derive(Parser)]
 pub struct RebuildArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 
     /// Context path to operate on (defaults to workspace root)
     #[arg(long)]
@@ -38,9 +38,9 @@ pub struct RebuildArgs {
 /// Arguments for incrementally updating the knowledge index.
 #[derive(Parser)]
 pub struct UpdateArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 
     /// Context path to operate on (defaults to workspace root)
     #[arg(long)]
@@ -50,9 +50,9 @@ pub struct UpdateArgs {
 /// Arguments for clearing all chunks from the index.
 #[derive(Parser)]
 pub struct ClearArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 
     /// Context path to clear (defaults to current context)
     #[arg(long)]
@@ -69,9 +69,9 @@ pub struct SearchArgs {
     /// Search query
     query: String,
 
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 
     /// Context path to search within (defaults to all contexts)
     #[arg(long)]
@@ -93,9 +93,9 @@ pub struct SearchArgs {
 /// Arguments for showing index status and statistics.
 #[derive(Parser)]
 pub struct StatusArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 }
 
 mod errors;

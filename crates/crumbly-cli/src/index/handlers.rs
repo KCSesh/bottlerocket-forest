@@ -5,22 +5,22 @@ use crate::index::formatting::{
     prompt_confirmation,
 };
 use crate::index::{BuildArgs, ClearArgs, RebuildArgs, SearchArgs, StatusArgs, UpdateArgs};
-use sembly_core::knowledge::KnowledgeIndex;
+use crumbly_core::knowledge::KnowledgeIndex;
 use snafu::ResultExt;
 
 use crate::index::progress::CliProgressReporter;
 use crate::theme;
-use sembly_core::knowledge::domain::ContextId;
+use crumbly_core::knowledge::domain::ContextId;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Parses and validates a context path argument.
 ///
-/// Validates that the context path exists on the filesystem (relative to forest_root)
+/// Validates that the context path exists on the filesystem (relative to index_root)
 /// and converts it to a ContextId.
 fn parse_context_arg(
-    forest_root: &std::path::Path,
+    index_root: &std::path::Path,
     context: Option<PathBuf>,
 ) -> Result<Option<ContextId>, IndexError> {
     use super::errors::index_error::*;
@@ -30,7 +30,7 @@ fn parse_context_arg(
     };
 
     // Validate the context path exists on filesystem (MCI-6)
-    let full_path = forest_root.join(&path);
+    let full_path = index_root.join(&path);
     if !full_path.exists() {
         return Err(IndexError::ContextPathNotFound {
             path: path.display().to_string(),
@@ -48,13 +48,13 @@ fn parse_context_arg(
 pub fn handle_build(args: BuildArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
+    let index_root = args
+        .index_root
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
-    let context_id = parse_context_arg(&forest_root, args.context)?;
+    let context_id = parse_context_arg(&index_root, args.context)?;
 
     let progress = Arc::new(CliProgressReporter::default());
     let result = index
@@ -73,13 +73,13 @@ pub fn handle_build(args: BuildArgs) -> Result<(), IndexError> {
 pub fn handle_rebuild(args: RebuildArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let forest_root = args
-        .forest_root
+    let index_root = args
+        .index_root
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
-    let context_id = parse_context_arg(&forest_root, args.context)?;
+    let context_id = parse_context_arg(&index_root, args.context)?;
 
     let progress = Arc::new(CliProgressReporter::default());
     let result = index
@@ -98,7 +98,7 @@ pub fn handle_rebuild(args: RebuildArgs) -> Result<(), IndexError> {
 pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let index = match args.forest_root {
+    let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -106,7 +106,7 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
         }
     };
 
-    let context_id = parse_context_arg(index.forest_root(), args.context)?;
+    let context_id = parse_context_arg(index.index_root(), args.context)?;
 
     let progress = Arc::new(CliProgressReporter::default());
     let result = index
@@ -125,7 +125,7 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
 pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let index = match args.forest_root {
+    let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -133,7 +133,7 @@ pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
         }
     };
 
-    let context_id = match parse_context_arg(index.forest_root(), args.context)? {
+    let context_id = match parse_context_arg(index.index_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -174,7 +174,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 
     let format = parse_output_format(args.format.as_deref())?;
 
-    let index = match args.forest_root {
+    let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -184,13 +184,13 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 
     // Check if database exists before trying to resolve context (MCI-ERR-1)
     if !index.db_path().exists() {
-        return Err(sembly_core::knowledge::facade::IndexError::IndexNotFound {
+        return Err(crumbly_core::knowledge::facade::IndexError::IndexNotFound {
             path: index.db_path().display().to_string(),
         })
         .context(KnowledgeIndexSnafu);
     }
 
-    let context_id = match parse_context_arg(index.forest_root(), args.context)? {
+    let context_id = match parse_context_arg(index.index_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -208,8 +208,8 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
 
     match format {
-        OutputFormat::Human => format_file_results_human(&file_results, args.show_chunks, index.forest_root(), &cwd),
-        OutputFormat::Json => format_file_results_json(&file_results, index.forest_root(), &cwd)?,
+        OutputFormat::Human => format_file_results_human(&file_results, args.show_chunks, index.index_root(), &cwd),
+        OutputFormat::Json => format_file_results_json(&file_results, index.index_root(), &cwd)?,
     }
 
     Ok(())
@@ -219,7 +219,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let index = match args.forest_root {
+    let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
         None => {
             let cwd = std::env::current_dir().expect("Failed to get current directory");
@@ -237,13 +237,13 @@ pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use sembly_core::knowledge::domain::{
+    use crumbly_core::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, EmbeddingModelConfig,
-        FileSearchResult, ForestRelativePath, MarkdownContext, RelevanceScore, RepoName,
+        FileSearchResult, IndexRelativePath, MarkdownContext, RelevanceScore, RepoName,
         SearchQuery, SearchResult, SearchResults, TokenCount,
     };
-    use sembly_core::knowledge::facade::IndexStatus;
-    use sembly_core::knowledge::indexing::IndexResult;
+    use crumbly_core::knowledge::facade::IndexStatus;
+    use crumbly_core::knowledge::indexing::IndexResult;
     use std::time::{Duration, SystemTime};
 
     #[test]
@@ -331,7 +331,7 @@ mod test {
         let chunk = create_test_chunk();
         let file_results = vec![
             FileSearchResult::builder()
-                .file_path(ForestRelativePath::try_new("test.md").unwrap())
+                .file_path(IndexRelativePath::try_new("test.md").unwrap())
                 .repo_name(RepoName::try_new("test-repo").unwrap())
                 .match_count(2usize)
                 .best_score(RelevanceScore::try_new(0.95).unwrap())
@@ -350,10 +350,10 @@ mod test {
 
         // When Formatting file results in human format
         // Then It should print without panicking
-        let forest_root = std::path::Path::new("/tmp");
+        let index_root = std::path::Path::new("/tmp");
         let cwd = std::path::Path::new("/tmp");
-        format_file_results_human(&file_results, false, forest_root, cwd);
-        format_file_results_human(&file_results, true, forest_root, cwd);
+        format_file_results_human(&file_results, false, index_root, cwd);
+        format_file_results_human(&file_results, true, index_root, cwd);
     }
 
     #[test]
@@ -363,9 +363,9 @@ mod test {
 
         // When Formatting empty file results
         // Then It should print without panicking
-        let forest_root = std::path::Path::new("/tmp");
+        let index_root = std::path::Path::new("/tmp");
         let cwd = std::path::Path::new("/tmp");
-        format_file_results_human(&file_results, false, forest_root, cwd);
+        format_file_results_human(&file_results, false, index_root, cwd);
     }
 
     #[test]
@@ -397,7 +397,7 @@ mod test {
         let chunk = create_test_chunk();
         let file_results = vec![
             FileSearchResult::builder()
-                .file_path(ForestRelativePath::try_new("test.md").unwrap())
+                .file_path(IndexRelativePath::try_new("test.md").unwrap())
                 .repo_name(RepoName::try_new("test-repo").unwrap())
                 .match_count(1usize)
                 .best_score(RelevanceScore::try_new(0.95).unwrap())
@@ -411,9 +411,9 @@ mod test {
         ];
 
         // When Formatting file results as JSON
-        let forest_root = std::path::Path::new("/tmp");
+        let index_root = std::path::Path::new("/tmp");
         let cwd = std::path::Path::new("/tmp");
-        let result = format_file_results_json(&file_results, forest_root, cwd);
+        let result = format_file_results_json(&file_results, index_root, cwd);
 
         // Then It should succeed
         assert!(result.is_ok());
@@ -490,7 +490,7 @@ mod test {
     }
 
     fn create_test_chunk() -> Chunk {
-        use sembly_core::knowledge::domain::{ChunkHash, FileHash};
+        use crumbly_core::knowledge::domain::{ChunkHash, FileHash};
         use std::io::Cursor;
 
         let text = "Test content";
@@ -500,7 +500,7 @@ mod test {
             .file_hash(FileHash::from_reader(Cursor::new(text.as_bytes())).unwrap())
             .source(
                 ChunkSource::builder()
-                    .file_path(ForestRelativePath::try_new("test.md").unwrap())
+                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
                     .repo_name(RepoName::try_new("test-repo").unwrap())
                     .build(),
             )
@@ -517,7 +517,7 @@ mod test {
     }
 
     fn create_test_query() -> SearchQuery {
-        use sembly_core::knowledge::domain::{ContextId, QueryText, ResultLimit};
+        use crumbly_core::knowledge::domain::{ContextId, QueryText, ResultLimit};
         SearchQuery::builder()
             .text(QueryText::try_new("test query").unwrap())
             .limit(ResultLimit::try_new(10).unwrap())

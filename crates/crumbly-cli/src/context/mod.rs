@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use snafu::{ResultExt, Snafu};
 use std::path::PathBuf;
 
-use sembly_core::knowledge::KnowledgeIndex;
+use crumbly_core::knowledge::KnowledgeIndex;
 
 use super::theme;
 
@@ -30,9 +30,9 @@ enum ContextSubcommand {
 /// Arguments for listing registered contexts.
 #[derive(Parser)]
 pub struct ListArgs {
-    /// Path to forest root (defaults to current directory).
+    /// Path to index root (defaults to current directory).
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 }
 
 /// Arguments for removing a registered context.
@@ -41,9 +41,9 @@ pub struct RemoveArgs {
     /// The context identifier to remove.
     context_id: String,
 
-    /// Path to forest root (defaults to current directory).
+    /// Path to index root (defaults to current directory).
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 }
 
 /// Executes the context command by dispatching to the appropriate subcommand handler.
@@ -58,11 +58,11 @@ pub fn run(cmd: ContextCommand) -> Result<(), ContextError> {
 fn handle_list(args: ListArgs) -> Result<(), ContextError> {
     use context_error::*;
 
-    let forest_root = args
-        .forest_root
+    let index_root = args
+        .index_root
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
     let contexts = index.list_contexts().context(KnowledgeIndexSnafu)?;
 
@@ -75,15 +75,15 @@ fn handle_list(args: ListArgs) -> Result<(), ContextError> {
 fn handle_remove(args: RemoveArgs) -> Result<(), ContextError> {
     use context_error::*;
 
-    let forest_root = args
-        .forest_root
+    let index_root = args
+        .index_root
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
-    let context_id = sembly_core::knowledge::domain::ContextId::from_path(&args.context_id)
+    let context_id = crumbly_core::knowledge::domain::ContextId::from_path(&args.context_id)
         .map_err(|_| ContextError::KnowledgeIndex {
-            source: sembly_core::knowledge::facade::IndexError::ContextDoesNotExist {
+            source: crumbly_core::knowledge::facade::IndexError::ContextDoesNotExist {
                 context_id: args.context_id.clone(),
             },
         })?;
@@ -104,7 +104,7 @@ fn handle_remove(args: RemoveArgs) -> Result<(), ContextError> {
 /// Formats the list of registered contexts as a displayable string.
 ///
 /// The default context (`.`) is marked with "(default)".
-fn format_context_list(contexts: &[sembly_core::knowledge::domain::Context]) -> String {
+fn format_context_list(contexts: &[crumbly_core::knowledge::domain::Context]) -> String {
     if contexts.is_empty() {
         return String::new();
     }
@@ -130,18 +130,18 @@ fn format_context_list(contexts: &[sembly_core::knowledge::domain::Context]) -> 
 pub enum ContextError {
     #[snafu(display("Knowledge index operation failed"))]
     #[diagnostic(
-        code(sembly::cli::context::knowledge_index_failed),
+        code(crumbly::cli::context::knowledge_index_failed),
         help("Check the error details above for specific guidance")
     )]
     KnowledgeIndex {
-        source: sembly_core::knowledge::facade::IndexError,
+        source: crumbly_core::knowledge::facade::IndexError,
     },
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use sembly_core::knowledge::domain::{Context, ContextId};
+    use crumbly_core::knowledge::domain::{Context, ContextId};
 
     #[test]
     fn format_context_list_shows_default_context() {

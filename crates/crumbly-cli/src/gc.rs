@@ -8,26 +8,26 @@ use std::path::PathBuf;
 
 #[allow(unused_imports)] // Used in format_gc_stats implementation
 use crate::theme;
-use sembly_core::knowledge::KnowledgeIndex;
-use sembly_core::knowledge::facade::GcStats;
+use crumbly_core::knowledge::KnowledgeIndex;
+use crumbly_core::knowledge::facade::GcStats;
 
 /// Arguments for garbage collection.
 #[derive(Parser)]
 pub struct GcArgs {
-    /// Path to forest root (defaults to current directory)
+    /// Path to index root (defaults to current directory)
     #[arg(long)]
-    forest_root: Option<PathBuf>,
+    index_root: Option<PathBuf>,
 }
 
 /// Runs garbage collection to remove orphaned chunks.
 pub fn handle_gc(args: GcArgs) -> Result<(), GcError> {
     use gc_error::*;
 
-    let forest_root = args
-        .forest_root
+    let index_root = args
+        .index_root
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
-    let index = KnowledgeIndex::open(&forest_root).context(KnowledgeIndexSnafu)?;
+    let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
     let stats = index.gc().context(KnowledgeIndexSnafu)?;
 
@@ -52,10 +52,10 @@ fn format_gc_stats(stats: &GcStats) {
 pub enum GcError {
     #[snafu(display("Knowledge index operation failed"))]
     #[diagnostic(
-        code(sembly::cli::gc_failed),
+        code(crumbly::cli::gc_failed),
         help("Check the error details above for specific guidance")
     )]
     KnowledgeIndex {
-        source: sembly_core::knowledge::facade::IndexError,
+        source: crumbly_core::knowledge::facade::IndexError,
     },
 }

@@ -4,7 +4,7 @@
 
 mod common;
 
-use common::{sembly_build, sembly_cmd, sembly_status_chunk_count, setup_fixture};
+use common::{crumbly_build, crumbly_cmd, crumbly_status_chunk_count, setup_fixture};
 use tempfile::TempDir;
 
 // =============================================================================
@@ -17,11 +17,11 @@ fn boost_rules_ranks_boosted_content_higher() {
     // Given: A workspace where docs/** has 2x boost multiplier
     // Both docs/boot.md and src/boot.rs contain similar "startup" content
     let workspace = setup_fixture("boost_rules");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for content that exists in both locations
-    let (code, stdout, _) = sembly_cmd(
+    let (code, stdout, _) = crumbly_cmd(
         workspace.path(),
         &[
             "search",
@@ -70,7 +70,7 @@ fn deduplication_identical_content_shares_embeddings() {
     let workspace = setup_fixture("deduplication");
 
     // When: Building the index
-    let (code, stdout, stderr) = sembly_build(workspace.path());
+    let (code, stdout, stderr) = crumbly_build(workspace.path());
 
     // Then: Build succeeds without duplicate key errors
     assert_eq!(
@@ -90,9 +90,9 @@ fn deduplication_adding_identical_context_does_not_grow_db() {
     // Given: A temp workspace with two identical directories
     let temp = TempDir::new().unwrap();
 
-    // Create sembly.toml
+    // Create crumbly.toml
     std::fs::write(
-        temp.path().join("sembly.toml"),
+        temp.path().join("crumbly.toml"),
         r#"targets = ["."]
 "#,
     )
@@ -127,19 +127,19 @@ Run the installer script to set up the environment.
     .unwrap();
 
     // When: Building the first context
-    let (code, _, stderr) = sembly_cmd(temp.path(), &["build", "--context", "dir_a"]);
+    let (code, _, stderr) = crumbly_cmd(temp.path(), &["build", "--context", "dir_a"]);
     assert_eq!(code, 0, "First build failed: {}", stderr);
 
     // Record chunk count after first context
-    let chunks_after_first = sembly_status_chunk_count(temp.path());
+    let chunks_after_first = crumbly_status_chunk_count(temp.path());
     assert!(chunks_after_first > 0, "Should have indexed some chunks");
 
     // When: Adding the second context with identical content
-    let (code, _, stderr) = sembly_cmd(temp.path(), &["update", "--context", "dir_b"]);
+    let (code, _, stderr) = crumbly_cmd(temp.path(), &["update", "--context", "dir_b"]);
     assert_eq!(code, 0, "Second context update failed: {}", stderr);
 
     // Then: Chunk count should NOT double (embeddings are deduplicated)
-    let chunks_after_second = sembly_status_chunk_count(temp.path());
+    let chunks_after_second = crumbly_status_chunk_count(temp.path());
 
     // The chunk count might increase slightly due to file metadata differences,
     // but should NOT double. Allow up to 20% growth for metadata overhead.
@@ -158,11 +158,11 @@ Run the installer script to set up the environment.
 fn deduplication_rebuild_succeeds() {
     // Given: An existing index
     let workspace = setup_fixture("deduplication");
-    let (code, _, stderr) = sembly_build(workspace.path());
+    let (code, _, stderr) = crumbly_build(workspace.path());
     assert_eq!(code, 0, "Initial build failed: {}", stderr);
 
     // When: Rebuilding the index
-    let (code, _, stderr) = sembly_cmd(workspace.path(), &["rebuild"]);
+    let (code, _, stderr) = crumbly_cmd(workspace.path(), &["rebuild"]);
 
     // Then: Rebuild succeeds
     assert_eq!(code, 0, "Rebuild should succeed: {}", stderr);
