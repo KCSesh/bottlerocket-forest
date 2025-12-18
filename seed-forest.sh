@@ -33,25 +33,13 @@ install_if_needed() {
     local workspace_version=$(get_workspace_version "$crate_name")
     local installed_version=$(get_installed_version "$binary")
 
-    if [ "$installed_version" = "$workspace_version" ]; then
-        log "✓ $binary $workspace_version already installed"
-        return 0
-    fi
-
-    if [ -n "$installed_version" ]; then
-        log "Updating $binary from $installed_version to $workspace_version..."
-    else
-        log "Installing $binary $workspace_version..."
-    fi
-
-    cargo install --path "crates/${crate_name}" &>/dev/null
+    cargo install --path "crates/${crate_name}"
     log "✓ $binary installed"
 }
 
 # Install forest tools first
 log "Checking forest tools..."
-cargo install crumbly &>/dev/null || true
-    log "✓ crumbly installed"
+install_if_needed "crumbly" "crumbly-cli"
 install_if_needed "forester" "forester"
 install_if_needed "brdev" "brdev"
 
