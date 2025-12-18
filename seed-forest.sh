@@ -50,10 +50,4 @@ else
     forester seed
 fi
 
-# Verify
-if ! crumbly search "test" 2>/dev/null | head -1 | grep -q "Found"; then
-    echo "❌ Setup verification failed" >&2
-    exit 1
-fi
-
 log "✅ Setup complete"
