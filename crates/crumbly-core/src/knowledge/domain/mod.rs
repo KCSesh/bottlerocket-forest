@@ -75,6 +75,13 @@ pub struct RepoName(String);
 )]
 pub struct ItemName(String);
 
+/// Name of a Go package
+#[nutype(
+    validate(not_empty),
+    derive(Debug, Clone, Display, Serialize, Deserialize, PartialEq, Eq)
+)]
+pub struct PackageName(String);
+
 /// Markdown heading text for building document hierarchies
 #[nutype(
     validate(not_empty),

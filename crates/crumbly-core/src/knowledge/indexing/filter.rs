@@ -13,13 +13,21 @@ use crate::knowledge::domain::Visibility;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RustItemType {
+    #[serde(rename = "modules")]
     Module,
+    #[serde(rename = "functions")]
     Function,
+    #[serde(rename = "structs")]
     Struct,
+    #[serde(rename = "enums")]
     Enum,
+    #[serde(rename = "traits")]
     Trait,
+    #[serde(rename = "impls")]
     Impl,
+    #[serde(rename = "type-aliases")]
     TypeAlias,
+    #[serde(rename = "constants")]
     Constant,
 }
 
@@ -31,10 +39,15 @@ pub enum RustItemType {
 #[serde(rename_all = "kebab-case")]
 pub enum GoItemType {
     All,
+    #[serde(rename = "functions")]
     Function,
+    #[serde(rename = "methods")]
     Method,
+    #[serde(rename = "structs")]
     Struct,
+    #[serde(rename = "interfaces")]
     Interface,
+    #[serde(rename = "types")]
     Type,
     #[serde(rename = "constants")]
     Const,

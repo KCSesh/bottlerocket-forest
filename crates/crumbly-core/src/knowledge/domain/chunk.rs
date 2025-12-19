@@ -10,8 +10,8 @@ use bon::Builder;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, RepoName, Signature,
-    TokenCount,
+    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, PackageName, RepoName,
+    Signature, TokenCount,
 };
 use crate::knowledge::indexing::RustItemType;
 
@@ -110,7 +110,7 @@ pub struct GoDocContext {
     pub signature: Option<Signature>,
     pub item_type: GoItemType,
     /// Package name for this Go item. None only during parsing errors or malformed files.
-    pub package_name: Option<String>,
+    pub package_name: Option<PackageName>,
 }
 
 /// Visibility of a Go item
