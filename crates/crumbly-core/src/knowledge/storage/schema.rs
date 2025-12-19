@@ -59,6 +59,19 @@ CREATE TABLE IF NOT EXISTS chunks (
     chunk_hash BLOB PRIMARY KEY,
     file_hash BLOB NOT NULL,
     repo_name TEXT NOT NULL,
+    context_type TEXT NOT NULL CHECK(context_type IN ('markdown', 'rust_doc', 'go_doc')),
+    context_data TEXT NOT NULL,
+    content TEXT NOT NULL,
+    token_count INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL
+)
+"#;
+
+const CREATE_CHUNKS_V2: &str = r#"
+CREATE TABLE IF NOT EXISTS chunks (
+    chunk_hash BLOB PRIMARY KEY,
+    file_hash BLOB NOT NULL,
+    repo_name TEXT NOT NULL,
     context_type TEXT NOT NULL CHECK(context_type IN ('markdown', 'rust_doc')),
     context_data TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -70,6 +83,8 @@ CREATE TABLE IF NOT EXISTS chunks (
 const CREATE_INDEX_FILE_HASH: &str =
     "CREATE INDEX IF NOT EXISTS idx_chunks_file_hash ON chunks(file_hash)";
 const CREATE_INDEX_REPO: &str = "CREATE INDEX IF NOT EXISTS idx_chunks_repo ON chunks(repo_name)";
+const CREATE_INDEX_CONTEXT_TYPE: &str =
+    "CREATE INDEX IF NOT EXISTS idx_chunks_context_type ON chunks(context_type)";
 
 /// Reads the schema version from the index_metadata table
 ///
@@ -103,20 +118,24 @@ pub fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
 
 /// Validates that the stored schema version matches the expected version
 ///
-/// Returns an error if the versions do not match, indicating the index
-/// needs to be rebuilt.
+/// Attempts migration if possible, otherwise returns an error indicating
+/// the index needs to be rebuilt.
 pub fn check_schema_version(conn: &Connection) -> Result<()> {
     use schema_error::*;
 
     let stored = get_schema_version(conn)?.unwrap_or(0);
-    if stored != SCHEMA_VERSION {
-        return SchemaMismatchSnafu {
+    if stored == SCHEMA_VERSION {
+        return Ok(());
+    }
+
+    match (stored, SCHEMA_VERSION) {
+        (2, 3) => migrate_v2_to_v3(conn),
+        _ => SchemaMismatchSnafu {
             stored,
             expected: SCHEMA_VERSION,
         }
-        .fail();
+        .fail(),
     }
-    Ok(())
 }
 
 /// Initializes database schema including tables and indexes
@@ -134,6 +153,8 @@ pub fn create_tables(conn: &Connection, config: &EmbeddingModelConfig) -> Result
         .context(SqlExecutionSnafu)?;
     conn.execute(CREATE_INDEX_REPO, [])
         .context(SqlExecutionSnafu)?;
+    conn.execute(CREATE_INDEX_CONTEXT_TYPE, [])
+        .context(SqlExecutionSnafu)?;
 
     let create_vec_chunks = format!(
         "CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
@@ -150,7 +171,65 @@ pub fn create_tables(conn: &Connection, config: &EmbeddingModelConfig) -> Result
     Ok(())
 }
 
+/// Migrates from schema v2 to v3
+///
+/// v3 adds 'go_doc' to the context_type CHECK constraint in chunks table.
+fn migrate_v2_to_v3(conn: &Connection) -> Result<()> {
+    use schema_error::*;
+
+    conn.execute("BEGIN TRANSACTION", []).context(SqlExecutionSnafu)?;
+
+    let result = (|| -> Result<()> {
+        conn.execute(
+            r#"CREATE TABLE chunks_new (
+    chunk_hash BLOB PRIMARY KEY,
+    file_hash BLOB NOT NULL,
+    repo_name TEXT NOT NULL,
+    context_type TEXT NOT NULL CHECK(context_type IN ('markdown', 'rust_doc', 'go_doc')),
+    context_data TEXT NOT NULL,
+    content TEXT NOT NULL,
+    token_count INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL
+)"#,
+            [],
+        ).context(SqlExecutionSnafu)?;
+
+        conn.execute("INSERT INTO chunks_new SELECT * FROM chunks", [])
+            .context(SqlExecutionSnafu)?;
+
+        conn.execute("DROP TABLE chunks", []).context(SqlExecutionSnafu)?;
+
+        conn.execute("ALTER TABLE chunks_new RENAME TO chunks", [])
+            .context(SqlExecutionSnafu)?;
+
+        conn.execute(CREATE_INDEX_FILE_HASH, []).context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_REPO, []).context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_CONTEXT_TYPE, []).context(SqlExecutionSnafu)?;
+
+        set_schema_version(conn, 3)?;
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(_) => {
+            conn.execute("COMMIT", []).context(SqlExecutionSnafu)?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
+}
+
 /// Applies database migrations for schema evolution
+///
+/// Reserved for future migrations. Currently migrations are handled
+/// automatically by check_schema_version() when opening a database.
+#[allow(dead_code)]
 pub fn migrate(_conn: &Connection) -> Result<()> {
     Ok(())
 }
@@ -399,5 +478,53 @@ mod test {
         // Then the schema version should be set to SCHEMA_VERSION
         let version = get_schema_version(&conn).unwrap();
         assert_eq!(version, Some(SCHEMA_VERSION));
+    }
+
+    #[test]
+    fn test_migrate_v2_to_v3() {
+        let conn = setup_connection();
+        
+        conn.execute(CREATE_INDEX_METADATA, []).unwrap();
+        conn.execute(CREATE_CHUNKS_V2, []).unwrap();
+        conn.execute(CREATE_INDEX_FILE_HASH, []).unwrap();
+        conn.execute(CREATE_INDEX_REPO, []).unwrap();
+        
+        set_schema_version(&conn, 2).unwrap();
+        
+        conn.execute(
+            "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![
+                &[1u8, 2, 3][..],
+                &[4u8, 5, 6][..],
+                "test-repo",
+                "markdown",
+                "{}",
+                "test content",
+                10,
+                1234567890
+            ],
+        ).unwrap();
+        
+        check_schema_version(&conn).unwrap();
+        
+        let version = get_schema_version(&conn).unwrap();
+        assert_eq!(version, Some(3));
+        
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM chunks", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
+        
+        conn.execute(
+            "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![
+                &[7u8, 8, 9][..],
+                &[10u8, 11, 12][..],
+                "test-repo",
+                "go_doc",
+                "{}",
+                "go content",
+                15,
+                1234567891
+            ],
+        ).unwrap();
     }
 }

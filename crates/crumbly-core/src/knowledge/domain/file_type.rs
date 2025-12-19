@@ -11,6 +11,7 @@ use std::path::Path;
 pub enum FileType {
     Markdown,
     Rust,
+    Go,
     #[serde(skip)]
     Unsupported,
 }
@@ -20,12 +21,13 @@ impl FileType {
         match path.extension().and_then(|s| s.to_str()) {
             Some("md") => Self::Markdown,
             Some("rs") => Self::Rust,
+            Some("go") => Self::Go,
             _ => Self::Unsupported,
         }
     }
 
     pub fn is_indexable(&self) -> bool {
-        matches!(self, Self::Markdown | Self::Rust)
+        matches!(self, Self::Markdown | Self::Rust | Self::Go)
     }
 }
 
@@ -36,6 +38,7 @@ mod test {
 
     #[test_case("README.md", FileType::Markdown, true ; "markdown file")]
     #[test_case("src/main.rs", FileType::Rust, true ; "rust file")]
+    #[test_case("main.go", FileType::Go, true ; "go file")]
     #[test_case("Cargo.toml", FileType::Unsupported, false ; "toml file")]
     #[test_case("LICENSE", FileType::Unsupported, false ; "no extension")]
     fn test_file_classification(path: &str, expected_type: FileType, expected_indexable: bool) {

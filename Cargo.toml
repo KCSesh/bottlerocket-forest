@@ -46,6 +46,8 @@ sha2 = "0.10"
 text-splitter = { version = "0.28", features = ["markdown", "tokenizers"] }
 quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
+tree-sitter = "0.24"
+tree-sitter-go = "0.23"
 
 # File system and paths
 globset = "0.4"

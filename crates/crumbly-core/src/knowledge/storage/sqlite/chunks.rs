@@ -6,259 +6,70 @@
 //! which context it appears in.
 
 use rusqlite::Connection;
-use snafu::{ResultExt, Snafu};
+use snafu::ResultExt;
 
-use crate::knowledge::constants::EMBEDDING_DIM;
-use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext, Timestamp,
-    TokenCount,
-};
+use crate::knowledge::domain::{ChunkHash, FileHash, IndexedChunk};
+use crate::knowledge::storage::repository::{StorageError, storage_error::*};
+use super::serialization::{indexed_chunk_from_row, serialize_context};
 
-/// Errors that can occur during chunk storage operations.
-#[derive(Debug, Snafu)]
-#[snafu(module, visibility(pub))]
-#[non_exhaustive]
-pub enum ChunkStorageError {
-    /// Database operation failed.
-    #[snafu(display("Database operation failed"))]
-    Database { source: rusqlite::Error },
-
-    /// Invalid data retrieved from database.
-    #[snafu(display("Invalid data in database: {message}"))]
-    InvalidData { message: String },
+pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), StorageError> {
+  let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
+  conn.execute(
+    "INSERT OR REPLACE INTO chunks 
+    (chunk_hash, file_hash, repo_name, context_type, context_data, content, token_count, last_modified)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+    rusqlite::params![
+      chunk.chunk.chunk_hash.as_bytes(),
+      chunk.chunk.file_hash.as_bytes(),
+      chunk.chunk.source.repo_name.to_string(),
+      context_type,
+      context_data,
+      chunk.chunk.content.text,
+      chunk.chunk.content.token_count.into_inner() as i64,
+      chunk.indexed_at.as_secs(),
+    ],
+  ).context(DatabaseSnafu)?;
+  Ok(())
 }
 
-/// Converts a domain error into ChunkStorageError with a custom message.
-fn to_invalid_data<E>(message: &str) -> impl FnOnce(E) -> ChunkStorageError + '_
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
-    move |_| {
-        chunk_storage_error::InvalidDataSnafu {
-            message: message.to_string(),
-        }
-        .build()
-    }
-}
-
-/// Reconstructs an IndexedChunk from a database row with the new schema.
-///
-/// Expects columns: chunk_hash, file_hash, repo_name, context_type, context_data,
-/// content, token_count, last_modified.
-fn indexed_chunk_from_row(row: &rusqlite::Row) -> Result<IndexedChunk, ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let chunk_hash_bytes: Vec<u8> = row.get(0).context(DatabaseSnafu)?;
-    let file_hash_bytes: Vec<u8> = row.get(1).context(DatabaseSnafu)?;
-    let repo_name: String = row.get(2).context(DatabaseSnafu)?;
-    let context_type: String = row.get(3).context(DatabaseSnafu)?;
-    let context_data: String = row.get(4).context(DatabaseSnafu)?;
-    let content: String = row.get(5).context(DatabaseSnafu)?;
-    let token_count: i64 = row.get(6).context(DatabaseSnafu)?;
-    let last_modified: i64 = row.get(7).context(DatabaseSnafu)?;
-
-    let chunk_hash_array: [u8; 32] = chunk_hash_bytes.try_into().map_err(|_| {
-        InvalidDataSnafu {
-            message: "chunk_hash must be 32 bytes".to_string(),
-        }
-        .build()
-    })?;
-
-    let file_hash_array: [u8; 32] = file_hash_bytes.try_into().map_err(|_| {
-        InvalidDataSnafu {
-            message: "file_hash must be 32 bytes".to_string(),
-        }
-        .build()
-    })?;
-
-    let context = deserialize_context(&context_type, &context_data)?;
-
-    let embedding = Embedding::try_new(vec![0.1; EMBEDDING_DIM])
-        .map_err(to_invalid_data("failed to create dummy embedding"))?;
-
-    let chunk = Chunk::builder()
-        .id(ChunkId::new(uuid::Uuid::new_v4()))
-        .chunk_hash(ChunkHash::new(chunk_hash_array))
-        .file_hash(FileHash::new(file_hash_array))
-        .source(
-            ChunkSource::builder()
-                .file_path(
-                    IndexRelativePath::try_new("unknown.md")
-                        .map_err(to_invalid_data("failed to create file path"))?,
-                )
-                .repo_name(
-                    RepoName::try_new(repo_name).map_err(to_invalid_data("invalid repo_name"))?,
-                )
-                .build(),
-        )
-        .content(
-            ChunkContent::builder()
-                .text(content)
-                .token_count(
-                    TokenCount::try_new(token_count as usize)
-                        .map_err(to_invalid_data("invalid token_count"))?,
-                )
-                .build(),
-        )
-        .context(context)
-        .build();
-
-    Ok(IndexedChunk::builder()
-        .chunk(chunk)
-        .embedding(embedding)
-        .indexed_at(Timestamp::from_secs(last_modified))
-        .build())
-}
-
-/// Converts ChunkContext to database-storable type and JSON representation
-fn serialize_context(context: &ChunkContext) -> Result<(String, String), ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let (context_type, context_data) = match context {
-        ChunkContext::Markdown(ctx) => (
-            "markdown",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-        ChunkContext::RustDoc(ctx) => (
-            "rust_doc",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-    };
-
-    Ok((context_type.to_string(), context_data))
-}
-
-/// Reconstructs ChunkContext from database type and JSON fields
-fn deserialize_context(
-    context_type: &str,
-    context_data: &str,
-) -> Result<ChunkContext, ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    match context_type {
-        "markdown" => {
-            let ctx: MarkdownContext = serde_json::from_str(context_data).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?;
-            Ok(ChunkContext::Markdown(ctx))
-        }
-        "rust_doc" => {
-            let ctx: RustDocContext = serde_json::from_str(context_data).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?;
-            Ok(ChunkContext::RustDoc(ctx))
-        }
-        _ => Err(InvalidDataSnafu {
-            message: format!("unknown context type: {}", context_type),
-        }
-        .build()),
-    }
-}
-
-/// Saves a chunk to storage (idempotent - handles UNIQUE constraint).
-pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
-
-    conn.execute(
-        "INSERT OR REPLACE INTO chunks 
-        (chunk_hash, file_hash, repo_name, context_type, context_data, content, token_count, last_modified)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        rusqlite::params![
-            chunk.chunk.chunk_hash.as_bytes(),
-            chunk.chunk.file_hash.as_bytes(),
-            chunk.chunk.source.repo_name.to_string(),
-            context_type,
-            context_data,
-            chunk.chunk.content.text,
-            chunk.chunk.content.token_count.into_inner() as i64,
-            chunk.indexed_at.as_secs(),
-        ],
-    )
-    .context(DatabaseSnafu)?;
-
-    Ok(())
-}
-
-/// Retrieves all chunks associated with a file hash.
 pub fn get_chunks_by_file_hash(
-    conn: &Connection,
-    file_hash: &FileHash,
-) -> Result<Vec<IndexedChunk>, ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let mut stmt = conn
-        .prepare(
-            "SELECT chunk_hash, file_hash, repo_name, context_type, context_data, 
-                    content, token_count, last_modified
-             FROM chunks
-             WHERE file_hash = ?1",
-        )
-        .context(DatabaseSnafu)?;
-
-    stmt.query_map([file_hash.as_bytes()], |row| {
-        indexed_chunk_from_row(row)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-    })
-    .context(DatabaseSnafu)?
-    .collect::<Result<Vec<_>, _>>()
-    .context(DatabaseSnafu)
+  conn: &Connection,
+  file_hash: &FileHash,
+) -> Result<Vec<IndexedChunk>, StorageError> {
+  let mut stmt = conn.prepare(
+    "SELECT chunk_hash, chunk_hash, file_hash, '', repo_name, context_type, context_data, 
+            content, token_count, last_modified
+     FROM chunks
+     WHERE file_hash = ?1",
+  ).context(DatabaseSnafu)?;
+  stmt.query_map([file_hash.as_bytes()], |row| {
+    indexed_chunk_from_row(row)
+      .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+  })
+  .context(DatabaseSnafu)?
+  .collect::<Result<Vec<_>, _>>()
+  .context(DatabaseSnafu)
 }
 
-/// Checks if a chunk with the given hash exists.
-pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM chunks WHERE chunk_hash = ?1",
-            [chunk_hash.as_bytes()],
-            |row| row.get(0),
-        )
-        .context(DatabaseSnafu)?;
-
-    Ok(count > 0)
+pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, StorageError> {
+  let count: i64 = conn.query_row(
+    "SELECT COUNT(*) FROM chunks WHERE chunk_hash = ?1",
+    [chunk_hash.as_bytes()],
+    |row| row.get(0),
+  ).context(DatabaseSnafu)?;
+  Ok(count > 0)
 }
 
-/// Deletes chunks not referenced by any context's indexed files.
-///
-/// Removes orphaned chunks whose file_hash is not present in the indexed_files table.
-/// Also removes associated embeddings. Returns the count of deleted chunks.
-pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, ChunkStorageError> {
-    use chunk_storage_error::*;
-
-    let deleted_chunks = conn
-        .execute(
-            "DELETE FROM chunks WHERE file_hash NOT IN (SELECT DISTINCT file_hash FROM indexed_files)",
-            [],
-        )
-        .context(DatabaseSnafu)?;
-
-    conn.execute(
-        "DELETE FROM vec_chunks WHERE chunk_hash NOT IN (SELECT chunk_hash FROM chunks)",
-        [],
-    )
-    .context(DatabaseSnafu)?;
-
-    Ok(deleted_chunks as u64)
+pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
+  let deleted_chunks = conn.execute(
+    "DELETE FROM chunks WHERE file_hash NOT IN (SELECT DISTINCT file_hash FROM indexed_files)",
+    [],
+  ).context(DatabaseSnafu)?;
+  conn.execute(
+    "DELETE FROM vec_chunks WHERE chunk_hash NOT IN (SELECT chunk_hash FROM chunks)",
+    [],
+  ).context(DatabaseSnafu)?;
+  Ok(deleted_chunks as u64)
 }
 
 #[cfg(test)]

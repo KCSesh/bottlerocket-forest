@@ -9,7 +9,7 @@ use serde::Deserialize;
 use snafu::{ResultExt, Snafu};
 use std::path::{Path, PathBuf};
 
-use super::filter::{IndexingFilter, RustFilter, RustItemType};
+use super::filter::{GoFilter, GoItemType, IndexingFilter, RustFilter, RustItemType};
 use crate::knowledge::constants::SEMBLY_CONFIG;
 use crate::knowledge::domain::{FileType, Visibility};
 use crate::knowledge::scoring::BoostRule;
@@ -47,9 +47,16 @@ impl CrumblyConfig {
             None
         };
 
+        let go_filter = if self.enabled_file_types.contains(&FileType::Go) {
+            Some(self.file_types.go.to_go_filter()?)
+        } else {
+            None
+        };
+
         Ok(IndexingFilter::new(
             self.enabled_file_types.clone(),
             rust_filter,
+            go_filter,
         ))
     }
 }
@@ -72,6 +79,10 @@ pub struct FileTypeConfig {
     /// Rust-specific indexing controls
     #[serde(default)]
     pub rust: RustConfig,
+
+    /// Go-specific indexing controls
+    #[serde(default)]
+    pub go: GoConfig,
 }
 
 /// Configuration for indexing Rust source files
@@ -84,7 +95,7 @@ pub struct RustConfig {
 
     /// Item types to index ("all" or specific types)
     #[serde(default = "default_rust_items", deserialize_with = "deserialize_items")]
-    items: Vec<RustItemType>,
+    pub items: Vec<RustItemType>,
 
     /// Minimum doc comment length in lines
     #[serde(default)]
@@ -140,12 +151,66 @@ impl Default for RustConfig {
     }
 }
 
+/// Configuration for indexing Go source files
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct GoConfig {
+    /// Visibility levels to index
+    #[serde(default = "default_visibility")]
+    pub visibility: Vec<Visibility>,
+
+    /// Item types to index
+    #[serde(default = "default_go_items")]
+    pub items: Vec<GoItemType>,
+
+    /// Minimum doc comment length in lines
+    #[serde(default)]
+    pub min_doc_lines: usize,
+}
+
+impl GoConfig {
+    /// Convert to a GoFilter for use during indexing
+    fn to_go_filter(&self) -> Result<GoFilter, CrumblyConfigError> {
+        Ok(GoFilter::new(
+            self.visibility.clone(),
+            self.items.clone(),
+            self.min_doc_lines,
+        ))
+    }
+}
+
+impl Default for GoConfig {
+    fn default() -> Self {
+        Self {
+            visibility: default_visibility(),
+            items: default_go_items(),
+            min_doc_lines: 0,
+        }
+    }
+}
+
 fn default_file_types() -> Vec<FileType> {
     vec![FileType::Markdown, FileType::Rust]
 }
 
 fn default_rust_visibility() -> Vec<Visibility> {
     vec![Visibility::Public]
+}
+
+fn default_visibility() -> Vec<Visibility> {
+    vec![Visibility::Public]
+}
+
+fn default_go_items() -> Vec<GoItemType> {
+    vec![
+        GoItemType::Function,
+        GoItemType::Method,
+        GoItemType::Struct,
+        GoItemType::Interface,
+        GoItemType::Type,
+        GoItemType::Const,
+        GoItemType::Var,
+    ]
 }
 
 fn default_rust_items() -> Vec<RustItemType> {
@@ -188,6 +253,9 @@ pub fn load_crumbly_config(
         path: index_root.display().to_string(),
     })?;
 
+    // Best-effort validation to catch user errors in configuration.
+    // TOCTOU: Paths could change between validation and use, but this is not a
+    // security boundary - it's a developer tool running with user's permissions.
     for target in &config.targets {
         if target.is_absolute() {
             return Err(CrumblyConfigError::InvalidPath {
@@ -395,6 +463,7 @@ min-doc-lines = 30
                     items: vec![RustItemType::Struct],
                     min_doc_lines: 20,
                 },
+                go: GoConfig::default(),
             },
             boost_rules: vec![],
         };

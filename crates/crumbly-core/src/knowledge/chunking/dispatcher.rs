@@ -34,9 +34,14 @@ impl ChunkingDispatcher {
             filter.rust_filter().cloned(),
         )
         .context(StrategyInitFailedSnafu)?;
+        let godoc_chunker = super::godoc::GoDocChunker::from_config_with_filter(
+            config,
+            filter.go_filter().cloned(),
+        )
+        .context(StrategyInitFailedSnafu)?;
 
         Ok(Self {
-            strategies: vec![Box::new(markdown_chunker), Box::new(rustdoc_chunker)],
+            strategies: vec![Box::new(markdown_chunker), Box::new(rustdoc_chunker), Box::new(godoc_chunker)],
         })
     }
 
@@ -63,7 +68,7 @@ pub enum DispatchError {
     #[snafu(display("No chunking strategy available for this file type"))]
     #[diagnostic(
         code(crumbly::chunking::no_strategy_found),
-        help("Only Markdown (.md) and Rust (.rs) files are currently supported")
+        help("Only Markdown (.md), Rust (.rs), and Go (.go) files are currently supported")
     )]
     NoStrategyFound,
 
@@ -140,6 +145,7 @@ mod test {
 
     #[test_case("test.md" ; "markdown file")]
     #[test_case("test.rs" ; "rust file")]
+    #[test_case("test.go" ; "go file")]
     fn test_with_defaults_supports_file_types(file_path: &str) {
         // Given A dispatcher with default strategies
         let config = EmbeddingModelConfig::default();

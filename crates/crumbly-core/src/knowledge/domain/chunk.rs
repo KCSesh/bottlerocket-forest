@@ -10,8 +10,8 @@ use bon::Builder;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, RepoName, Signature,
-    TokenCount,
+    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, PackageName, RepoName,
+    Signature, TokenCount,
 };
 use crate::knowledge::indexing::RustItemType;
 
@@ -53,6 +53,7 @@ pub struct ChunkContent {
 pub enum ChunkContext {
     Markdown(MarkdownContext),
     RustDoc(RustDocContext),
+    GoDoc(GoDocContext),
 }
 
 /// Heading hierarchy for markdown document structure
@@ -97,4 +98,49 @@ impl From<syn::Visibility> for Visibility {
             syn::Visibility::Inherited => Visibility::Private,
         }
     }
+}
+
+/// Go item metadata for doc comment context
+#[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
+#[builder(on(_, into))]
+#[non_exhaustive]
+pub struct GoDocContext {
+    pub item_name: ItemName,
+    pub visibility: GoVisibility,
+    pub signature: Option<Signature>,
+    pub item_type: GoItemType,
+    /// Package name for this Go item. None only during parsing errors or malformed files.
+    pub package_name: Option<PackageName>,
+}
+
+/// Visibility of a Go item
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GoVisibility {
+    /// Exported (capitalized) item visible outside package
+    Exported,
+    /// Unexported (lowercase) item visible only within package
+    Unexported,
+}
+
+/// Type of Go item
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GoItemType {
+    /// Standalone function
+    Function,
+    /// Method on a type
+    Method,
+    /// Struct type definition
+    Struct,
+    /// Interface type definition
+    Interface,
+    /// Type alias or definition
+    Type,
+    /// Constant declaration
+    Const,
+    /// Variable declaration
+    Var,
+    /// Package-level documentation
+    Package,
 }

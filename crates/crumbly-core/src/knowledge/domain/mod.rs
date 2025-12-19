@@ -22,7 +22,8 @@ use uuid::Uuid;
 use crate::knowledge::constants;
 
 pub use chunk::{
-    Chunk, ChunkContent, ChunkContext, ChunkSource, MarkdownContext, RustDocContext, Visibility,
+    Chunk, ChunkContent, ChunkContext, ChunkSource, GoDocContext, GoItemType, GoVisibility,
+    MarkdownContext, RustDocContext, Visibility,
 };
 pub use context::{Context, ContextId, ContextIdError};
 pub use file_type::FileType;
@@ -73,6 +74,13 @@ pub struct RepoName(String);
     derive(Debug, Clone, Display, Serialize, Deserialize, PartialEq, Eq)
 )]
 pub struct ItemName(String);
+
+/// Name of a Go package
+#[nutype(
+    validate(not_empty),
+    derive(Debug, Clone, Display, Serialize, Deserialize, PartialEq, Eq)
+)]
+pub struct PackageName(String);
 
 /// Markdown heading text for building document hierarchies
 #[nutype(

@@ -31,6 +31,30 @@ pub enum RustItemType {
     Constant,
 }
 
+/// Categories of Go language items that can be filtered during indexing
+///
+/// Unlike RustItemType, includes an `All` variant for convenience in configuration.
+/// This allows `items = ["all"]` in config rather than listing all types explicitly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GoItemType {
+    All,
+    #[serde(rename = "functions")]
+    Function,
+    #[serde(rename = "methods")]
+    Method,
+    #[serde(rename = "structs")]
+    Struct,
+    #[serde(rename = "interfaces")]
+    Interface,
+    #[serde(rename = "types")]
+    Type,
+    #[serde(rename = "constants")]
+    Const,
+    #[serde(rename = "variables")]
+    Var,
+}
+
 /// Filtering rules for Rust source code indexing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RustFilter {
@@ -60,19 +84,44 @@ impl RustFilter {
         item_type: &RustItemType,
         doc_lines: usize,
     ) -> bool {
-        if doc_lines < self.min_doc_lines {
-            return false;
-        }
+        doc_lines >= self.min_doc_lines
+            && self.visibility.contains(visibility)
+            && self.items.contains(item_type)
+    }
+}
 
-        if !self.visibility.contains(visibility) {
-            return false;
-        }
+/// Filtering rules for Go source code indexing
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GoFilter {
+    visibility: Vec<Visibility>,
+    items: Vec<GoItemType>,
+    min_doc_lines: usize,
+}
 
-        if !self.items.contains(item_type) {
-            return false;
+impl GoFilter {
+    /// Create a filter with visibility, item types, and minimum documentation length
+    pub fn new(
+        visibility: Vec<Visibility>,
+        items: Vec<GoItemType>,
+        min_doc_lines: usize,
+    ) -> Self {
+        Self {
+            visibility,
+            items,
+            min_doc_lines,
         }
+    }
 
-        true
+    /// Determine whether a Go item should be indexed based on filter criteria
+    pub fn should_index(
+        &self,
+        visibility: &Visibility,
+        item_type: &GoItemType,
+        doc_lines: usize,
+    ) -> bool {
+        doc_lines >= self.min_doc_lines
+            && self.visibility.contains(visibility)
+            && (self.items.contains(&GoItemType::All) || self.items.contains(item_type))
     }
 }
 
@@ -81,17 +130,20 @@ impl RustFilter {
 pub struct IndexingFilter {
     enabled_file_types: Vec<crate::knowledge::domain::FileType>,
     rust_filter: Option<RustFilter>,
+    go_filter: Option<GoFilter>,
 }
 
 impl IndexingFilter {
-    /// Create a filter with enabled file types and optional Rust-specific rules
+    /// Create a filter with enabled file types and optional language-specific rules
     pub fn new(
         enabled_file_types: Vec<crate::knowledge::domain::FileType>,
         rust_filter: Option<RustFilter>,
+        go_filter: Option<GoFilter>,
     ) -> Self {
         Self {
             enabled_file_types,
             rust_filter,
+            go_filter,
         }
     }
 
@@ -103,6 +155,11 @@ impl IndexingFilter {
     /// Access the Rust-specific filter if configured
     pub fn rust_filter(&self) -> Option<&RustFilter> {
         self.rust_filter.as_ref()
+    }
+
+    /// Access the Go-specific filter if configured
+    pub fn go_filter(&self) -> Option<&GoFilter> {
+        self.go_filter.as_ref()
     }
 }
 
@@ -123,6 +180,19 @@ impl Default for IndexingFilter {
                     RustItemType::Impl,
                     RustItemType::TypeAlias,
                     RustItemType::Constant,
+                ],
+                0,
+            )),
+            go_filter: Some(GoFilter::new(
+                vec![Visibility::Public, Visibility::Private],
+                vec![
+                    GoItemType::Function,
+                    GoItemType::Method,
+                    GoItemType::Struct,
+                    GoItemType::Interface,
+                    GoItemType::Type,
+                    GoItemType::Const,
+                    GoItemType::Var,
                 ],
                 0,
             )),
@@ -180,7 +250,7 @@ mod test {
     fn test_indexing_filter_should_index_file_type() {
         // Given A filter with only markdown enabled
         use crate::knowledge::domain::FileType;
-        let filter = IndexingFilter::new(vec![FileType::Markdown], None);
+        let filter = IndexingFilter::new(vec![FileType::Markdown], None, None);
 
         // When Checking different file types
         let markdown = filter.should_index_file_type(FileType::Markdown);
@@ -195,7 +265,7 @@ mod test {
     fn test_indexing_filter_rust_filter_returns_reference() {
         // Given A filter with Rust filter configured
         let rust_filter = RustFilter::new(vec![Visibility::Public], vec![], 0);
-        let filter = IndexingFilter::new(vec![], Some(rust_filter));
+        let filter = IndexingFilter::new(vec![], Some(rust_filter), None);
 
         // When Getting the Rust filter
         let result = filter.rust_filter();
@@ -204,3 +274,30 @@ mod test {
         assert!(result.is_some());
     }
 }
+
+    #[test]
+    fn test_go_filter_should_index_checks_doc_lines() {
+        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 3);
+        let short_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 2);
+        let long_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 5);
+        assert!(!short_doc);
+        assert!(long_doc);
+    }
+
+    #[test]
+    fn test_go_filter_should_index_checks_visibility() {
+        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 0);
+        let public = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+        let private = filter.should_index(&Visibility::Private, &GoItemType::Function, 100);
+        assert!(public);
+        assert!(!private);
+    }
+
+    #[test]
+    fn test_go_filter_should_index_checks_item_type() {
+        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Struct], 0);
+        let struct_item = filter.should_index(&Visibility::Public, &GoItemType::Struct, 100);
+        let function_item = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+        assert!(struct_item);
+        assert!(!function_item);
+    }

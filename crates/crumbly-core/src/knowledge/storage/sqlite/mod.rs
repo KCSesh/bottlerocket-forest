@@ -242,14 +242,7 @@ impl ChunkRepository for SqliteChunkRepository {
     }
 
     fn delete_orphaned_chunks(&mut self) -> Result<u64, StorageError> {
-        chunks::delete_orphaned_chunks(&self.conn).map_err(|e| StorageError::DatabaseError {
-            source: match e {
-                chunks::ChunkStorageError::Database { source } => source,
-                chunks::ChunkStorageError::InvalidData { message: _ } => {
-                    rusqlite::Error::InvalidQuery
-                }
-            },
-        })
+        chunks::delete_orphaned_chunks(&self.conn)
     }
 
     fn clear_context_files(&mut self, context_id: &ContextId) -> Result<usize, StorageError> {
