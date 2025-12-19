@@ -6,10 +6,13 @@
 use snafu::ResultExt;
 
 use crate::knowledge::constants::EMBEDDING_DIM;
+
+const UUID_BYTE_LENGTH: usize = 16;
+use crate::knowledge::domain::chunk::GoDocContext;
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext, Timestamp,
-    TokenCount,
+    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext,
+    Timestamp, TokenCount,
 };
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 
@@ -47,9 +50,9 @@ pub fn indexed_chunk_from_row(row: &rusqlite::Row) -> Result<IndexedChunk, Stora
     let last_modified: i64 = row.get(9).context(DatabaseSnafu)?;
 
     // Generate a deterministic UUID from the chunk_hash bytes
-    let uuid = if chunk_hash_for_id.len() >= 16 {
-        let mut bytes = [0u8; 16];
-        bytes.copy_from_slice(&chunk_hash_for_id[..16]);
+    let uuid = if chunk_hash_for_id.len() >= UUID_BYTE_LENGTH {
+        let mut bytes = [0u8; UUID_BYTE_LENGTH];
+        bytes.copy_from_slice(&chunk_hash_for_id[..UUID_BYTE_LENGTH]);
         uuid::Uuid::from_bytes(bytes)
     } else {
         uuid::Uuid::nil()
@@ -144,6 +147,15 @@ pub fn serialize_context(context: &ChunkContext) -> Result<(String, String), Sto
                 .build()
             })?,
         ),
+        ChunkContext::GoDoc(ctx) => (
+            "go_doc",
+            serde_json::to_string(ctx).map_err(|e| {
+                InvalidDataSnafu {
+                    message: e.to_string(),
+                }
+                .build()
+            })?,
+        ),
     };
 
     Ok((context_type.to_string(), context_data))
@@ -164,6 +176,11 @@ pub fn deserialize_context(
             let ctx: RustDocContext =
                 serde_json::from_str(context_data).context(SerializationSnafu)?;
             Ok(ChunkContext::RustDoc(ctx))
+        }
+        "go_doc" => {
+            let ctx: GoDocContext =
+                serde_json::from_str(context_data).context(SerializationSnafu)?;
+            Ok(ChunkContext::GoDoc(ctx))
         }
         _ => Err(InvalidDataSnafu {
             message: format!("unknown context type: {}", context_type),
