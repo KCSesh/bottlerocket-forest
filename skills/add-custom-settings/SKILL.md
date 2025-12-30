@@ -1,58 +1,31 @@
 ---
 name: add-custom-settings
-description: Meta-skill orchestrating the full workflow for adding custom settings to a Bottlerocket variant
+description: Full workflow for adding custom settings: create model, wire to variant, test locally
 ---
 
-# Add Custom Settings Meta-Skill
+# Add Custom Settings
 
-A meta-skill that orchestrates the complete workflow for adding custom settings to a Bottlerocket variant.
+Complete workflow for adding custom settings to a Bottlerocket variant, from model creation through local testing.
 
-## Purpose
+## Roles
 
-Guides you through the entire process of adding custom settings:
-1. Planning requirements (settings name, structure, target variant)
-2. Creating the settings model
-3. Wiring settings into the variant
-4. Testing the settings locally
+**You (reading this file) are the orchestrator.**
 
-## When to Use
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., PLAN.md) | Executes phase instructions |
 
-Use when you need to add new custom settings to a Bottlerocket variant from start to finish.
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
-## Component Skills
+## Orchestrator Loop
 
-This meta-skill orchestrates:
-- `create-settings-model` - Create the settings model definition
-- `add-settings-to-variant` - Wire settings into variant configuration
-- `test-settings-locally` - Build and test the variant with new settings
-
-## How It Works
-
-This skill uses the script-driven-skill pattern:
-- **Orchestrator**: Runs the state machine and spawns phase agents
-- **State machine** (`next-step.py`): Controls flow between phases
-- **Phase files**: Self-contained instructions for each step
-
-## Phases
-
-1. **PLAN**: Gather requirements (settings name, structure, variant)
-2. **CREATE-MODEL**: Execute create-settings-model skill
-3. **WIRE-VARIANT**: Execute add-settings-to-variant skill
-4. **TEST**: Execute test-settings-locally skill
-
-## Workspace
-
-Creates workspace at `planning/add-custom-settings-<timestamp>/` with:
-- `requirements.json` - Captured requirements
-- `01-model.md` - Model creation output
-- `02-variant.md` - Variant wiring output
-- `03-test.md` - Testing output
-- `FINAL.md` - Summary of completed work
-
-## Usage
-
-From the orchestrator:
 ```python
+import json
+from datetime import datetime
+
+timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 workspace = f"planning/add-custom-settings-{timestamp}"
 bash(f"mkdir -p {workspace}", on_error="raise")
 
@@ -62,6 +35,11 @@ while True:
     
     if action["type"] == "done":
         final = fs_read("Line", f"{workspace}/FINAL.md", 1, -1)
+        log(final)
+        break
+    
+    if action["type"] == "gate_failed":
+        log(f"Gate failed: {action['reason']}")
         break
     
     if action["type"] == "spawn":
@@ -73,3 +51,36 @@ while True:
         )
         write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
 ```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+1. **PLAN**: Gather requirements (settings name, structure, target variant)
+2. **CREATE-MODEL**: Execute create-settings-model skill
+3. **WIRE-VARIANT**: Execute add-settings-to-variant skill
+4. **TEST**: Execute test-settings-locally skill
+5. **FINALIZE**: Create summary document
+
+## Inputs
+
+The orchestrator needs to create a workspace before starting. The PLAN phase will gather:
+- Settings name and structure
+- Target variant
+- Any special requirements
+
+## Outputs
+
+Produces workspace at `planning/add-custom-settings-<timestamp>/` containing:
+- `requirements.json` - Captured requirements
+- `01-model.md` - Model creation output
+- `02-variant.md` - Variant wiring output
+- `03-test.md` - Testing output
+- `FINAL.md` - Complete workflow summary
