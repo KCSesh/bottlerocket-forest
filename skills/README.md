@@ -34,6 +34,7 @@ When you identify that a skill should be used:
 
 - **fact-find** - Quick lookup of specific facts with citations. Use for concrete questions with definitive answers (e.g., "What partition scheme does Bottlerocket use?")
 - **research-document** - Create educational documents that build understanding progressively. Use for in-depth explanations of systems or features (e.g., "Explain how Bottlerocket's update system works")
+- **script-driven-skill** - Meta-skill for building reliable multi-step skills using a state-machine pattern with dumb orchestrator and smart phases
 - **local-registry** - Start and manage a local OCI registry for development
 - **build-kit-locally** - Build a kit and publish it to a locally hosted registry for development testing
 - **build-variant-from-local-kits** - Build a variant using locally published kits for development validation
