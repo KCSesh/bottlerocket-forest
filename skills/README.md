@@ -35,7 +35,9 @@ When you identify that a skill should be used:
 Skills fall into four categories that determine their structure and usage:
 
 ### 1. Workflow/Process Skills
-Multi-step procedures that must execute reliably in sequence. **SHOULD use script-driven-skill pattern** for reliability and resumability.
+Multi-step procedures that must execute reliably in sequence. **SHOULD use script-driven-skill pattern** for reliability, resumability, and context isolation.
+
+Context isolation is a key benefit: the orchestrator stays lean while subagents do heavy lifting (searching, reading files, analyzing). Search results and intermediate work stay in subagent contexts—only distilled outputs return. This keeps the orchestrator's context window clean for coordination, not cluttered with discovery.
 
 Examples: build-kit-locally, build-variant-from-local-kits, update-twoliter, add-custom-settings, add-settings-to-variant, create-settings-model, test-settings-locally, deep-research, fact-find
 

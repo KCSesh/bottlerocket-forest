@@ -14,6 +14,8 @@ Separates concerns in complex skills:
 - **State machine** (`next-step.py`): Controls flow, validates gates, tracks progress
 - **Phase files**: Self-contained instructions that travel with subagents
 
+**Context isolation** is a primary motivation: the orchestrator stays lean while subagents do heavy lifting (searching, reading files, analyzing). Search results, file contents, and intermediate work stay in subagent contexts—only distilled outputs return. This keeps the orchestrator's context window clean for coordination, not cluttered with discovery. Even "simple" workflows benefit because the orchestrator never carries the baggage of discovering the answer.
+
 ## Roles
 
 **You (reading this file) are the orchestrator.**
