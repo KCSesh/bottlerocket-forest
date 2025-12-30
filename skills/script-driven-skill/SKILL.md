@@ -321,3 +321,93 @@ else:
 - **Resumable**: progress.json survives context resets
 - **Debuggable**: Each phase's output is a file you can inspect
 - **Maintainable**: Change phases without touching orchestrator
+
+## Template for Generated Skills
+
+Every script-driven skill MUST include these sections in SKILL.md so any agent reading it knows they are the orchestrator:
+
+```markdown
+---
+name: skill-name
+description: Brief description (max 256 chars)
+---
+
+# Skill Name
+
+Brief description of what this skill accomplishes.
+
+## Roles
+
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., PHASE.md) | Executes phase instructions |
+
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
+
+## Orchestrator Loop
+
+workspace = "planning/<task-slug>"
+mkdir workspace
+write workspace/input.txt with task details
+
+while True:
+    action = bash("python3 skills/<skill>/next-step.py <workspace>")
+    parse action as JSON
+    
+    if action.type == "done":
+        read workspace/FINAL.md or final output
+        break
+    
+    if action.type == "gate_failed":
+        report failure: action.reason
+        break
+    
+    if action.type == "spawn":
+        result = spawn(
+            prompt = action.prompt,
+            context_files = action.context_files,  # includes phase file
+            context_data = action.context_data,
+            allow_tools = True
+        )
+        write result to workspace/<action.output_file>
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+Brief description of each phase:
+
+1. **PHASE-NAME**: What this phase accomplishes
+2. **PHASE-NAME**: What this phase accomplishes
+...
+
+## Inputs
+
+What the orchestrator needs to gather before starting:
+- Input 1
+- Input 2
+
+## Outputs
+
+What the skill produces:
+- Output location and format
+```
+
+### Key Principles for Generated Skills
+
+1. **Self-documenting**: Any agent reading SKILL.md should immediately understand they are the orchestrator
+2. **Executable**: The orchestrator loop is concrete pseudocode, not abstract description
+3. **Delegating**: Emphasize that phase files go to subagents, not read by orchestrator
+4. **Stateless orchestrator**: All state in progress.json, orchestrator just runs the loop
+
