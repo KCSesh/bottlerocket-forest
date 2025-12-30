@@ -14,6 +14,18 @@ Separates concerns in complex skills:
 - **State machine** (`next-step.py`): Controls flow, validates gates, tracks progress
 - **Phase files**: Self-contained instructions that travel with subagents
 
+## Roles
+
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., SCOUT.md) | Executes phase instructions |
+
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
+
 ## When to Use
 
 **Use for "script-like" skills** where agents must reliably perform each step in sequence.
@@ -34,14 +46,48 @@ skills/<skill-name>/
 ├── next-step.py          # State machine - returns JSON actions
 ├── progress.json         # Runtime state (created during execution)
 └── phases/
-    ├── SCOUT.md          # Phase 1 instructions
-    ├── RESEARCH.md       # Phase 2 instructions
-    └── ASSEMBLE.md       # Phase 3 instructions
+    ├── SCOUT.md          # Phase 1 instructions (for subagents)
+    ├── RESEARCH.md       # Phase 2 instructions (for subagents)
+    └── ASSEMBLE.md       # Phase 3 instructions (for subagents)
 ```
 
 ## The Orchestrator Loop
 
 The orchestrator is intentionally minimal. It never reads phase files—just passes them to subagents.
+
+### Pseudocode (any agentic system)
+
+```
+workspace = "planning/<question-slug>"
+create workspace directory
+write user question to workspace/question.txt
+
+loop:
+    # Ask state machine what to do next
+    action = run("python3 skills/<skill>/next-step.py <workspace>")
+    parse action as JSON
+    
+    if action.type == "done":
+        read workspace/FINAL.md
+        break
+    
+    if action.type == "gate_failed":
+        log "Gate failed: " + action.reason
+        break
+    
+    if action.type == "spawn":
+        # Spawn subagent with phase file - DO NOT read it yourself
+        result = spawn_subagent(
+            prompt = action.prompt,
+            context_files = action.context_files,  # includes phase file
+            context_data = action.context_data
+        )
+        write result to workspace/<action.output_file>
+```
+
+**Key principle:** Orchestrator has no knowledge of phases. It just executes actions.
+
+### Python variant (run_agent_program systems)
 
 ```python
 import json
@@ -49,7 +95,6 @@ import json
 workspace = f"planning/{slug}"
 
 while True:
-    # Ask state machine what to do
     result = bash(f"python3 skills/{skill}/next-step.py {workspace}", on_error="raise")
     action = json.loads(result)
     
@@ -63,15 +108,12 @@ while True:
             context_data=action.get("context_data"),
             allow_tools=True
         )
-        # Write result for state machine to read
         write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
     
     if action["type"] == "gate_failed":
         log(f"Gate failed: {action['reason']}")
         break
 ```
-
-**Key principle:** Orchestrator has no knowledge of phases. It just executes actions.
 
 ## Writing next-step.py
 
