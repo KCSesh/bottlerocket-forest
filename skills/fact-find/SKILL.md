@@ -24,63 +24,88 @@ Quickly find and cite concrete facts about Bottlerocket:
 
 For broader questions about architecture or design, use **deep-research** instead.
 
-## Procedure
+## Roles
 
-### 1. Search
+**You (reading this file) are the orchestrator.**
 
-Create a focused query with key terms:
-```bash
-(cd $FOREST_ROOT && crumbly search "specific terms from question")
-```
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (SEARCH.md or ANSWER.md) | Executes phase instructions |
 
-Check top 3-5 results for relevant files.
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
-### 2. Read
-
-Read the most relevant files to find the answer:
-```bash
-# Pattern search for targeted reading
-grep -n "relevant terms" path/to/file.md
-
-# Full file if needed
-cat path/to/file.md
-```
-
-### 3. If Documentation Is Insufficient
-
-Crumbly indexes documentation, not source code. If you can't find the answer in docs, search the codebase directly:
-
-```bash
-# IMPORTANT: Always scope searches to specific directories!
-# The forest is 80GB+ - unscoped searches will hang.
-rg "search_term" --type rust bottlerocket/sources/
-find bottlerocket/sources -name "*relevant_name*"
-```
-
-This indicates a documentation gap - note it in your Research Quality Indicator.
-
-### 4. Answer with Citations
-
-Provide a direct, concise answer with inline superscript citations and a Sources section:
+## Orchestrator Loop
 
 ```
-Bottlerocket uses a dual partition scheme with sets A and B <sup>[1]</sup>. The default API socket is `/run/api.sock` <sup>[2]</sup>.
+workspace = "planning/<question-slug>"
+mkdir workspace
+write workspace/question.txt with the user's question
+
+while True:
+    action = bash("python3 skills/fact-find/next-step.py <workspace>")
+    parse action as JSON
+    
+    if action.type == "done":
+        read workspace/FINAL.md
+        present to user
+        break
+    
+    if action.type == "gate_failed":
+        report failure: action.reason
+        break
+    
+    if action.type == "spawn":
+        result = spawn(
+            prompt = action.prompt,
+            context_files = action.context_files,
+            context_data = action.context_data,
+            allow_tools = True
+        )
+        write result to workspace/<action.output_file>
+```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+1. **SEARCH**: Run crumbly search, identify relevant files. Subagent carries search results.
+2. **ANSWER**: Read files, formulate answer with citations. Subagent carries file contents.
+
+The orchestrator never sees search results or file contents—just the final answer.
+
+## Inputs
+
+- User's factual question about Bottlerocket
+
+## Outputs
+
+- `workspace/FINAL.md`: Concise answer with inline citations, sources section, and Research Quality Indicator
+
+## Citation Format
+
+The final answer uses this format:
+
+```markdown
+<Answer text with inline citations <sup>[1]</sup>.>
 
 ## Sources
 
-<sup>[1]</sup> [`sources/updater/signpost/README.md`](../sources/updater/signpost/README.md)
-- Partition set structure
+<sup>[1]</sup> [`path/to/file.md`](../path/to/file.md)
+- What this source provided
 
-<sup>[2]</sup> [`sources/api/README.md`](../sources/api/README.md)
-- API socket configuration
+---
+
+✅ **Answered from documentation** | ⚠️ **Answered from source code** | 🔍 **Partial documentation**
 ```
-
-**Citation guidelines:**
-- Use `<sup>[1]</sup>`, `<sup>[2]</sup>`, etc. inline with facts
-- Paths relative to the target repository
-- Markdown links for file paths
-- GitHub URLs for cross-repo references: `https://github.com/bottlerocket-os/REPO/blob/develop/FILE.md`
-- Brief bullet points describing what each source provided
 
 ## Validation
 
@@ -89,12 +114,5 @@ A good fact-find response:
 - ✓ Concise (2-4 sentences typically)
 - ✓ Superscript citations inline
 - ✓ Sources section with numbered references
+- ✓ Research Quality Indicator at end
 - ✓ No unnecessary context or explanation
-
-## Research Quality Indicator
-
-End your response with:
-
-- ✅ **Answered from documentation** - Found in README files, design docs, or narrative documentation.
-- ⚠️ **Answered from source code** - Had to read implementation files due to insufficient documentation.
-- 🔍 **Partial documentation** - Required both docs and source code to answer fully.
