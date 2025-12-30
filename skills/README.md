@@ -35,9 +35,21 @@ When you identify that a skill should be used:
 Skills fall into four categories that determine their structure and usage:
 
 ### 1. Workflow/Process Skills
-Multi-step procedures that must execute reliably in sequence. **SHOULD use script-driven-skill pattern** for reliability, resumability, and context isolation.
+Multi-step procedures that must execute reliably in sequence. These use **delegation** to keep the orchestrator's context clean.
 
-Context isolation is a key benefit: the orchestrator stays lean while subagents do heavy lifting (searching, reading files, analyzing). Search results and intermediate work stay in subagent contexts—only distilled outputs return. This keeps the orchestrator's context window clean for coordination, not cluttered with discovery.
+**Context isolation** is the primary benefit: the orchestrator stays lean while subagents do heavy lifting (searching, reading files, analyzing). Search results and intermediate work stay in subagent contexts—only distilled outputs return.
+
+**Two delegation patterns exist:**
+
+| Pattern | When to Use | Example |
+|---------|-------------|---------|
+| **Single-phase delegation** | Just need context isolation; no gates or resumability | fact-find |
+| **Script-driven (state machine)** | Need validation gates between steps, or resumability after interruption | deep-research, build-kit-locally |
+
+**How to choose:**
+- If your workflow is one logical step (even if complex), use single-phase delegation
+- If you need to validate outputs before proceeding to the next phase, use script-driven
+- If the workflow must survive interruption and resume, use script-driven
 
 Examples: build-kit-locally, build-variant-from-local-kits, update-twoliter, add-custom-settings, add-settings-to-variant, create-settings-model, test-settings-locally, deep-research, fact-find
 

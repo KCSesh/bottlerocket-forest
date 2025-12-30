@@ -30,15 +30,26 @@ Separates concerns in complex skills:
 
 ## When to Use
 
-**Use for "script-like" skills** where agents must reliably perform each step in sequence.
+**Use for multi-phase workflows** where you need validation gates between steps or resumability after interruption.
 
 | Skill Type | Use This Pattern? | Why |
 |------------|------------------|-----|
-| Script-like | ✅ Yes | Steps must execute reliably, skipping is failure |
+| Multi-phase with gates | ✅ Yes | Validate outputs before proceeding |
+| Needs resumability | ✅ Yes | progress.json survives interruption |
 | Documentation-like | ❌ No | Just explains concepts, no execution |
 | Tool-like | ❌ No | Provides scripts/info for a domain, agent chooses what to use |
 
-The subagent architecture has few downsides—each step gets isolated context and is highly unlikely to be skipped.
+## When NOT to Use
+
+**Use single-phase delegation instead** when:
+- Workflow is one logical step (even if complex internally)
+- No validation gates needed between steps
+- No need to resume after interruption
+- You just want context isolation
+
+Single-phase delegation is simpler: spawn one subagent with instructions, get the answer back.
+The subagent handles all searching/reading, keeping that context out of yours.
+See **fact-find** for an example of this pattern.
 
 ## Directory Structure
 
