@@ -5,45 +5,73 @@ description: Create a new Bottlerocket settings model with SettingsModel trait i
 
 # Create Settings Model Skill
 
-Guide users through creating a new Bottlerocket settings model package.
+Creates a complete settings model package with proper directory structure, dependencies, and SettingsModel trait implementation.
 
-## Purpose
+## Roles
 
-Creates a complete settings model package with:
-- Proper directory structure in core-kit
-- Cargo.toml with correct dependencies
-- Rust struct with #[model] macro
-- Full SettingsModel trait implementation (get_version, set, generate, validate)
+**You (reading this file) are the orchestrator.**
 
-## When to Use
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., SCAFFOLD.md) | Executes phase instructions |
 
-Use when adding new custom settings to Bottlerocket that require:
-- API-driven configuration
-- Version migration support
-- Template generation for service configs
-- Validation logic
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
-## Prerequisites
+## Orchestrator Loop
 
-- Working in a Bottlerocket forest worktree
-- Core-kit available at ./kits/bottlerocket-core-kit/
-- Settings SDK available at ./bottlerocket-settings-sdk/
+```python
+workspace = f"planning/{model_name}-settings"
+bash(f"mkdir -p {workspace}", on_error="raise")
+write("create", f"{workspace}/input.txt", file_text=f"Model name: {model_name}
+Description: {description}")
+
+while True:
+  action = bash(f"python3 skills/create-settings-model/next-step.py {workspace}", on_error="raise")
+  a = json.loads(action)
+  
+  if a["type"] == "done":
+    final = fs_read("Line", f"{workspace}/FINAL.md", 1, 1000)
+    break
+  
+  if a["type"] == "gate_failed":
+    log(f"Gate failed: {a['reason']}")
+    break
+  
+  if a["type"] == "spawn":
+    r = spawn(
+      a["prompt"],
+      context_files=a["context_files"],
+      context_data=a.get("context_data"),
+      allow_tools=True
+    )
+    write("create", f"{workspace}/{a['output_file']}", file_text=r.response)
+```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
 
 ## Phases
 
-1. **SCAFFOLD**: Create directory structure and basic files
-2. **IMPLEMENT**: Implement SettingsModel trait methods
+1. **SCAFFOLD**: Create directory structure and basic files (Cargo.toml, lib.rs, main.rs)
+2. **IMPLEMENT**: Implement SettingsModel trait methods (get_version, set, generate, validate)
 3. **VALIDATE**: Verify with cargo check
 
-## Usage
+## Inputs
 
-The orchestrator will:
-1. Create workspace in planning/<model-name>-settings/
-2. Execute phases sequentially via subagents
-3. Validate gates between phases
-4. Produce final package in core-kit
+Gather before starting:
+- Model name (e.g., "myapp")
+- Description of what settings this model manages
+- Settings fields and their types
 
-## Output
+## Outputs
 
 Complete settings model package at:
 ```
