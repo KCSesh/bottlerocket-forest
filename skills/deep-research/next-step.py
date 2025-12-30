@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""State machine for research-document skill."""
+"""State machine for deep-research skill."""
 import json
 import re
 import sys
@@ -58,7 +58,7 @@ def main():
             print(json.dumps({
                 'type': 'spawn',
                 'prompt': 'Execute the scout phase for this research task.',
-                'context_files': ['skills/research-document/phases/SCOUT.md'],
+                'context_files': ['skills/deep-research/phases/SCOUT.md'],
                 'context_data': {'workspace': str(workspace)},
                 'output_file': '00-scout.md'
             }))
@@ -85,7 +85,7 @@ def main():
             print(json.dumps({
                 'type': 'spawn',
                 'prompt': f'Research this sub-question: {sq["text"]}',
-                'context_files': ['skills/research-document/phases/RESEARCH.md', f'{workspace}/00-scout.md'],
+                'context_files': ['skills/deep-research/phases/RESEARCH.md', f'{workspace}/00-scout.md'],
                 'context_data': {
                     'workspace': str(workspace),
                     'subquestion': sq['text'],
@@ -115,7 +115,7 @@ def main():
             print(json.dumps({
                 'type': 'spawn',
                 'prompt': 'Assemble the research into a final document.',
-                'context_files': ['skills/research-document/phases/ASSEMBLE.md'] + research_files,
+                'context_files': ['skills/deep-research/phases/ASSEMBLE.md'] + research_files,
                 'context_data': {'workspace': str(workspace)},
                 'output_file': 'FINAL.md'
             }))
@@ -139,7 +139,7 @@ def main():
             print(json.dumps({
                 'type': 'spawn',
                 'prompt': f'Verify citation [{cit}]',
-                'context_files': ['skills/research-document/phases/VERIFY.md', f'{workspace}/FINAL.md'],
+                'context_files': ['skills/deep-research/phases/VERIFY.md', f'{workspace}/FINAL.md'],
                 'context_data': {
                     'workspace': str(workspace),
                     'citation_num': cit,

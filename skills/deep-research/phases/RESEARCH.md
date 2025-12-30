@@ -21,7 +21,7 @@ You are answering a specific sub-question from a research task.
    - Write a direct answer with inline citations
 
 4. For **research-document** type:
-   - Create a subdirectory and recurse with own scout/decompose
+   - Create a subdirectory and recurse with own scout phase
    - The subdirectory's FINAL.md becomes the answer
 
 5. Write your answer to `{{workspace}}/{{output_file}}`

@@ -122,7 +122,7 @@ Just config and documentation.
 **Built into forester (placed on `forester new`):**
 
 - `fact-find`
-- `research-document`
+- `deep-research`
 
 **In forester repo (for tool development):**
 

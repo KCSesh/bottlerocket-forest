@@ -66,9 +66,9 @@ Write to `{{workspace}}/00-scout.md`:
 |------------------------|------|
 | Has a concrete, specific answer | fact-find |
 | Asks "what is X" or "where is Y" | fact-find |
-| Asks "how does X work" | research-document |
-| Involves multiple components interacting | research-document |
-| Would need 3+ source files to answer | research-document |
+| Asks "how does X work" | deep-research |
+| Involves multiple components interacting | deep-research |
+| Would need 3+ source files to answer | deep-research |
 
 ## Completion
 
