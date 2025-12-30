@@ -5,89 +5,81 @@ description: Update all Bottlerocket repositories to a new Twoliter version
 
 # Skill: Update Twoliter Version
 
-## Purpose
-
 Update all repositories in the forest to a new version of Twoliter. This creates git commits in core-kit, kernel-kit, and bottlerocket repositories with the updated version and SHA256 checksums.
 
-## When to Use
+## Roles
 
-- Testing a new Twoliter release candidate
-- Updating to a new stable Twoliter release
-- Preparing pull requests to trigger CI testing with a new Twoliter version
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., FETCH.md) | Executes phase instructions |
+
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
+
+## Orchestrator Loop
+
+```python
+workspace = f"planning/update-twoliter-{version}"
+bash(f"mkdir -p {workspace}", on_error="raise")
+write("create", f"{workspace}/version.txt", file_text=version)
+write("create", f"{workspace}/worktree_root.txt", file_text=worktree_root)
+
+while True:
+  result = bash(f"python3 skills/update-twoliter/next-step.py {workspace}", on_error="raise")
+  action = json.loads(result)
+  
+  if action["type"] == "done":
+    final = fs_read("Line", f"{workspace}/FINAL.md", 1, 100)
+    break
+  
+  if action["type"] == "gate_failed":
+    log(f"Gate failed: {action['reason']}")
+    break
+  
+  if action["type"] == "spawn":
+    r = spawn(
+      action["prompt"],
+      context_files=action["context_files"],
+      context_data={**action.get("context_data", {}), "worktree_root": worktree_root},
+      allow_tools=True
+    )
+    write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
+```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+1. **FETCH**: Download SHA256 checksums from GitHub releases
+2. **UPDATE_KITS**: Update all kit Makefiles and commit (no 'v' prefix)
+3. **UPDATE_BOTTLEROCKET**: Update bottlerocket/Makefile.toml and commit (with 'v' prefix)
+4. **VALIDATE**: Verify all commits were created correctly
+
+## Inputs
+
+Before starting, gather:
+- Target Twoliter version (e.g., "0.13.0" or "0.13.0-rc1")
+- Worktree root path (where kits/ and bottlerocket/ directories exist)
+
+## Outputs
+
+- `<workspace>/FINAL.md`: Validation report with list of updated repositories
 
 ## Prerequisites
 
-- All repositories cloned in the forest
+- All repositories cloned in the forest worktree
 - Git configured with author information
 - Network access to GitHub releases
-
-## Procedure
-
-### 1. Fetch SHA256 checksums for the new version
-
-Replace `X.Y.Z` with the target version (e.g., `0.13.0` or `0.13.0-rc1`):
-
-```bash
-# For x86_64
-curl -sSL "https://github.com/bottlerocket-os/twoliter/releases/download/vX.Y.Z/twoliter-x86_64-unknown-linux-musl.tar.xz.sha256"
-
-# For aarch64
-curl -sSL "https://github.com/bottlerocket-os/twoliter/releases/download/vX.Y.Z/twoliter-aarch64-unknown-linux-musl.tar.xz.sha256"
-```
-
-### 2. Update all kits
-
-For each kit in the worktree (e.g., `bottlerocket-core-kit`, `bottlerocket-kernel-kit`), edit the `Makefile`:
-
-```makefile
-TWOLITER_VERSION ?= "X.Y.Z"
-TWOLITER_SHA256_AARCH64 ?= "<aarch64-sha256>"
-TWOLITER_SHA256_X86_64 ?= "<x86_64-sha256>"
-```
-
-Commit each kit:
-```bash
-cd kits/<kit-name>
-git add Makefile
-git commit -m "chore: bump to twoliter X.Y.Z"
-cd ../..
-```
-
-### 3. Update bottlerocket
-
-Edit `bottlerocket/Makefile.toml` in the worktree (note the `v` prefix):
-
-```toml
-TWOLITER_VERSION = "vX.Y.Z"
-TWOLITER_SHA256_AARCH64 = "<aarch64-sha256>"
-TWOLITER_SHA256_X86_64 = "<x86_64-sha256>"
-```
-
-Commit:
-```bash
-cd bottlerocket
-git add Makefile.toml
-git commit -m "chore: bump to twoliter X.Y.Z"
-```
-
-## Validation
-
-Verify commits were created in all kits and bottlerocket:
-
-```bash
-# Check each kit
-for kit in kits/*/; do
-  echo "=== $(basename $kit) ==="
-  (cd "$kit" && git show HEAD --stat)
-done
-
-# Check bottlerocket
-(cd bottlerocket && git show HEAD --stat)
-```
-
-Each should show:
-- Commit message: `chore: bump to twoliter X.Y.Z`
-- 1 file changed, 3 insertions(+), 3 deletions(-)
 
 ## Common Issues
 
@@ -102,14 +94,9 @@ Each should show:
 **Amending commits:**
 If you need to update an existing commit (e.g., moving from RC to stable):
 ```bash
-# Make the file changes, then:
 git add <file>
 git commit --amend -m "chore: bump to twoliter X.Y.Z"
 ```
-
-## Related Skills
-
-- None (standalone skill)
 
 ## Notes
 
