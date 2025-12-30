@@ -37,7 +37,7 @@ Skills fall into four categories that determine their structure and usage:
 ### 1. Workflow/Process Skills
 Multi-step procedures that must execute reliably in sequence. **SHOULD use script-driven-skill pattern** for reliability and resumability.
 
-Examples: build-kit-locally, build-variant-from-local-kits, update-twoliter, add-custom-settings, add-settings-to-variant, create-settings-model, test-settings-locally, deep-research
+Examples: build-kit-locally, build-variant-from-local-kits, update-twoliter, add-custom-settings, add-settings-to-variant, create-settings-model, test-settings-locally, deep-research, fact-find
 
 ### 2. Documentation Skills
 Provide guidance, style guides, or educational content. No execution required—just explain concepts.
@@ -52,7 +52,7 @@ Examples: local-registry
 ### 4. Conversational/Interactive Skills
 Require back-and-forth with user. **Root orchestrator handles directly**—do NOT delegate to subagents (users can't interact with subagents).
 
-Examples: idea-honing, fact-find
+Examples: idea-honing
 
 **Note:** Skills can span multiple categories. The propose-feature-* skills combine workflow and documentation aspects.
 
@@ -67,7 +67,7 @@ Examples: idea-honing, fact-find
 
 ## Available Skills
 
-- **fact-find** (Conversational) - Quick lookup of specific facts with citations. Use for concrete questions with definitive answers (e.g., "What partition scheme does Bottlerocket use?")
+- **fact-find** (Workflow) - Quick lookup of specific facts with citations. Use for concrete questions with definitive answers (e.g., "What partition scheme does Bottlerocket use?")
 - **deep-research** (Workflow) - Create educational documents that build understanding progressively. Use for in-depth explanations of systems or features (e.g., "Explain how Bottlerocket's update system works")
 - **script-driven-skill** (Meta) - Meta-skill for building reliable multi-step skills using a state-machine pattern with dumb orchestrator and smart phases
 - **local-registry** (Tool-Providing) - Start and manage a local OCI registry for development
