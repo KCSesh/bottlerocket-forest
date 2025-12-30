@@ -1,5 +1,5 @@
 ---
-name: research-document
+name: deep-research
 description: Create educational documents that build understanding progressively with citations
 ---
 
@@ -39,7 +39,7 @@ For quick factual lookups, use **fact-find** instead.
 ## Directory Structure
 
 ```
-skills/research-document/
+skills/deep-research/
 ├── SKILL.md              # This file (for orchestrator)
 ├── next-step.py          # State machine
 └── phases/               # For subagents only - do not read
@@ -80,7 +80,7 @@ write user_question to workspace/question.txt
 
 loop:
     # Ask state machine what to do next
-    action = run("python3 skills/research-document/next-step.py <workspace>")
+    action = run("python3 skills/deep-research/next-step.py <workspace>")
     parse action as JSON
     
     if action.type == "done":
@@ -113,7 +113,7 @@ bash(f"mkdir -p {workspace}", on_error="raise")
 write("create", f"{workspace}/question.txt", file_text=user_question)
 
 while True:
-    result = bash(f"python3 skills/research-document/next-step.py {workspace}", on_error="raise")
+    result = bash(f"python3 skills/deep-research/next-step.py {workspace}", on_error="raise")
     action = json.loads(result)
     
     if action["type"] == "done":
