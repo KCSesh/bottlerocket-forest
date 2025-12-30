@@ -5,9 +5,74 @@ description: Create or update feature requirements specification using EARS nota
 
 # Propose Feature Requirements Skill
 
-## Purpose
-
 Create a formal requirements specification for a feature using EARS notation. This translates the concept into testable, specific requirements.
+
+## Roles
+
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., VERIFY.md) | Executes phase instructions |
+
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
+
+## Orchestrator Loop
+
+```
+workspace = "planning/<feature-slug>"
+mkdir workspace
+
+while True:
+  action = bash("python3 skills/propose-feature-requirements/next-step.py <workspace>")
+  parse action as JSON
+  
+  if action.type == "done":
+    read workspace/03-validate.md for final results
+    break
+  
+  if action.type == "gate_failed":
+    report failure: action.reason
+    break
+  
+  if action.type == "spawn":
+    result = spawn(
+      prompt = action.prompt,
+      context_files = action.context_files,
+      context_data = action.context_data,
+      allow_tools = True
+    )
+    write result to workspace/<action.output_file>
+```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+1. **VERIFY**: Check that concept exists and identify any idea-honing insights
+2. **SETUP**: Copy template and determine requirements prefix
+3. **WRITE**: Fill in requirements using EARS notation with examples and appendices
+4. **VALIDATE**: Review for completeness, testability, and correct formatting
+
+## Inputs
+
+Before starting, gather:
+- Feature number and name (format: NNNN-feature-name)
+- Concept document must exist at docs/features/NNNN-feature-name/concept.md
+
+## Outputs
+
+- Requirements specification at docs/features/NNNN-feature-name/requirements.md
+- Validation report at workspace/03-validate.md
 
 ## When to Use
 
@@ -20,134 +85,6 @@ Create a formal requirements specification for a feature using EARS notation. Th
 - Feature concept document exists in `docs/features/NNNN-feature-name/concept.md`
 - Concept has been reviewed and approved
 - User understands the feature scope
-
-## Procedure
-
-### 1. Verify Concept Exists
-
-```bash
-# Check that concept exists
-ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
-```
-
-If it doesn't exist, use `propose-feature-concept` skill first.
-
-### 2. Check for Idea Honing Document
-
-```bash
-ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
-```
-
-If it exists, review it for insights that inform requirements. The Q&A may reveal edge cases and constraints.
-
-### 3. Copy Requirements Template
-
-```bash
-cp $FOREST_ROOT/docs/features/0000-templates/requirements.md $FOREST_ROOT/docs/features/NNNN-feature-name/
-```
-
-### 4. Determine Requirements Prefix
-
-Choose a short prefix (2-5 characters) for requirement IDs:
-- Should be descriptive of the feature
-- Examples: `SEM` for semantic-search, `REG` for registry-management
-- Will be used like `SEM-1`, `SEM-2`, etc.
-
-### 5. Fill in Overview
-
-Write a brief description of what this specification covers. Reference the concept document.
-
-### 6. Define Functional Requirements
-
-For each requirement, use EARS format:
-
-```
-**WHILE** [state or condition]
-**WHEN** [trigger or event]
-**THEN** the system **SHALL** [required behavior]
-```
-
-Add inline examples only if truly small (1-3 lines):
-```
-key = "value"
-```
-
-For larger examples, note them for appendices.
-
-### 7. Define Non-Functional Requirements
-
-Add performance, usability, security, or other quality requirements:
-
-```
-**WHILE** [operating condition]
-**THEN** the system **SHALL** [performance requirement]
-```
-
-**Scalability prompts** (ask these for each major operation):
-- What happens when there are 1000x more items? 1M files? 10M rows?
-- Should memory usage scale with data size, or stay constant?
-- What's the acceptable latency? Does it degrade with scale?
-
-These questions surface constraints that will become Critical Constraints in the design phase.
-If an operation must be O(1) memory or O(log n) time, state it here.
-
-### 8. Define Error Handling
-
-Specify how errors should be handled:
-
-```
-**WHILE** [operation in progress]
-**WHERE** [error condition occurs]
-**THEN** the system **SHALL** [error handling behavior]
-```
-
-### 9. Add Appendices
-
-For larger examples that would clutter requirements:
-- API response schemas
-- Configuration file formats
-- Data structures
-- Protocol specifications
-
-Each appendix should be clearly labeled:
-```
-## Appendix A: API Response Schema
-## Appendix B: Configuration File Format
-```
-
-### 10. Review for Completeness
-
-Ensure:
-- All requirements use EARS keywords
-- Requirements are testable and specific
-- Inline examples are truly small
-- Larger examples are in appendices
-- Requirements have unique IDs with the chosen prefix
-
-## Validation
-
-Verify the requirements document:
-
-```bash
-# Check file exists
-ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
-
-# Verify it has content
-head -50 $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
-
-# Check for EARS keywords
-grep -E "WHILE|WHEN|WHERE|THEN|SHALL" $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
-```
-
-## Common Issues
-
-**Missing EARS keywords**: Every requirement should use WHILE/WHEN/WHERE/THEN/SHALL.
-
-**Too vague**: Requirements should be specific enough to test.
-
-**Inline examples too large**: Move anything over 3 lines to an appendix.
-
-**Inconsistent prefix**: All requirement IDs should use the same prefix.
 
 ## Next Steps
 
