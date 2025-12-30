@@ -16,13 +16,15 @@ Separates concerns in complex skills:
 
 ## When to Use
 
-| Situation | Use This Pattern? |
-|-----------|------------------|
-| 3+ phases with dependencies | ✅ Yes |
-| Risk of skipping validation gates | ✅ Yes |
-| Context bloat from reading all phases upfront | ✅ Yes |
-| Simple 1-2 step procedure | ❌ No, use inline instructions |
-| Phases need orchestrator judgment | ❌ No, orchestrator must stay dumb |
+**Use for "script-like" skills** where agents must reliably perform each step in sequence.
+
+| Skill Type | Use This Pattern? | Why |
+|------------|------------------|-----|
+| Script-like | ✅ Yes | Steps must execute reliably, skipping is failure |
+| Documentation-like | ❌ No | Just explains concepts, no execution |
+| Tool-like | ❌ No | Provides scripts/info for a domain, agent chooses what to use |
+
+The subagent architecture has few downsides—each step gets isolated context and is highly unlikely to be skipped.
 
 ## Directory Structure
 
