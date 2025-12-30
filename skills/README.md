@@ -46,6 +46,10 @@ When you identify that a skill should be used:
 - **propose-feature-design** - Create or update feature technical design document with architecture and implementation guidance
 - **propose-feature-test-plan** - Create a test plan mapping requirements and constraints to unit/integration tests
 - **propose-implementation-plan** - Create an implementation plan with atomic commits that build toward a complete feature
+- **create-settings-model** - Define a new Bottlerocket settings model with SettingsModel trait implementation
+- **add-settings-to-variant** - Wire an existing settings model into a Bottlerocket variant via settings-plugins
+- **test-settings-locally** - Build and test settings SDK changes using local registry and kit builds
+- **add-custom-settings** - Full workflow for adding custom settings: create model, wire to variant, test locally
 
 ## Skill Format
 
