@@ -26,61 +26,30 @@ For broader questions about architecture or design, use **deep-research** instea
 
 ## Roles
 
-**You (reading this file) are the orchestrator.**
-
 | Role | Reads | Does |
 |------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, workspace files | Decides next action, validates gates |
-| Subagent | Phase file (SEARCH.md or ANSWER.md) | Executes phase instructions |
+| Orchestrator (you) | SKILL.md | Creates workspace, spawns subagent, returns answer |
+| Subagent | phases/FACT-FIND.md | Searches, reads files, writes cited answer |
 
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
+⚠️ **You do NOT read the phase file** — pass it to the subagent via context_files. The subagent handles all search and file reading, keeping that context out of yours.
 
-## Orchestrator Loop
+## Orchestrator Instructions
 
 ```
 workspace = "planning/<question-slug>"
 mkdir workspace
 write workspace/question.txt with the user's question
 
-while True:
-    action = bash("python3 skills/fact-find/next-step.py <workspace>")
-    parse action as JSON
-    
-    if action.type == "done":
-        read workspace/FINAL.md
-        present to user
-        break
-    
-    if action.type == "gate_failed":
-        report failure: action.reason
-        break
-    
-    if action.type == "spawn":
-        result = spawn(
-            prompt = action.prompt,
-            context_files = action.context_files,
-            context_data = action.context_data,
-            allow_tools = True
-        )
-        write result to workspace/<action.output_file>
+result = spawn(
+    prompt = "Answer the factual question in the workspace.",
+    context_files = ["skills/fact-find/phases/FACT-FIND.md"],
+    context_data = {"workspace": workspace},
+    allow_tools = True
+)
+
+read workspace/ANSWER.md
+present to user
 ```
-
-## Anti-Patterns
-
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in progress.json |
-
-## Phases
-
-1. **SEARCH**: Run crumbly search, identify relevant files. Subagent carries search results.
-2. **ANSWER**: Read files, formulate answer with citations. Subagent carries file contents.
-
-The orchestrator never sees search results or file contents—just the final answer.
 
 ## Inputs
 
@@ -88,7 +57,7 @@ The orchestrator never sees search results or file contents—just the final ans
 
 ## Outputs
 
-- `workspace/FINAL.md`: Concise answer with inline citations, sources section, and Research Quality Indicator
+- `workspace/ANSWER.md`: Concise answer with inline citations, sources section, and Research Quality Indicator
 
 ## Citation Format
 

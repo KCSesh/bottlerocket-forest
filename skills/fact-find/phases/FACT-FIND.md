@@ -1,33 +1,48 @@
-# Answer Phase
+# Fact Find Phase
 
-You are executing the answer phase of a fact-find task.
+You are executing a fact-find task: search for information and provide a cited answer.
 
 ## Your Goal
 
-Read the identified files and formulate a concise answer with proper citations.
+Find relevant files and formulate a concise answer with proper citations.
 
 ## Inputs
 
 - Workspace: provided via context_data
-- Question: `<workspace>/question.txt`
-- Search results: `<workspace>/00-search.md` (provided via context_files)
+- Question: Read from `<workspace>/question.txt`
 
 ## Procedure
 
-1. Read the question and search results
+1. Read the question:
+   ```bash
+   cat <workspace>/question.txt
+   ```
 
-2. Read the relevant files identified in search results:
+2. Run focused crumbly searches with key terms:
+   ```bash
+   crumbly search "specific terms from question"
+   ```
+
+3. Check top 3-5 results for relevance
+
+4. If documentation is insufficient, search source code:
+   ```bash
+   # IMPORTANT: Always scope searches to specific directories!
+   rg "search_term" --type rust bottlerocket/sources/
+   ```
+
+5. Read the relevant files:
    ```bash
    cat path/to/file.md
    # Or for targeted reading:
    grep -n "relevant terms" path/to/file.md
    ```
 
-3. Formulate a direct, concise answer (2-4 sentences typically)
+6. Formulate a direct, concise answer (2-4 sentences typically)
 
 ## Output Format
 
-Write to `<workspace>/FINAL.md` using this exact format:
+Write to `<workspace>/ANSWER.md` using this exact format:
 
 ```markdown
 <Direct answer with inline superscript citations like this <sup>[1]</sup>.>
@@ -58,7 +73,7 @@ Write to `<workspace>/FINAL.md` using this exact format:
 
 ## Validation
 
-A good fact-find response:
+Before completing, verify your answer:
 - ✓ Directly answers the specific question
 - ✓ Concise (2-4 sentences typically)
 - ✓ Superscript citations inline
