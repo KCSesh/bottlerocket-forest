@@ -89,10 +89,13 @@ $FOREST_ROOT/planning/
 
 ### For Multi-Agent Systems
 
-- **Lead agent**: Scout, decompose, assemble, coordinate verification
-- **Subagents**: Each sub-question becomes a task; subagent writes answer to the workspace
+- **Lead agent**: Spawn scout, read scout output, decompose, assemble, coordinate verification
+- **Scout subagent**: Performs Phase 1 (searches, skims results, writes `00-scout.md`)
+- **Research subagents**: Each sub-question becomes a task; subagent writes answer to the workspace
 - **Verifiers**: Lightweight agents that check citations (no tools needed)
 - Subagents can recursively spawn if their question is too big (up to depth limit)
+
+**Why delegate scouting:** The lead agent's context is valuable. Raw search results and file contents from scouting would pollute it. The scout writes structured findings to `00-scout.md`; the lead reads only that file.
 
 ### Plan/Todolist Discipline
 
