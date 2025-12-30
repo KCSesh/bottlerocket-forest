@@ -15,6 +15,18 @@ Creates in-depth explanatory documents that:
 - Provide complete citations for all information
 - Use visual summaries and tables for dense information
 
+## Roles
+
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., SCOUT.md) | Executes phase instructions |
+
+⚠️ **Do not read the files in `phases/`** — they are instructions for your subagents. Pass them via context_files.
+
 ## When to Use
 
 - User asks for comprehensive explanations of systems or features
@@ -28,13 +40,13 @@ For quick factual lookups, use **fact-find** instead.
 
 ```
 skills/research-document/
-├── SKILL.md              # This file
+├── SKILL.md              # This file (for orchestrator)
 ├── next-step.py          # State machine
-└── phases/
-    ├── SCOUT.md          # Phase 1: discover and decompose
-    ├── RESEARCH.md       # Phase 2: answer sub-questions
-    ├── ASSEMBLE.md       # Phase 3: combine into document
-    └── VERIFY.md         # Phase 4: check citations
+└── phases/               # For subagents only - do not read
+    ├── SCOUT.md
+    ├── RESEARCH.md
+    ├── ASSEMBLE.md
+    └── VERIFY.md
 ```
 
 ## Workspace Layout
@@ -55,7 +67,41 @@ planning/how-twoliter-builds-kits/
 
 ## Orchestrator Loop
 
-The orchestrator runs the state machine and spawns subagents:
+The orchestrator runs the state machine and spawns subagents.
+
+### Pseudocode (any agentic system)
+
+```
+slug = slugify(user_question)
+workspace = "planning/" + slug
+
+create workspace directory
+write user_question to workspace/question.txt
+
+loop:
+    # Ask state machine what to do next
+    action = run("python3 skills/research-document/next-step.py <workspace>")
+    parse action as JSON
+    
+    if action.type == "done":
+        read workspace/FINAL.md
+        break
+    
+    if action.type == "gate_failed":
+        log "Gate failed: " + action.reason
+        break
+    
+    if action.type == "spawn":
+        # Spawn subagent with phase file - DO NOT read it yourself
+        result = spawn_subagent(
+            prompt = action.prompt,
+            context_files = action.context_files,  # includes phase file
+            context_data = action.context_data
+        )
+        write result to workspace/<action.output_file>
+```
+
+### Python variant (run_agent_program systems)
 
 ```python
 import json
@@ -94,27 +140,18 @@ while True:
 
 Discovers what exists and formulates sub-questions. Writes `00-scout.md`.
 
-See `phases/SCOUT.md` for subagent instructions.
-
 ### Phase 2: Research
 
 Answers each sub-question from the scout phase. Writes `NN-*.md` files.
-
 The state machine loops until all sub-questions are answered.
-
-See `phases/RESEARCH.md` for subagent instructions.
 
 ### Phase 3: Assemble
 
 Combines all research files into `FINAL.md`.
 
-See `phases/ASSEMBLE.md` for subagent instructions.
-
 ### Phase 4: Verify
 
 Checks each citation in `FINAL.md`. Spawns one verifier per citation.
-
-See `phases/VERIFY.md` for subagent instructions.
 
 ## Gates
 
