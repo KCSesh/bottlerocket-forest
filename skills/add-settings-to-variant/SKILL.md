@@ -1,6 +1,6 @@
 ---
 name: add-settings-to-variant
-description: Wire an existing settings model into a Bottlerocket variant
+description: Wire an existing settings model into a Bottlerocket variant via settings-plugins
 ---
 
 # Add Settings to Variant
@@ -26,11 +26,17 @@ Use when you have:
 - Variant exists in bottlerocket/variants/
 - Core-kit is available (contains settings-plugins)
 
-## Phases
+## Roles
 
-1. **LOCATE**: Find variant's settings-plugins, understand structure
-2. **INTEGRATE**: Add settings model to plugin, update dependencies
-3. **VERIFY**: Build settings-plugins package, confirm compilation
+**You (reading this file) are the orchestrator.**
+
+| Role | Reads | Does |
+|------|-------|------|
+| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
+| State machine | progress.json, workspace files | Decides next action, validates gates |
+| Subagent | Phase file (e.g., LOCATE.md) | Executes phase instructions |
+
+⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
 ## Orchestrator Loop
 
@@ -66,6 +72,31 @@ while True:
     )
     write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
 ```
+
+## Anti-Patterns
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Read phase files yourself | Pass phase files via context_files to subagents |
+| Decide what phase is next | State machine decides via next-step.py |
+| Skip gates "because it looks done" | Always validate gates |
+| Store state in your memory | State lives in progress.json |
+
+## Phases
+
+1. **LOCATE**: Find variant's settings-plugins crate, understand structure
+2. **INTEGRATE**: Add settings model to plugin, update dependencies
+3. **VERIFY**: Build settings-plugins package, confirm compilation
+
+## Inputs
+
+What the orchestrator needs to gather before starting:
+- `variant_name`: Target variant (e.g., "aws-ecs-1")
+- `settings_crate`: Settings model crate name (e.g., "my-settings")
+
+## Outputs
+
+- `{workspace}/FINAL.md`: Summary of integration with file locations and verification results
 
 ## Technical Notes
 
