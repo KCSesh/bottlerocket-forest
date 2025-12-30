@@ -20,7 +20,7 @@ You are answering a specific sub-question from a research task.
    - Search and read the relevant files
    - Write a direct answer with inline citations
 
-4. For **research-document** type:
+4. For **deep-research** type:
    - Create a subdirectory and recurse with own scout phase
    - The subdirectory's FINAL.md becomes the answer
 

@@ -50,12 +50,12 @@ Write to `{{workspace}}/00-scout.md`:
 ## Sub-Questions
 
 ### 1. [Sub-question text]
-- **Type:** fact-find | research-document
+- **Type:** fact-find | deep-research
 - **Why:** [Why this classification]
 - **Key files:** [Files likely to answer this]
 
 ### 2. [Sub-question text]
-- **Type:** fact-find | research-document
+- **Type:** fact-find | deep-research
 - **Why:** [Why this classification]
 - **Key files:** [Files likely to answer this]
 ```
