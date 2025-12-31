@@ -47,6 +47,18 @@ while True:
     write result to workspace/<action.output_file>
 ```
 
+## Handling Exceptions
+
+The state machine handles the happy path. When things go wrong, **exercise judgment**:
+
+| Exception | Response |
+|-----------|----------|
+| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
+| Spawn returns error | Report failure to state machine, let it track retries |
+| Empty/invalid response | Treat as failure, report to state machine |
+
+**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
+
 ## Anti-Patterns
 
 | ❌ Don't | ✅ Do |
@@ -55,6 +67,7 @@ while True:
 | Decide what phase is next | State machine decides via next-step.py |
 | Skip gates "because it looks done" | Always validate gates |
 | Store state in your memory | State lives in progress.json |
+| Silently advance past failures | Retry, fail, or document gaps |
 
 ## Phases
 

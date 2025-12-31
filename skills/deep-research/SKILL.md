@@ -134,6 +134,18 @@ while True:
         write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
 ```
 
+## Handling Exceptions
+
+The state machine handles the happy path. When things go wrong, **exercise judgment**:
+
+| Exception | Response |
+|-----------|----------|
+| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
+| Spawn returns error | Report failure to state machine, let it track retries |
+| Empty/invalid response | Treat as failure, report to state machine |
+
+**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
+
 ## Phases
 
 ### Phase 1: Scout
