@@ -1,6 +1,6 @@
 ---
 name: script-driven-skill
-description: Build multi-step skills using a state-machine pattern with dumb orchestrator and smart phases
+description: Build multi-step skills using a state-machine pattern with disciplined orchestrator and smart phases
 ---
 
 # Script-Driven Skill Pattern
@@ -10,7 +10,7 @@ A pattern for building reliable multi-step skills where a state machine controls
 ## Purpose
 
 Separates concerns in complex skills:
-- **Orchestrator**: Dumb loop that spawns agents and reports results
+- **Orchestrator**: Follows the prescribed workflow, exercises judgment on exceptions
 - **State machine** (`next-step.py`): Controls flow, validates gates, tracks progress
 - **Phase files**: Self-contained instructions that travel with subagents
 
@@ -285,6 +285,19 @@ Identify relevant source files and documentation for the research task.
 Write a markdown summary listing discovered files and their relevance.
 ```
 
+## Handling Exceptions
+
+The state machine handles the happy path. When things go wrong, **the orchestrator must exercise judgment**:
+
+| Exception | Orchestrator Response |
+|-----------|----------------------|
+| Spawn times out | Assess: retry with longer timeout? Report partial progress? Ask user? |
+| Spawn returns error | Check if retryable. Report failure to state machine, let it track retries |
+| Empty/invalid response | Treat as failure, report to state machine |
+| Phase blocked after retries | Decide: skip with justification? Fail workflow? Escalate to user? |
+
+**Key principle**: Don't silently advance past failures. Either retry properly, fail explicitly, or make a reasoned decision to proceed with documented gaps.
+
 ## Anti-Patterns
 
 | ❌ Don't | ✅ Do |
@@ -293,6 +306,8 @@ Write a markdown summary listing discovered files and their relevance.
 | Read phase files yourself | Pass phase files via context_files to subagents |
 | Store state in orchestrator memory | State lives in progress.json |
 | Skip result reporting | Always report success/failure back |
+| Silently advance past failures | Exercise judgment: retry, fail, or document gaps |
+| Manually edit progress.json to skip phases | Let state machine control flow |
 
 ## Resumability
 
