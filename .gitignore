@@ -19,3 +19,4 @@ Cargo.lock
 /host-containers
 /bottlerocket-settings-sdk
 /forester-semantic-types
+__pycache__/
