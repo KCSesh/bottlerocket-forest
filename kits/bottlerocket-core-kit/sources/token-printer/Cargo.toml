@@ -1,7 +1,0 @@
-[package]
-name = "token-printer"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-toml = "0.8"

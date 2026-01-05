@@ -1,9 +1,0 @@
-[configuration-files.token-printer-toml]
-path = "/etc/token-printer.toml"
-template-path = "/usr/share/templates/token-printer-toml"
-
-[services.token-printer]
-configuration-files = ["token-printer-toml"]
-
-[metadata.settings.token]
-affected-services = ["token-printer"]
