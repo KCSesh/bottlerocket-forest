@@ -475,15 +475,13 @@ mod test {
 
     #[test]
     fn test_migrate_v2_to_v3() {
+        // Given a v2 schema database with existing chunk data
         let conn = setup_connection();
-
         conn.execute(CREATE_INDEX_METADATA, []).unwrap();
         conn.execute(CREATE_CHUNKS, []).unwrap();
         conn.execute(CREATE_INDEX_FILE_HASH, []).unwrap();
         conn.execute(CREATE_INDEX_REPO, []).unwrap();
-
         set_schema_version(&conn, 2).unwrap();
-
         conn.execute(
             "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
@@ -499,16 +497,18 @@ mod test {
         )
         .unwrap();
 
+        // When checking schema version (triggers migration)
         check_schema_version(&conn).unwrap();
 
+        // Then schema should be upgraded to v3 and data preserved
         let version = get_schema_version(&conn).unwrap();
         assert_eq!(version, Some(3));
-
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM chunks", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 1);
 
+        // And new inserts should work with the migrated schema
         conn.execute(
             "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![

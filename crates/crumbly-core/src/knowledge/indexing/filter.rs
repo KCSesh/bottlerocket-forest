@@ -273,27 +273,42 @@ mod test {
 
 #[test]
 fn test_go_filter_should_index_checks_doc_lines() {
+    // Given a filter requiring minimum 3 doc lines
     let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 3);
+
+    // When checking items with different doc line counts
     let short_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 2);
     let long_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 5);
+
+    // Then only items meeting the threshold should be indexed
     assert!(!short_doc);
     assert!(long_doc);
 }
 
 #[test]
 fn test_go_filter_should_index_checks_visibility() {
+    // Given a filter accepting only public items
     let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 0);
+
+    // When checking items with different visibilities
     let public = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
     let private = filter.should_index(&Visibility::Private, &GoItemType::Function, 100);
+
+    // Then only public items should be indexed
     assert!(public);
     assert!(!private);
 }
 
 #[test]
 fn test_go_filter_should_index_checks_item_type() {
+    // Given a filter accepting only struct items
     let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Struct], 0);
+
+    // When checking items with different types
     let struct_item = filter.should_index(&Visibility::Public, &GoItemType::Struct, 100);
     let function_item = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+
+    // Then only struct items should be indexed
     assert!(struct_item);
     assert!(!function_item);
 }

@@ -36,8 +36,7 @@ skip-tree = [
 ]
 
 skip = [
-    # hashbrown version conflicts between rusqlite and toml
-    { name = "hashbrown", version = "0.14" },
+    # Add entries here if needed for version conflicts
 ]
 
 [bans.workspace-dependencies]
