@@ -5,18 +5,15 @@ use std::path::Path;
 use std::time::Instant;
 
 impl<R: ChunkRepository> Indexer<R> {
-    /// Build index from scratch
     pub(super) fn build(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
 
-        // Configure thread pool to prevent CPU saturation
         rayon::ThreadPoolBuilder::new()
             .num_threads(crate::knowledge::constants::MAX_INDEXING_THREADS)
             .build_global()
-            .ok(); // Ignore error if already initialized
+            .ok();
 
         let start = Instant::now();
-
         let files = self.scanner.scan().context(ScanFailedSnafu)?;
 
         if let Some(progress) = &self.progress {
@@ -34,7 +31,6 @@ impl<R: ChunkRepository> Indexer<R> {
             })
             .collect();
 
-        // Count total chunks for progress reporting
         let mut total_chunks = 0;
         for (_, result) in &results {
             if let Ok(chunks) = result {
@@ -66,15 +62,12 @@ impl<R: ChunkRepository> Indexer<R> {
             .build())
     }
 
-    /// Clear existing index then build from scratch
     pub(super) fn rebuild(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
-
         self.repository.clear().context(StorageFailedSnafu)?;
         self.build()
     }
 
-    /// Update only changed files
     pub(super) fn incremental(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
 
@@ -175,6 +168,74 @@ mod test {
     use std::fs;
     use tempfile::TempDir;
 
+    fn test_embedding() -> Embedding {
+        Embedding::try_new(vec![0.1; 384]).unwrap()
+    }
+
+    fn mock_provider_success() -> MockIndexDataProvider {
+        let mut p = MockIndexDataProvider::new();
+        p.expect_generate_batch_with_progress()
+            .returning(|_, _| Ok(vec![test_embedding()]));
+        p
+    }
+
+    fn setup_mock_repo_for_build() -> MockChunkRepository {
+        let mut r = MockChunkRepository::new();
+        r.expect_has_embedding_batch()
+            .returning(|_| Ok(HashSet::new()));
+        r.expect_track_indexed_file().returning(|_, _, _, _| Ok(()));
+        r.expect_save_batch().returning(|_| Ok(()));
+        r
+    }
+
+    fn setup_mock_repo_for_incremental(
+        indexed: HashMap<IndexRelativePath, Timestamp>,
+    ) -> MockChunkRepository {
+        let mut r = MockChunkRepository::new();
+        r.expect_get_indexed_files()
+            .returning(move |_| Ok(indexed.clone()));
+        r.expect_has_embedding_batch()
+            .returning(|_| Ok(HashSet::new()));
+        r.expect_remove_indexed_file_from_context()
+            .returning(|_, _| Ok(()));
+        r.expect_track_indexed_file().returning(|_, _, _, _| Ok(()));
+        r.expect_save_batch().returning(|_| Ok(()));
+        r
+    }
+
+    fn create_test_indexer(
+        temp_dir: &TempDir,
+        repo: MockChunkRepository,
+        provider: MockIndexDataProvider,
+    ) -> Indexer<MockChunkRepository> {
+        let config = EmbeddingModelConfig::default();
+        let context_id = ContextId::from_path(".").unwrap();
+        Indexer::builder()
+            .index_root(temp_dir.path())
+            .repository(repo)
+            .config(&config)
+            .provider(Box::new(provider))
+            .scan_config(ScanConfig::default())
+            .filter(IndexingFilter::default())
+            .context_id(context_id)
+            .build()
+            .unwrap()
+    }
+
+    fn setup_test_file(base: &TempDir, rel_path: &str, content: &str) {
+        let full_path = base.path().join(rel_path);
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(full_path, content).unwrap();
+    }
+
+    fn setup_test_files(base: &TempDir, files: &[(&str, &str)]) {
+        for (path, content) in files {
+            setup_test_file(base, path, content);
+        }
+    }
+
     #[test]
     fn test_new_creates_indexer_with_valid_forest() {
         // Given A valid forest directory and mock provider
@@ -183,23 +244,12 @@ mod test {
         fs::create_dir(&repo_dir).unwrap();
 
         let mock_repo = MockChunkRepository::new();
-        let config = EmbeddingModelConfig::default();
         let mock_provider = MockIndexDataProvider::new();
 
         // When Creating an Indexer
-        let context_id = ContextId::from_path(".").unwrap();
-        let result = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build();
+        let _indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // Then It should succeed
-        assert!(result.is_ok());
     }
 
     #[test]
@@ -226,44 +276,16 @@ mod test {
         assert!(matches!(result, Err(IndexingError::ScanFailed { .. })));
     }
 
-    #[test]
-    fn test_build_indexes_markdown_files() {
-        // Given A forest with markdown files
+    #[test_case::test_case(&[("test-repo/README.md", "# Test\nContent here")]; "markdown")]
+    #[test_case::test_case(&[("test-repo/src/lib.rs", "/// Documentation\npub fn test() {}")]; "rust")]
+    fn test_build_indexes_files(files: &[(&str, &str)]) {
+        // Given A forest with a file
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("README.md"), "# Test\nContent here").unwrap();
+        setup_test_files(&temp_dir, files);
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_track_indexed_file()
-            .times(1)
-            .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|chunks| {
-            assert!(!chunks.is_empty());
-            Ok(())
-        });
-
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mock_repo = setup_mock_repo_for_build();
+        let mock_provider = mock_provider_success();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Building the index
         let result = indexer.index(IndexStrategy::Build);
@@ -271,61 +293,8 @@ mod test {
         // Then It should succeed and report indexed files
         assert!(result.is_ok());
         let index_result = result.unwrap();
-        assert_eq!(index_result.files_added, 1);
-        assert_eq!(index_result.files_processed, 1);
-        assert!(index_result.chunks_affected > 0);
-    }
-
-    #[test]
-    fn test_build_indexes_rust_files() {
-        // Given A forest with rust files
-        let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir_all(repo_dir.join("src")).unwrap();
-        fs::write(
-            repo_dir.join("src/lib.rs"),
-            "/// Documentation\npub fn test() {}",
-        )
-        .unwrap();
-
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_track_indexed_file()
-            .times(1)
-            .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|chunks| {
-            assert!(!chunks.is_empty());
-            Ok(())
-        });
-
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
-
-        // When Building the index
-        let result = indexer.index(IndexStrategy::Build);
-
-        // Then It should succeed and index the rust file
-        assert!(result.is_ok());
-        let index_result = result.unwrap();
-        assert_eq!(index_result.files_added, 1);
+        assert_eq!(index_result.files_added, files.len());
+        assert_eq!(index_result.files_processed, files.len());
         assert!(index_result.chunks_affected > 0);
     }
 
@@ -333,38 +302,16 @@ mod test {
     fn test_build_calls_provider_generate() {
         // Given A forest with a markdown file
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test\n\nContent").unwrap();
+        setup_test_file(&temp_dir, "test-repo/test.md", "# Test\n\nContent");
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_track_indexed_file()
-            .times(1)
-            .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|_| Ok(()));
-
-        let config = EmbeddingModelConfig::default();
+        let mock_repo = setup_mock_repo_for_build();
         let mut mock_provider = MockIndexDataProvider::new();
         mock_provider
             .expect_generate_batch_with_progress()
             .times(1)
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
+            .returning(|_, _| Ok(vec![test_embedding()]));
 
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Building the index
         let result = indexer.index(IndexStrategy::Build);
@@ -374,18 +321,11 @@ mod test {
     }
 
     #[test]
-    fn test_build_propagates_provider_errors() {
-        // Given A provider that fails to generate
+    fn test_build_propagates_provider_error() {
+        // Given A provider that fails
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test\n\nContent").unwrap();
+        setup_test_file(&temp_dir, "test-repo/test.md", "# Test\n\nContent");
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        let config = EmbeddingModelConfig::default();
         let mut mock_provider = MockIndexDataProvider::new();
         mock_provider
             .expect_generate_batch_with_progress()
@@ -397,17 +337,8 @@ mod test {
                 )
             });
 
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mock_repo = setup_mock_repo_for_build();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Building the index
         let result = indexer.index(IndexStrategy::Build);
@@ -420,12 +351,10 @@ mod test {
     }
 
     #[test]
-    fn test_build_propagates_storage_errors() {
-        // Given A repository that fails to store
+    fn test_build_propagates_storage_error() {
+        // Given A repository that fails
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test\n\nContent").unwrap();
+        setup_test_file(&temp_dir, "test-repo/test.md", "# Test\n\nContent");
 
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
@@ -433,7 +362,6 @@ mod test {
             .returning(|_| Ok(HashSet::new()));
         mock_repo
             .expect_track_indexed_file()
-            .times(1)
             .returning(|_, _, _, _| Ok(()));
         mock_repo.expect_save_batch().returning(|_| {
             Err(StorageError::InvalidData {
@@ -441,23 +369,8 @@ mod test {
             })
         });
 
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mock_provider = mock_provider_success();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Building the index
         let result = indexer.index(IndexStrategy::Build);
@@ -470,24 +383,10 @@ mod test {
     fn test_build_handles_empty_forest() {
         // Given An empty forest directory
         let temp_dir = TempDir::new().unwrap();
-
         let mut mock_repo = MockChunkRepository::new();
         mock_repo.expect_save_batch().times(0);
-
-        let config = EmbeddingModelConfig::default();
         let mock_provider = MockIndexDataProvider::new();
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Building the index
         let result = indexer.index(IndexStrategy::Build).unwrap();
@@ -502,9 +401,7 @@ mod test {
     fn test_rebuild_clears_then_builds() {
         // Given A forest with files
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test\n\nContent").unwrap();
+        setup_test_file(&temp_dir, "test-repo/test.md", "# Test\n\nContent");
 
         let mut mock_repo = MockChunkRepository::new();
         mock_repo.expect_clear().times(1).returning(|| Ok(5));
@@ -513,27 +410,11 @@ mod test {
             .returning(|_| Ok(HashSet::new()));
         mock_repo
             .expect_track_indexed_file()
-            .times(1)
             .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|_| Ok(()));
+        mock_repo.expect_save_batch().returning(|_| Ok(()));
 
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mock_provider = mock_provider_success();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Rebuilding the index
         let result = indexer.index(IndexStrategy::Rebuild);
@@ -542,227 +423,44 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_incremental_adds_new_files() {
-        // Given A forest with a new file and empty index
+    #[test_case::test_case(&[("test-repo/new.md", "# New\n\nContent")], &[], 1, 0, 0, 1; "adds_new_files")]
+    #[test_case::test_case(&[("test-repo/modified.md", "# Modified\n\nNew content")], &["test-repo/modified.md"], 0, 1, 0, 1; "modifies_changed_files")]
+    #[test_case::test_case(&[], &["test-repo/deleted.md"], 0, 0, 1, 0; "removes_deleted_files")]
+    #[test_case::test_case(&[("test-repo/new.md", "# New\n\nContent"), ("test-repo/modified.md", "# Modified\n\nContent")], &["test-repo/modified.md", "test-repo/deleted.md"], 1, 1, 1, 2; "handles_mixed_changes")]
+    fn test_incremental_operations(
+        files: &[(&str, &str)],
+        indexed_paths: &[&str],
+        exp_added: usize,
+        exp_updated: usize,
+        exp_removed: usize,
+        exp_processed: usize,
+    ) {
+        // Given A forest with specific file changes
         let temp_dir = TempDir::new().unwrap();
         let repo_dir = temp_dir.path().join("test-repo");
         fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("new.md"), "# New\n\nContent").unwrap();
+        setup_test_files(&temp_dir, files);
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_get_indexed_files()
-            .returning(|_| Ok(HashMap::new()));
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|_| Ok(()));
+        let mut indexed = HashMap::new();
+        for path in indexed_paths {
+            indexed.insert(
+                IndexRelativePath::try_new(*path).unwrap(),
+                Timestamp::from_secs(1000),
+            );
+        }
 
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mock_repo = setup_mock_repo_for_incremental(indexed);
+        let mock_provider = mock_provider_success();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Updating the index
         let result = indexer.index(IndexStrategy::Incremental).unwrap();
 
-        // Then It should report one file added
-        assert_eq!(result.files_added, 1);
-        assert_eq!(result.files_updated, 0);
-        assert_eq!(result.files_removed, 0);
-        assert_eq!(result.files_processed, 1);
-        assert!(result.chunks_affected > 0);
-    }
-
-    #[test]
-    fn test_incremental_modifies_changed_files() {
-        // Given A forest with a modified file
-        let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("modified.md"), "# Modified\n\nNew content").unwrap();
-
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_get_indexed_files().returning(|_| {
-            let mut map = HashMap::new();
-            map.insert(
-                IndexRelativePath::try_new("test-repo/modified.md").unwrap(),
-                Timestamp::from_secs(1000),
-            );
-            Ok(map)
-        });
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_remove_indexed_file_from_context()
-            .times(1)
-            .returning(|_, _| Ok(()));
-        mock_repo
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().times(1).returning(|_| Ok(()));
-
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
-
-        // When Updating the index
-        let result = indexer.index(IndexStrategy::Incremental).unwrap();
-
-        // Then It should report one file updated
-        assert_eq!(result.files_added, 0);
-        assert_eq!(result.files_updated, 1);
-        assert_eq!(result.files_removed, 0);
-        assert_eq!(result.files_processed, 1);
-        assert!(result.chunks_affected > 0);
-    }
-
-    #[test]
-    fn test_incremental_removes_deleted_files() {
-        // Given An index with a file that no longer exists
-        let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_get_indexed_files().returning(|_| {
-            let mut map = HashMap::new();
-            map.insert(
-                IndexRelativePath::try_new("test-repo/deleted.md").unwrap(),
-                Timestamp::from_secs(1000),
-            );
-            Ok(map)
-        });
-        mock_repo
-            .expect_remove_indexed_file_from_context()
-            .times(1)
-            .returning(|_, _| Ok(()));
-
-        let config = EmbeddingModelConfig::default();
-        let mock_provider = MockIndexDataProvider::new();
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
-
-        // When Updating the index
-        let result = indexer.index(IndexStrategy::Incremental).unwrap();
-
-        // Then It should report one file removed
-        // Note: chunks_affected is 0 because we only remove file references now,
-        // actual chunk cleanup happens via GC
-        assert_eq!(result.files_added, 0);
-        assert_eq!(result.files_updated, 0);
-        assert_eq!(result.files_removed, 1);
-        assert_eq!(result.files_processed, 0);
-        assert_eq!(result.chunks_affected, 0);
-    }
-
-    #[test]
-    fn test_incremental_handles_mixed_changes() {
-        // Given A forest with added, modified, and deleted files
-        let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("test-repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("new.md"), "# New\n\nContent").unwrap();
-        fs::write(repo_dir.join("modified.md"), "# Modified\n\nContent").unwrap();
-
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_get_indexed_files().returning(|_| {
-            let mut map = HashMap::new();
-            map.insert(
-                IndexRelativePath::try_new("test-repo/modified.md").unwrap(),
-                Timestamp::from_secs(1000),
-            );
-            map.insert(
-                IndexRelativePath::try_new("test-repo/deleted.md").unwrap(),
-                Timestamp::from_secs(1000),
-            );
-            Ok(map)
-        });
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-        mock_repo
-            .expect_remove_indexed_file_from_context()
-            .times(2)
-            .returning(|_, _| Ok(()));
-        mock_repo
-            .expect_save_batch()
-            .times(1..=2)
-            .returning(|_| Ok(()));
-        mock_repo
-            .expect_track_indexed_file()
-            .times(2)
-            .returning(|_, _, _, _| Ok(()));
-
-        let config = EmbeddingModelConfig::default();
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|_, _| Ok(vec![Embedding::try_new(vec![0.1; 384]).unwrap()]));
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
-
-        // When Updating the index
-        let result = indexer.index(IndexStrategy::Incremental).unwrap();
-
-        // Then It should report all changes
-        assert_eq!(result.files_added, 1);
-        assert_eq!(result.files_updated, 1);
-        assert_eq!(result.files_removed, 1);
-        assert_eq!(result.files_processed, 2);
-        assert!(result.chunks_affected > 0);
+        // Then It should report expected changes
+        assert_eq!(result.files_added, exp_added);
+        assert_eq!(result.files_updated, exp_updated);
+        assert_eq!(result.files_removed, exp_removed);
+        assert_eq!(result.files_processed, exp_processed);
     }
 
     #[test]
@@ -779,20 +477,8 @@ mod test {
             })
         });
 
-        let config = EmbeddingModelConfig::default();
         let mock_provider = MockIndexDataProvider::new();
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Updating the index
         let result = indexer.index(IndexStrategy::Incremental);
@@ -811,20 +497,8 @@ mod test {
             .expect_get_indexed_files()
             .returning(|_| Ok(HashMap::new()));
 
-        let config = EmbeddingModelConfig::default();
         let mock_provider = MockIndexDataProvider::new();
-
-        let context_id = ContextId::from_path(".").unwrap();
-        let mut indexer = Indexer::builder()
-            .index_root(temp_dir.path())
-            .repository(mock_repo)
-            .config(&config)
-            .provider(Box::new(mock_provider))
-            .scan_config(ScanConfig::default())
-            .filter(IndexingFilter::default())
-            .context_id(context_id)
-            .build()
-            .unwrap();
+        let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
 
         // When Updating the index
         let result = indexer.index(IndexStrategy::Incremental).unwrap();

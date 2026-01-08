@@ -17,13 +17,16 @@ use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 use tree_sitter::Parser;
 
-use self::extraction::{node_kinds, extract_doc_comment, extract_identifier, get_visibility, determine_type_kind, to_filter_type};
+use self::extraction::{
+    determine_type_kind, extract_doc_comment, extract_identifier, get_visibility, node_kinds,
+    to_filter_type,
+};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
+use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, GoDocContext, GoItemType, GoVisibility, ItemName,
     PackageName, Signature, TokenCount,
 };
-use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::indexing::GoFilter;
 
 const PACKAGE_ITEM_NAME: &str = "package";
@@ -95,13 +98,19 @@ impl GoDocChunker {
         let mut result = Vec::new();
 
         for chunk_text in chunks {
-            let encoding = self.tokenizer.encode(chunk_text, false)
-                .context(ParseSnafu { file_path: input.source.file_path.to_string() })?;
-            
+            let encoding = self
+                .tokenizer
+                .encode(chunk_text, false)
+                .context(ParseSnafu {
+                    file_path: input.source.file_path.to_string(),
+                })?;
+
             let token_count = encoding.len().max(1);
             let token_count = TokenCount::try_new(token_count)
                 .map_err(crate::knowledge::error::box_err)
-                .context(ParseSnafu { file_path: input.source.file_path.to_string() })?;
+                .context(ParseSnafu {
+                    file_path: input.source.file_path.to_string(),
+                })?;
 
             let chunk_hash = ChunkHash::from_text(chunk_text);
             let chunk = Chunk::builder()
@@ -109,17 +118,21 @@ impl GoDocChunker {
                 .chunk_hash(chunk_hash)
                 .file_hash(input.file_hash.clone())
                 .source(input.source.clone())
-                .content(ChunkContent::builder()
-                    .text(chunk_text.to_string())
-                    .token_count(token_count)
-                    .build())
-                .context(ChunkContext::GoDoc(GoDocContext::builder()
-                    .item_name(item_name.clone())
-                    .visibility(visibility)
-                    .maybe_signature(signature.clone())
-                    .item_type(item_type)
-                    .maybe_package_name(package_name.as_ref().cloned())
-                    .build()))
+                .content(
+                    ChunkContent::builder()
+                        .text(chunk_text.to_string())
+                        .token_count(token_count)
+                        .build(),
+                )
+                .context(ChunkContext::GoDoc(
+                    GoDocContext::builder()
+                        .item_name(item_name.clone())
+                        .visibility(visibility)
+                        .maybe_signature(signature.clone())
+                        .item_type(item_type)
+                        .maybe_package_name(package_name.as_ref().cloned())
+                        .build(),
+                ))
                 .build();
 
             result.push(chunk);
@@ -146,11 +159,15 @@ impl ChunkingStrategy for GoDocChunker {
         let file_path = input.source.file_path.to_string();
 
         let mut parser = Parser::new();
-        parser.set_language(&tree_sitter_go::LANGUAGE.into())
+        parser
+            .set_language(&tree_sitter_go::LANGUAGE.into())
             .map_err(crate::knowledge::error::box_err)
-            .context(ParseSnafu { file_path: file_path.clone() })?;
+            .context(ParseSnafu {
+                file_path: file_path.clone(),
+            })?;
 
-        let tree = parser.parse(content, None)
+        let tree = parser
+            .parse(content, None)
             .ok_or_else(|| ChunkingError::ParseError {
                 file_path: file_path.clone(),
                 source: "Failed to parse Go source".into(),
@@ -164,77 +181,129 @@ impl ChunkingStrategy for GoDocChunker {
         for node in root.children(&mut root.walk()) {
             match node.kind() {
                 node_kinds::PACKAGE_CLAUSE => {
-                    if let Some(pkg_node) = node.child_by_field_name("name").or_else(|| node.children(&mut node.walk()).find(|c| c.kind() == "package_identifier")) {
-                        package_name = pkg_node.utf8_text(source_bytes).ok().and_then(|s| PackageName::try_new(s).ok());
+                    if let Some(pkg_node) = node.child_by_field_name("name").or_else(|| {
+                        node.children(&mut node.walk())
+                            .find(|c| c.kind() == "package_identifier")
+                    }) {
+                        package_name = pkg_node
+                            .utf8_text(source_bytes)
+                            .ok()
+                            .and_then(|s| PackageName::try_new(s).ok());
                     }
                     if let Some(doc) = extract_doc_comment(node, source_bytes) {
-                        chunks.extend(self.create_chunks(
-                            &doc,
-                            ItemName::try_new(PACKAGE_ITEM_NAME).map_err(crate::knowledge::error::box_err).context(ParseSnafu { file_path: file_path.clone() })?,
-                            GoVisibility::Exported,
-                            None,
-                            GoItemType::Package,
-                            &package_name,
-                            input,
-                        )?);
+                        chunks.extend(
+                            self.create_chunks(
+                                &doc,
+                                ItemName::try_new(PACKAGE_ITEM_NAME)
+                                    .map_err(crate::knowledge::error::box_err)
+                                    .context(ParseSnafu {
+                                        file_path: file_path.clone(),
+                                    })?,
+                                GoVisibility::Exported,
+                                None,
+                                GoItemType::Package,
+                                &package_name,
+                                input,
+                            )?,
+                        );
                     }
                 }
                 node_kinds::FUNCTION_DECLARATION | node_kinds::METHOD_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else { continue };
+                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
+                        continue;
+                    };
                     let Some(name) = extract_identifier(node, source_bytes) else {
                         // Identifier not found, skipping node
                         continue;
                     };
-                    let item_type = if node.kind() == node_kinds::METHOD_DECLARATION { GoItemType::Method } else { GoItemType::Function };
-                    if !self.should_index(&name, item_type, &doc) { continue; }
+                    let item_type = if node.kind() == node_kinds::METHOD_DECLARATION {
+                        GoItemType::Method
+                    } else {
+                        GoItemType::Function
+                    };
+                    if !self.should_index(&name, item_type, &doc) {
+                        continue;
+                    }
                     let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(self.create_chunks(
-                        &doc,
-                        ItemName::try_new(&name).map_err(crate::knowledge::error::box_err).context(ParseSnafu { file_path: file_path.clone() })?,
-                        go_vis,
-                        node.utf8_text(source_bytes).ok().and_then(|s| Signature::try_new(s).ok()),
-                        item_type,
-                        &package_name,
-                        input,
-                    )?);
+                    chunks.extend(
+                        self.create_chunks(
+                            &doc,
+                            ItemName::try_new(&name)
+                                .map_err(crate::knowledge::error::box_err)
+                                .context(ParseSnafu {
+                                    file_path: file_path.clone(),
+                                })?,
+                            go_vis,
+                            node.utf8_text(source_bytes)
+                                .ok()
+                                .and_then(|s| Signature::try_new(s).ok()),
+                            item_type,
+                            &package_name,
+                            input,
+                        )?,
+                    );
                 }
                 node_kinds::TYPE_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else { continue };
+                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
+                        continue;
+                    };
                     let Some(name) = extract_identifier(node, source_bytes) else {
                         // Identifier not found, skipping node
                         continue;
                     };
                     let item_type = determine_type_kind(node);
-                    if !self.should_index(&name, item_type, &doc) { continue; }
+                    if !self.should_index(&name, item_type, &doc) {
+                        continue;
+                    }
                     let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(self.create_chunks(
-                        &doc,
-                        ItemName::try_new(&name).map_err(crate::knowledge::error::box_err).context(ParseSnafu { file_path: file_path.clone() })?,
-                        go_vis,
-                        None,
-                        item_type,
-                        &package_name,
-                        input,
-                    )?);
+                    chunks.extend(
+                        self.create_chunks(
+                            &doc,
+                            ItemName::try_new(&name)
+                                .map_err(crate::knowledge::error::box_err)
+                                .context(ParseSnafu {
+                                    file_path: file_path.clone(),
+                                })?,
+                            go_vis,
+                            None,
+                            item_type,
+                            &package_name,
+                            input,
+                        )?,
+                    );
                 }
                 node_kinds::CONST_DECLARATION | node_kinds::VAR_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else { continue };
+                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
+                        continue;
+                    };
                     let Some(name) = extract_identifier(node, source_bytes) else {
                         // Identifier not found, skipping node
                         continue;
                     };
-                    let item_type = if node.kind() == node_kinds::CONST_DECLARATION { GoItemType::Const } else { GoItemType::Var };
-                    if !self.should_index(&name, item_type, &doc) { continue; }
+                    let item_type = if node.kind() == node_kinds::CONST_DECLARATION {
+                        GoItemType::Const
+                    } else {
+                        GoItemType::Var
+                    };
+                    if !self.should_index(&name, item_type, &doc) {
+                        continue;
+                    }
                     let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(self.create_chunks(
-                        &doc,
-                        ItemName::try_new(&name).map_err(crate::knowledge::error::box_err).context(ParseSnafu { file_path: file_path.clone() })?,
-                        go_vis,
-                        None,
-                        item_type,
-                        &package_name,
-                        input,
-                    )?);
+                    chunks.extend(
+                        self.create_chunks(
+                            &doc,
+                            ItemName::try_new(&name)
+                                .map_err(crate::knowledge::error::box_err)
+                                .context(ParseSnafu {
+                                    file_path: file_path.clone(),
+                                })?,
+                            go_vis,
+                            None,
+                            item_type,
+                            &package_name,
+                            input,
+                        )?,
+                    );
                 }
                 _ => {}
             }
@@ -243,7 +312,6 @@ impl ChunkingStrategy for GoDocChunker {
         Ok(chunks)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -280,7 +348,8 @@ mod tests {
     #[test]
     fn test_extracts_function_doc() {
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
-        let input = make_input(r#"
+        let input = make_input(
+            r#"
 package main
 
 // Hello prints a greeting.
@@ -288,7 +357,8 @@ package main
 func Hello(name string) {
     println("Hello, " + name)
 }
-"#);
+"#,
+        );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
@@ -303,12 +373,14 @@ func Hello(name string) {
     #[test]
     fn test_extracts_unexported_function() {
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
-        let input = make_input(r#"
+        let input = make_input(
+            r#"
 package main
 
 // helper is an internal function.
 func helper() {}
-"#);
+"#,
+        );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
@@ -322,14 +394,16 @@ func helper() {}
     #[test]
     fn test_extracts_struct_doc() {
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
-        let input = make_input(r#"
+        let input = make_input(
+            r#"
 package main
 
 // Config holds configuration.
 type Config struct {
     Name string
 }
-"#);
+"#,
+        );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
@@ -343,11 +417,13 @@ type Config struct {
     #[test]
     fn test_skips_undocumented() {
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
-        let input = make_input(r#"
+        let input = make_input(
+            r#"
 package main
 
 func NoDoc() {}
-"#);
+"#,
+        );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(chunks.is_empty());
     }
@@ -355,18 +431,23 @@ func NoDoc() {}
     #[test]
     fn test_extracts_package_name() {
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
-        let input = make_input(r#"
+        let input = make_input(
+            r#"
 package mypackage
 
 // Foo does something.
 func Foo() {}
-"#);
+"#,
+        );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
             ChunkContext::GoDoc(ctx) => ctx,
             _ => panic!("Expected GoDoc context"),
         };
-        assert_eq!(ctx.package_name.as_ref().map(|p| p.to_string()).as_deref(), Some("mypackage"));
+        assert_eq!(
+            ctx.package_name.as_ref().map(|p| p.to_string()).as_deref(),
+            Some("mypackage")
+        );
     }
 }

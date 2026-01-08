@@ -11,8 +11,8 @@ const UUID_BYTE_LENGTH: usize = 16;
 use crate::knowledge::domain::chunk::GoDocContext;
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext,
-    Timestamp, TokenCount,
+    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext, Timestamp,
+    TokenCount,
 };
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 

@@ -193,6 +193,7 @@ mod test {
     use std::collections::HashSet;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use test_case::test_case;
 
     fn make_test_chunk(text: &str) -> Chunk {
         let chunk_hash = ChunkHash::from_text(text);
@@ -218,6 +219,105 @@ mod test {
                 MarkdownContext::builder().heading_hierarchy(vec![]).build(),
             ))
             .build()
+    }
+
+    fn make_mock_repo_with_hashes(existing: HashSet<ChunkHash>) -> MockChunkRepository {
+        let mut mock = MockChunkRepository::new();
+        mock.expect_has_embedding_batch().returning(move |hashes| {
+            Ok(hashes
+                .iter()
+                .filter(|h| existing.contains(h))
+                .copied()
+                .collect())
+        });
+        mock
+    }
+
+    fn make_mock_provider_counting_calls(counter: Arc<AtomicUsize>) -> MockIndexDataProvider {
+        let mut mock = MockIndexDataProvider::new();
+        mock.expect_generate_batch_with_progress()
+            .returning(move |texts, _| {
+                counter.fetch_add(texts.len(), Ordering::SeqCst);
+                Ok(texts.iter().map(|_| test_embedding()).collect())
+            });
+        mock
+    }
+
+    fn test_embedding() -> Embedding {
+        Embedding::try_new(vec![0.1; 384]).unwrap()
+    }
+
+    #[test_case(
+        IndexingError::ChunkingFailed {
+            source: DispatchError::ChunkingFailed {
+                source: ChunkingError::ParseError {
+                    file_path: "test.rs".to_string(),
+                    source: Box::new(std::io::Error::other("parse failed")),
+                },
+            },
+        },
+        true ; "parse error is skippable"
+    )]
+    #[test_case(
+        IndexingError::ScanFailed {
+            source: ScanError::IoError {
+                path: "/test/file.md".to_string(),
+                source: std::io::Error::other("permission denied"),
+            },
+        },
+        true ; "scan error is skippable"
+    )]
+    #[test_case(
+        IndexingError::IndexDataGenerationFailed {
+            source: crate::knowledge::indexing::IndexDataError::EmbeddingFailed {
+                source: Box::new(std::io::Error::other("model failed")),
+            },
+        },
+        false ; "embedding error not skippable"
+    )]
+    #[test_case(
+        IndexingError::StorageFailed {
+            source: StorageError::InvalidData {
+                message: "corrupted data".to_string(),
+            },
+        },
+        false ; "storage error not skippable"
+    )]
+    fn test_is_skippable_error(error: IndexingError, expected: bool) {
+        // Given An indexing error
+        // When Checking if skippable
+        let result = is_skippable_error(&error);
+        // Then Result matches expectation
+        assert_eq!(result, expected);
+    }
+
+    #[test_case(vec![], 0, 0 ; "no chunks returns empty")]
+    #[test_case(vec!["new1", "new2", "new3"], 3, 0 ; "all new chunks")]
+    #[test_case(vec!["existing1", "existing2"], 0, 2 ; "all existing chunks")]
+    #[test_case(vec!["existing", "new1", "new2"], 2, 1 ; "mixed chunks")]
+    fn test_filter_chunks_needing_embeddings(
+        chunk_texts: Vec<&str>,
+        expected_new: usize,
+        expected_reused: usize,
+    ) {
+        // Given Chunks with some existing embeddings
+        // When Filtering chunks
+        // Then Counts match expectations
+        let chunks: Vec<_> = chunk_texts.iter().map(|t| make_test_chunk(t)).collect();
+        let existing: HashSet<_> = chunks
+            .iter()
+            .filter(|c| c.content.text.starts_with("existing"))
+            .map(|c| c.chunk_hash)
+            .collect();
+        let mock_repo = make_mock_repo_with_hashes(existing);
+
+        // When Filtering chunks
+        let (needs_embedding, reused_count) =
+            filter_chunks_needing_embeddings(chunks, &mock_repo).unwrap();
+
+        // Then Counts match expectations
+        assert_eq!(needs_embedding.len(), expected_new);
+        assert_eq!(reused_count, expected_reused);
     }
 
     #[test]
@@ -388,116 +488,58 @@ mod test {
         );
     }
 
-    // Tests for index_chunks_with_reuse
-
     #[test]
     fn index_chunks_with_reuse_generates_embeddings_only_for_new_chunks() {
-        // Given chunks where some already have embeddings
+        // Given Chunks where some already have embeddings
         let new_chunk = make_test_chunk("new content needs embedding");
         let existing_chunk = make_test_chunk("existing content has embedding");
-        let existing_hash = existing_chunk.chunk_hash;
-
+        let existing = [existing_chunk.chunk_hash].into_iter().collect();
         let chunks = vec![new_chunk.clone(), existing_chunk];
+        let mock_repo = make_mock_repo_with_hashes(existing);
+        let counter = Arc::new(AtomicUsize::new(0));
+        let mock_provider = make_mock_provider_counting_calls(counter.clone());
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_has_embedding_batch().returning(move |_| {
-            let mut existing = HashSet::new();
-            existing.insert(existing_hash);
-            Ok(existing)
-        });
-
-        let call_count = Arc::new(AtomicUsize::new(0));
-        let call_count_clone = call_count.clone();
-
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(move |texts, _| {
-                call_count_clone.fetch_add(texts.len(), Ordering::SeqCst);
-                // Return embeddings for each text
-                Ok(texts
-                    .iter()
-                    .map(|_| Embedding::try_new(vec![0.1; 384]).unwrap())
-                    .collect())
-            });
-
-        // When indexing with reuse
+        // When Indexing with reuse
         let result = index_chunks_with_reuse(chunks, &mock_repo, &mock_provider, None).unwrap();
 
-        // Then embeddings should only be generated for new chunks
-        assert_eq!(call_count.load(Ordering::SeqCst), 1);
-        // Result should contain the newly indexed chunk
+        // Then Embeddings generated only for new chunks
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
         assert!(!result.is_empty());
     }
 
     #[test]
     fn index_chunks_with_reuse_does_not_call_provider_when_all_exist() {
-        // Given chunks that all have existing embeddings
+        // Given Chunks that all have existing embeddings
         let chunk1 = make_test_chunk("existing one");
         let chunk2 = make_test_chunk("existing two");
-        let hash1 = chunk1.chunk_hash;
-        let hash2 = chunk2.chunk_hash;
-
+        let existing = [chunk1.chunk_hash, chunk2.chunk_hash].into_iter().collect();
         let chunks = vec![chunk1, chunk2];
+        let mock_repo = make_mock_repo_with_hashes(existing);
+        let counter = Arc::new(AtomicUsize::new(0));
+        let mock_provider = make_mock_provider_counting_calls(counter.clone());
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_has_embedding_batch().returning(move |_| {
-            let mut existing = HashSet::new();
-            existing.insert(hash1);
-            existing.insert(hash2);
-            Ok(existing)
-        });
-
-        let call_count = Arc::new(AtomicUsize::new(0));
-        let call_count_clone = call_count.clone();
-
-        let mut mock_provider = MockIndexDataProvider::new();
-        // This should never be called
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(move |texts, _| {
-                call_count_clone.fetch_add(1, Ordering::SeqCst);
-                Ok(texts
-                    .iter()
-                    .map(|_| Embedding::try_new(vec![0.1; 384]).unwrap())
-                    .collect())
-            });
-
-        // When indexing with reuse
+        // When Indexing with reuse
         let result = index_chunks_with_reuse(chunks, &mock_repo, &mock_provider, None).unwrap();
 
-        // Then provider should not be called at all
-        assert_eq!(call_count.load(Ordering::SeqCst), 0);
-        // Result should be empty since no new embeddings were generated
+        // Then Provider not called
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
         assert!(result.is_empty());
     }
 
     #[test]
     fn index_chunks_with_reuse_returns_newly_indexed_chunks() {
-        // Given all new chunks (none have existing embeddings)
+        // Given All new chunks
         let chunk1 = make_test_chunk("brand new one");
         let chunk2 = make_test_chunk("brand new two");
         let chunks = vec![chunk1.clone(), chunk2.clone()];
+        let mock_repo = make_mock_repo_with_hashes(HashSet::new());
+        let counter = Arc::new(AtomicUsize::new(0));
+        let mock_provider = make_mock_provider_counting_calls(counter);
 
-        let mut mock_repo = MockChunkRepository::new();
-        mock_repo
-            .expect_has_embedding_batch()
-            .returning(|_| Ok(HashSet::new()));
-
-        let mut mock_provider = MockIndexDataProvider::new();
-        mock_provider
-            .expect_generate_batch_with_progress()
-            .returning(|texts, _| {
-                Ok(texts
-                    .iter()
-                    .map(|_| Embedding::try_new(vec![0.1; 384]).unwrap())
-                    .collect())
-            });
-
-        // When indexing with reuse
+        // When Indexing with reuse
         let result = index_chunks_with_reuse(chunks, &mock_repo, &mock_provider, None).unwrap();
 
-        // Then all chunks should be returned as newly indexed
+        // Then All chunks returned as newly indexed
         assert_eq!(result.len(), 2);
         assert!(
             result

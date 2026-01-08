@@ -61,7 +61,11 @@ pub fn extract_doc_comment(node: Node, source: &[u8]) -> Option<String> {
         result.push_str(comment);
     }
 
-    if result.is_empty() { None } else { Some(result) }
+    if result.is_empty() {
+        None
+    } else {
+        Some(result)
+    }
 }
 
 /// Extracts the identifier name from a declaration node.

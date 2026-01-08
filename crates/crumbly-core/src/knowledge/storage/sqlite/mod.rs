@@ -290,10 +290,16 @@ mod test {
         EmbeddingModelConfig::default()
     }
 
+    fn setup_repo() -> (NamedTempFile, SqliteChunkRepository) {
+        let temp_file = NamedTempFile::new().unwrap();
+        let repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
+        (temp_file, repo)
+    }
+
     pub(super) fn create_test_chunk_at(file_path: &str, repo_name: &str) -> IndexedChunk {
         let content = format!("best test content for {}", file_path);
         let chunk_hash = ChunkHash::from_text(&content);
-        let file_hash = FileHash::new([1u8; 32]); // Different placeholder file hash
+        let file_hash = FileHash::new([1u8; 32]);
 
         let chunk = Chunk::builder()
             .id(ChunkId::new(uuid::Uuid::new_v4()))
@@ -327,11 +333,21 @@ mod test {
         create_test_chunk_at("test.md", "test-repo")
     }
 
+    fn save_chunks(repo: &mut SqliteChunkRepository, paths: &[&str]) -> Vec<IndexedChunk> {
+        let chunks: Vec<_> = paths
+            .iter()
+            .map(|p| create_test_chunk_at(p, "test-repo"))
+            .collect();
+        for chunk in &chunks {
+            repo.save(chunk).unwrap();
+        }
+        chunks
+    }
+
     #[test]
     fn test_save_and_retrieve() {
         // Given A repository and a chunk
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
+        let (_temp, mut repo) = setup_repo();
         let indexed_chunk = create_test_chunk();
 
         // When Saving the chunk
@@ -347,30 +363,24 @@ mod test {
     #[test]
     fn test_save_batch() {
         // Given A repository and multiple chunks with different content
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let chunk1 = create_test_chunk_at("file1.md", "test-repo");
-        let chunk2 = create_test_chunk_at("file2.md", "test-repo");
-        let chunks = vec![chunk1, chunk2];
+        let (_temp, mut repo) = setup_repo();
+        let chunks = vec![
+            create_test_chunk_at("file1.md", "test-repo"),
+            create_test_chunk_at("file2.md", "test-repo"),
+        ];
 
         // When Saving in batch
         repo.save_batch(&chunks).unwrap();
 
         // Then All chunks should be retrievable
-        let all = repo.find_all().unwrap();
-        assert_eq!(all.len(), 2);
+        assert_eq!(repo.find_all().unwrap().len(), 2);
     }
 
     #[test]
     fn test_find_by_file() {
         // Given A repository with chunks from different files
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let chunk1 = create_test_chunk_at("test.md", "test-repo");
-        let chunk2 = create_test_chunk_at("other.md", "test-repo");
-
-        repo.save(&chunk1).unwrap();
-        repo.save(&chunk2).unwrap();
+        let (_temp, mut repo) = setup_repo();
+        save_chunks(&mut repo, &["test.md", "other.md"]);
 
         // When Finding by file (note: in new schema, file_path is not stored in chunks)
         let results = repo
@@ -378,49 +388,40 @@ mod test {
             .unwrap();
 
         // Then Returns empty because file_path is no longer stored in chunks table
-        // Use find_by_file_hash for file-based lookups in the new schema
         assert_eq!(results.len(), 0);
     }
 
     #[test]
     fn test_clear() {
         // Given A repository with chunks
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let chunk1 = create_test_chunk_at("file1.md", "test-repo");
-        let chunk2 = create_test_chunk_at("file2.md", "test-repo");
-        repo.save(&chunk1).unwrap();
-        repo.save(&chunk2).unwrap();
+        let (_temp, mut repo) = setup_repo();
+        save_chunks(&mut repo, &["file1.md", "file2.md"]);
 
         // When Clearing
         let count = repo.clear().unwrap();
 
         // Then All chunks should be removed
         assert_eq!(count, 2);
-        let all = repo.find_all().unwrap();
-        assert_eq!(all.len(), 0);
+        assert_eq!(repo.find_all().unwrap().len(), 0);
     }
 
     #[test]
     fn test_metadata() {
         // Given A repository
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
+        let (_temp, mut repo) = setup_repo();
 
         // When Setting metadata
         let metadata = IndexMetadata::builder()
             .last_build(SystemTime::now())
             .chunk_count(10)
             .file_count(5)
-            .model_config(crate::knowledge::domain::EmbeddingModelConfig::default())
+            .model_config(EmbeddingModelConfig::default())
             .build();
-
         repo.set_metadata(&metadata).unwrap();
 
         // Then It should be retrievable
         let retrieved = repo.get_metadata().unwrap();
-        // chunk_count and file_count are derived from chunks table, not stored in metadata
-        assert_eq!(retrieved.chunk_count, 0); // No chunks inserted yet
+        assert_eq!(retrieved.chunk_count, 0);
         assert_eq!(retrieved.file_count, 0);
         assert_eq!(retrieved.model_config, metadata.model_config);
     }
@@ -463,9 +464,7 @@ mod test {
     )]
     fn test_context_roundtrip(context: ChunkContext) {
         // Given A repository and a chunk with specific context
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-
+        let (_temp, mut repo) = setup_repo();
         let content = "test content for context roundtrip";
         let chunk_hash = ChunkHash::from_text(content);
         let file_hash = FileHash::new([2u8; 32]);
@@ -497,19 +496,15 @@ mod test {
 
         // When Saving and retrieving the chunk
         repo.save(&indexed_chunk).unwrap();
-        let all = repo.find_all().unwrap();
-        let retrieved = &all[0];
 
         // Then The context should be preserved with correct type
-        assert_eq!(retrieved.chunk.context, context);
+        assert_eq!(repo.find_all().unwrap()[0].chunk.context, context);
     }
 
     #[test]
     fn test_save_with_embedding_stores_in_both_tables() {
         // Given A repository and a chunk with an embedding
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-
+        let (_temp, mut repo) = setup_repo();
         let embedding = Embedding::try_new(
             (1..=EMBEDDING_DIM)
                 .map(|i| i as f32 / EMBEDDING_DIM as f32)
@@ -576,138 +571,72 @@ mod test {
     #[test]
     fn test_get_indexed_files() {
         // Given A repository with multiple chunks from different files
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-
-        let chunk1 = create_test_chunk_at("repo1/file1.md", "repo1");
-        let chunk2 = create_test_chunk_at("repo2/file2.md", "repo2");
-
-        repo.save(&chunk1).unwrap();
-        repo.save(&chunk2).unwrap();
+        let (_temp, mut repo) = setup_repo();
+        save_chunks(&mut repo, &["repo1/file1.md", "repo2/file2.md"]);
 
         // When Getting indexed files for default context
         let default_ctx = ContextId::from_path(".").unwrap();
         let indexed_files = repo.get_indexed_files(&default_ctx).unwrap();
 
         // Then In the new schema, get_indexed_files returns empty map
-        // because file_path is no longer stored in chunks table.
-        // File tracking is now done through the indexed_files table
-        // which is context-scoped.
         assert_eq!(indexed_files.len(), 0);
     }
 
-    #[test]
-    fn has_embedding_returns_true_when_embedding_exists() {
-        // Given a repository with a saved chunk (which has an embedding in vec_chunks)
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let chunk = create_test_chunk();
-        repo.save(&chunk).unwrap();
-
-        // When checking if the embedding exists
-        let result = repo.has_embedding(&chunk.chunk.chunk_hash);
-
-        // Then it should return true
-        assert!(result.unwrap());
-    }
-
-    #[test]
-    fn has_embedding_returns_false_when_embedding_does_not_exist() {
-        // Given a repository with no chunks
-        let temp_file = NamedTempFile::new().unwrap();
-        let repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let nonexistent_hash = ChunkHash::from_text("nonexistent content");
-
-        // When checking if an embedding exists for a hash that was never stored
-        let result = repo.has_embedding(&nonexistent_hash);
-
-        // Then it should return false
-        assert!(!result.unwrap());
-    }
-
-    #[test]
-    fn has_embedding_batch_returns_empty_set_when_no_embeddings_exist() {
-        // Given a repository with no chunks
-        let temp_file = NamedTempFile::new().unwrap();
-        let repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-        let hashes = vec![
-            ChunkHash::from_text("content1"),
-            ChunkHash::from_text("content2"),
-            ChunkHash::from_text("content3"),
-        ];
+    #[test_case(&[], &[] ; "no embeddings exist")]
+    #[test_case(&["file1.md", "file2.md"], &[0, 1] ; "all embeddings exist")]
+    #[test_case(&["file1.md", "file2.md"], &[0] ; "subset of embeddings exist")]
+    fn test_has_embedding_batch(saved_files: &[&str], existing_indices: &[usize]) {
+        // Given a repository with some chunks saved
+        let (_temp, mut repo) = setup_repo();
+        let saved = save_chunks(&mut repo, saved_files);
 
         // When checking which hashes have embeddings
-        let result = repo.has_embedding_batch(&hashes);
-
-        // Then it should return an empty set
-        assert!(result.unwrap().is_empty());
-    }
-
-    #[test]
-    fn has_embedding_batch_returns_subset_of_hashes_that_have_embeddings() {
-        // Given a repository with some chunks saved
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-
-        let chunk1 = create_test_chunk_at("file1.md", "repo");
-        let chunk2 = create_test_chunk_at("file2.md", "repo");
-        repo.save(&chunk1).unwrap();
-        repo.save(&chunk2).unwrap();
-
-        // When checking a mix of existing and non-existing hashes
-        let existing_hash1 = chunk1.chunk.chunk_hash;
-        let existing_hash2 = chunk2.chunk.chunk_hash;
-        let nonexistent_hash = ChunkHash::from_text("nonexistent content");
-        let hashes = vec![existing_hash1, nonexistent_hash, existing_hash2];
+        let mut hashes = vec![];
+        for idx in existing_indices {
+            hashes.push(saved[*idx].chunk.chunk_hash);
+        }
+        if !saved.is_empty() && existing_indices.len() < saved.len() {
+            hashes.push(ChunkHash::from_text("nonexistent"));
+        }
 
         let result = repo.has_embedding_batch(&hashes).unwrap();
 
         // Then it should return only the hashes that exist
-        assert_eq!(result.len(), 2);
-        assert!(result.contains(&existing_hash1));
-        assert!(result.contains(&existing_hash2));
-        assert!(!result.contains(&nonexistent_hash));
-    }
-
-    #[test]
-    fn has_embedding_batch_returns_all_hashes_when_all_have_embeddings() {
-        // Given a repository with chunks saved
-        let temp_file = NamedTempFile::new().unwrap();
-        let mut repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
-
-        let chunk1 = create_test_chunk_at("file1.md", "repo");
-        let chunk2 = create_test_chunk_at("file2.md", "repo");
-        let chunk3 = create_test_chunk_at("file3.md", "repo");
-        repo.save(&chunk1).unwrap();
-        repo.save(&chunk2).unwrap();
-        repo.save(&chunk3).unwrap();
-
-        // When checking hashes that all exist
-        let hashes = vec![
-            chunk1.chunk.chunk_hash,
-            chunk2.chunk.chunk_hash,
-            chunk3.chunk.chunk_hash,
-        ];
-
-        let result = repo.has_embedding_batch(&hashes).unwrap();
-
-        // Then it should return all hashes
-        assert_eq!(result.len(), 3);
-        for hash in &hashes {
-            assert!(result.contains(hash));
+        assert_eq!(result.len(), existing_indices.len());
+        for idx in existing_indices {
+            assert!(result.contains(&saved[*idx].chunk.chunk_hash));
         }
     }
 
     #[test]
     fn has_embedding_batch_handles_empty_input() {
-        // Given a repository
-        let temp_file = NamedTempFile::new().unwrap();
-        let repo = SqliteChunkRepository::open(temp_file.path(), &test_config()).unwrap();
+        // Given A repository
+        let (_temp, repo) = setup_repo();
 
-        // When checking an empty list of hashes
+        // When Checking an empty list of hashes
         let result = repo.has_embedding_batch(&[]);
 
-        // Then it should return an empty set
+        // Then It should return an empty set
         assert!(result.unwrap().is_empty());
+    }
+
+    #[test_case(true ; "embedding exists")]
+    #[test_case(false ; "embedding does not exist")]
+    fn test_has_embedding(exists: bool) {
+        // Given a repository with or without a saved chunk
+        let (_temp, mut repo) = setup_repo();
+        let chunk = create_test_chunk();
+        let hash = if exists {
+            repo.save(&chunk).unwrap();
+            chunk.chunk.chunk_hash
+        } else {
+            ChunkHash::from_text("nonexistent content")
+        };
+
+        // When checking if the embedding exists
+        let result = repo.has_embedding(&hash);
+
+        // Then it should return the expected result
+        assert_eq!(result.unwrap(), exists);
     }
 }

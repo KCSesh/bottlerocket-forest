@@ -19,8 +19,12 @@ install:
 deny:
 	cargo deny --no-default-features check licenses bans sources
 
+.PHONY: lint-loc
+lint-loc:
+	python3 scripts/lint_loc.py
+
 .PHONY: check
-check: fmt clippy deny test
+check: fmt clippy deny lint-loc test
 
 .PHONY: integ
 integ: check

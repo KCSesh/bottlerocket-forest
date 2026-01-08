@@ -8,13 +8,13 @@
 use rusqlite::Connection;
 use snafu::ResultExt;
 
+use super::serialization::{indexed_chunk_from_row, serialize_context};
 use crate::knowledge::domain::{ChunkHash, FileHash, IndexedChunk};
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
-use super::serialization::{indexed_chunk_from_row, serialize_context};
 
 pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), StorageError> {
-  let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
-  conn.execute(
+    let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
+    conn.execute(
     "INSERT OR REPLACE INTO chunks 
     (chunk_hash, file_hash, repo_name, context_type, context_data, content, token_count, last_modified)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -29,47 +29,52 @@ pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), Storage
       chunk.indexed_at.as_secs(),
     ],
   ).context(DatabaseSnafu)?;
-  Ok(())
+    Ok(())
 }
 
 pub fn get_chunks_by_file_hash(
-  conn: &Connection,
-  file_hash: &FileHash,
+    conn: &Connection,
+    file_hash: &FileHash,
 ) -> Result<Vec<IndexedChunk>, StorageError> {
-  let mut stmt = conn.prepare(
-    "SELECT chunk_hash, chunk_hash, file_hash, '', repo_name, context_type, context_data, 
+    let mut stmt = conn
+        .prepare(
+            "SELECT chunk_hash, chunk_hash, file_hash, '', repo_name, context_type, context_data, 
             content, token_count, last_modified
      FROM chunks
      WHERE file_hash = ?1",
-  ).context(DatabaseSnafu)?;
-  stmt.query_map([file_hash.as_bytes()], |row| {
-    indexed_chunk_from_row(row)
-      .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-  })
-  .context(DatabaseSnafu)?
-  .collect::<Result<Vec<_>, _>>()
-  .context(DatabaseSnafu)
+        )
+        .context(DatabaseSnafu)?;
+    stmt.query_map([file_hash.as_bytes()], |row| {
+        indexed_chunk_from_row(row)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    })
+    .context(DatabaseSnafu)?
+    .collect::<Result<Vec<_>, _>>()
+    .context(DatabaseSnafu)
 }
 
 pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, StorageError> {
-  let count: i64 = conn.query_row(
-    "SELECT COUNT(*) FROM chunks WHERE chunk_hash = ?1",
-    [chunk_hash.as_bytes()],
-    |row| row.get(0),
-  ).context(DatabaseSnafu)?;
-  Ok(count > 0)
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM chunks WHERE chunk_hash = ?1",
+            [chunk_hash.as_bytes()],
+            |row| row.get(0),
+        )
+        .context(DatabaseSnafu)?;
+    Ok(count > 0)
 }
 
 pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
-  let deleted_chunks = conn.execute(
+    let deleted_chunks = conn.execute(
     "DELETE FROM chunks WHERE file_hash NOT IN (SELECT DISTINCT file_hash FROM indexed_files)",
     [],
   ).context(DatabaseSnafu)?;
-  conn.execute(
-    "DELETE FROM vec_chunks WHERE chunk_hash NOT IN (SELECT chunk_hash FROM chunks)",
-    [],
-  ).context(DatabaseSnafu)?;
-  Ok(deleted_chunks as u64)
+    conn.execute(
+        "DELETE FROM vec_chunks WHERE chunk_hash NOT IN (SELECT chunk_hash FROM chunks)",
+        [],
+    )
+    .context(DatabaseSnafu)?;
+    Ok(deleted_chunks as u64)
 }
 
 #[cfg(test)]

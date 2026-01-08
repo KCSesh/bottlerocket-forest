@@ -177,7 +177,8 @@ pub fn create_tables(conn: &Connection, config: &EmbeddingModelConfig) -> Result
 fn migrate_v2_to_v3(conn: &Connection) -> Result<()> {
     use schema_error::*;
 
-    conn.execute("BEGIN TRANSACTION", []).context(SqlExecutionSnafu)?;
+    conn.execute("BEGIN TRANSACTION", [])
+        .context(SqlExecutionSnafu)?;
 
     let result = (|| -> Result<()> {
         conn.execute(
@@ -192,19 +193,24 @@ fn migrate_v2_to_v3(conn: &Connection) -> Result<()> {
     last_modified INTEGER NOT NULL
 )"#,
             [],
-        ).context(SqlExecutionSnafu)?;
+        )
+        .context(SqlExecutionSnafu)?;
 
         conn.execute("INSERT INTO chunks_new SELECT * FROM chunks", [])
             .context(SqlExecutionSnafu)?;
 
-        conn.execute("DROP TABLE chunks", []).context(SqlExecutionSnafu)?;
+        conn.execute("DROP TABLE chunks", [])
+            .context(SqlExecutionSnafu)?;
 
         conn.execute("ALTER TABLE chunks_new RENAME TO chunks", [])
             .context(SqlExecutionSnafu)?;
 
-        conn.execute(CREATE_INDEX_FILE_HASH, []).context(SqlExecutionSnafu)?;
-        conn.execute(CREATE_INDEX_REPO, []).context(SqlExecutionSnafu)?;
-        conn.execute(CREATE_INDEX_CONTEXT_TYPE, []).context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_FILE_HASH, [])
+            .context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_REPO, [])
+            .context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_CONTEXT_TYPE, [])
+            .context(SqlExecutionSnafu)?;
 
         set_schema_version(conn, 3)?;
 
@@ -483,14 +489,14 @@ mod test {
     #[test]
     fn test_migrate_v2_to_v3() {
         let conn = setup_connection();
-        
+
         conn.execute(CREATE_INDEX_METADATA, []).unwrap();
         conn.execute(CREATE_CHUNKS_V2, []).unwrap();
         conn.execute(CREATE_INDEX_FILE_HASH, []).unwrap();
         conn.execute(CREATE_INDEX_REPO, []).unwrap();
-        
+
         set_schema_version(&conn, 2).unwrap();
-        
+
         conn.execute(
             "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
@@ -503,16 +509,19 @@ mod test {
                 10,
                 1234567890
             ],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         check_schema_version(&conn).unwrap();
-        
+
         let version = get_schema_version(&conn).unwrap();
         assert_eq!(version, Some(3));
-        
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM chunks", [], |r| r.get(0)).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM chunks", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, 1);
-        
+
         conn.execute(
             "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
@@ -525,6 +534,7 @@ mod test {
                 15,
                 1234567891
             ],
-        ).unwrap();
+        )
+        .unwrap();
     }
 }

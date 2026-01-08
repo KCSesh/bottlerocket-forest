@@ -321,6 +321,33 @@ mod test {
         }
     }
 
+    fn chunk_test_content(content: &str) -> Vec<Chunk> {
+        let input = create_test_input(content);
+        let config = test_config();
+        let chunker = RustDocChunker::from_config(&config).unwrap();
+        chunker.chunk(&input).unwrap()
+    }
+
+    fn chunker_with_filter(
+        vis: Vec<Visibility>,
+        types: Vec<crate::knowledge::indexing::RustItemType>,
+        min_lines: usize,
+    ) -> RustDocChunker {
+        use crate::knowledge::indexing::RustFilter;
+        let config = test_config();
+        let filter = RustFilter::new(vis, types, min_lines);
+        RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap()
+    }
+
+    fn assert_rustdoc_context(chunk: &Chunk, expected_name: &str, expected_vis: Visibility) {
+        if let ChunkContext::RustDoc(ctx) = &chunk.context {
+            assert_eq!(ctx.item_name, ItemName::try_new(expected_name).unwrap());
+            assert_eq!(ctx.visibility, expected_vis);
+        } else {
+            panic!("Expected RustDoc context");
+        }
+    }
+
     #[test_case(r#"
 /// Validates input data
 pub fn validate(input: &str) -> bool {
@@ -347,38 +374,26 @@ pub trait Repository {
 }
 "#, "Repository" ; "trait_item")]
     fn test_captures_item_metadata(content: &str, expected_name: &str) {
-        let input = create_test_input(content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        // Given: Rust code with documented item
+        // When: Chunking the content
+        let chunks = chunk_test_content(content);
+        // Then: Chunk captures item name and visibility
         assert!(!chunks.is_empty());
-        if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
-            assert_eq!(ctx.item_name, ItemName::try_new(expected_name).unwrap());
-            assert_eq!(ctx.visibility, Visibility::Public);
-        } else {
-            panic!("Expected RustDoc context");
-        }
+        assert_rustdoc_context(&chunks[0], expected_name, Visibility::Public);
     }
 
     #[test_case("pub", Visibility::Public ; "public_vis")]
     #[test_case("pub(crate)", Visibility::Crate ; "crate_vis")]
     #[test_case("", Visibility::Private ; "private_vis")]
     fn test_captures_visibility(vis_modifier: &str, expected_visibility: Visibility) {
+        // Given: Function with specific visibility
+        // When: Chunking the content
         let content = format!(
-            r#"
-/// Documented function
-{} fn test_fn() {{}}
-"#,
+            "/// Documented function\n{} fn test_fn() {{}}",
             vis_modifier
         );
-        let input = create_test_input(&content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        let chunks = chunk_test_content(&content);
+        // Then: Chunk captures correct visibility
         assert!(!chunks.is_empty());
         if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
             assert_eq!(ctx.visibility, expected_visibility);
@@ -389,18 +404,16 @@ pub trait Repository {
 
     #[test]
     fn test_captures_function_signature() {
+        // Given: Function with complex signature
+        // When: Chunking the content
         let content = r#"
 /// Processes data
 pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
     Ok(input.to_string())
 }
 "#;
-        let input = create_test_input(content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        let chunks = chunk_test_content(content);
+        // Then: Chunk captures signature with parameters
         assert!(!chunks.is_empty());
         if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
             assert!(ctx.signature.is_some());
@@ -415,14 +428,12 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
 
     #[test]
     fn test_respects_token_limit() {
+        // Given: Documentation exceeding token limit
+        // When: Chunking the content
         let long_doc = format!("/// {}\n", "word ".repeat(300));
         let content = format!("{}pub fn test() {{}}", long_doc);
-        let input = create_test_input(&content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        let chunks = chunk_test_content(&content);
+        // Then: All chunks respect token limit
         for chunk in &chunks {
             assert!(
                 chunk.content.token_count.into_inner() <= 256,
@@ -434,19 +445,16 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
 
     #[test]
     fn test_chunks_have_overlap() {
+        // Given: Documentation requiring multiple chunks
+        // When: Chunking the content
         let long_doc = format!("/// {}\n", "This is sentence number X. ".repeat(200));
         let content = format!("{}pub fn test() {{}}", long_doc);
-        let input = create_test_input(&content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        let chunks = chunk_test_content(&content);
+        // Then: Adjacent chunks have overlapping content
         if chunks.len() > 1 {
             let first_chunk_end = &chunks[0].content.text[chunks[0].content.text.len() - 50..];
             let second_chunk_start =
                 &chunks[1].content.text[..50.min(chunks[1].content.text.len())];
-
             assert!(
                 first_chunk_end
                     .split_whitespace()
@@ -458,21 +466,18 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
 
     #[test]
     fn test_preserves_metadata_across_chunks() {
+        // Given: Documentation requiring multiple chunks
+        // When: Chunking the content
         let long_doc = format!("/// {}\n", "word ".repeat(300));
         let content = format!("{}pub fn long_function() {{}}", long_doc);
-        let input = create_test_input(&content);
-        let config = test_config();
-        let chunker = RustDocChunker::from_config(&config).unwrap();
-
-        let chunks = chunker.chunk(&input).unwrap();
-
+        let chunks = chunk_test_content(&content);
+        // Then: All chunks preserve same metadata
         if chunks.len() > 1 {
             let first_ctx = if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
                 ctx
             } else {
                 panic!("Expected RustDoc context");
             };
-
             for chunk in &chunks[1..] {
                 if let ChunkContext::RustDoc(ctx) = &chunk.context {
                     assert_eq!(ctx.item_name, first_ctx.item_name);
@@ -484,71 +489,27 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
         }
     }
 
-    #[test]
-    fn test_chunker_respects_visibility_filter() {
-        use crate::knowledge::domain::Visibility;
-        use crate::knowledge::indexing::{RustFilter, RustItemType};
-
-        let config = test_config();
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Function], 0);
-        let chunker = RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap();
-
-        let input = create_test_input(
-            r#"
+    #[test_case(
+        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 0,
+        r#"
 /// Public function
 pub fn public_fn() {}
 
 /// Private function
 fn private_fn() {}
-"#,
-        );
-
-        let result = chunker.chunk(&input);
-
-        assert!(result.is_ok());
-        let chunks = result.unwrap();
-        assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].content.text.contains("Public function"));
-    }
-
-    #[test]
-    fn test_chunker_respects_item_type_filter() {
-        use crate::knowledge::domain::Visibility;
-        use crate::knowledge::indexing::{RustFilter, RustItemType};
-
-        let config = test_config();
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Struct], 0);
-        let chunker = RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap();
-
-        let input = create_test_input(
-            r#"
+"#, 1, "Public function" ; "visibility_filter")]
+    #[test_case(
+        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Struct], 0,
+        r#"
 /// A struct
 pub struct MyStruct {}
 
 /// A function
 pub fn my_function() {}
-"#,
-        );
-
-        let result = chunker.chunk(&input);
-
-        assert!(result.is_ok());
-        let chunks = result.unwrap();
-        assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].content.text.contains("A struct"));
-    }
-
-    #[test]
-    fn test_chunker_respects_min_doc_lines_filter() {
-        use crate::knowledge::domain::Visibility;
-        use crate::knowledge::indexing::{RustFilter, RustItemType};
-
-        let config = test_config();
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Function], 3);
-        let chunker = RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap();
-
-        let input = create_test_input(
-            r#"
+"#, 1, "A struct" ; "item_type_filter")]
+    #[test_case(
+        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 3,
+        r#"
 /// Short doc
 pub fn short() {}
 
@@ -556,32 +517,11 @@ pub fn short() {}
 /// that spans multiple lines
 /// and exceeds the minimum line count
 pub fn long() {}
-"#,
-        );
-
-        let result = chunker.chunk(&input);
-
-        assert!(result.is_ok());
-        let chunks = result.unwrap();
-        assert_eq!(chunks.len(), 1);
-        assert!(chunks[0].content.text.contains("longer documentation"));
-    }
-
-    #[test]
-    fn test_chunker_filters_multiple_criteria() {
-        use crate::knowledge::domain::Visibility;
-        use crate::knowledge::indexing::{RustFilter, RustItemType};
-
-        let config = test_config();
-        let filter = RustFilter::new(
-            vec![Visibility::Public],
-            vec![RustItemType::Struct, RustItemType::Enum],
-            2,
-        );
-        let chunker = RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap();
-
-        let input = create_test_input(
-            r#"
+"#, 1, "longer documentation" ; "min_lines_filter")]
+    #[test_case(
+        vec![Visibility::Public],
+        vec![crate::knowledge::indexing::RustItemType::Struct, crate::knowledge::indexing::RustItemType::Enum], 2,
+        r#"
 /// A public struct with
 /// sufficient documentation
 pub struct PublicStruct {}
@@ -600,16 +540,28 @@ pub enum PublicEnum { A, B }
 /// A public function with
 /// sufficient documentation
 pub fn public_function() {}
-"#,
+"#, 2, "public struct" ; "multiple_criteria_filter")]
+    fn test_chunker_filter(
+        vis: Vec<Visibility>,
+        types: Vec<crate::knowledge::indexing::RustItemType>,
+        min_lines: usize,
+        content: &str,
+        expected_count: usize,
+        expected_text: &str,
+    ) {
+        // Given: Chunker with specific filter configuration
+        let chunker = chunker_with_filter(vis, types, min_lines);
+        let input = create_test_input(content);
+
+        // When: Chunking content with mixed items
+        let chunks = chunker.chunk(&input).unwrap();
+
+        // Then: Only matching items are chunked
+        assert_eq!(chunks.len(), expected_count);
+        assert!(
+            chunks
+                .iter()
+                .any(|c| c.content.text.contains(expected_text))
         );
-
-        let result = chunker.chunk(&input);
-
-        assert!(result.is_ok());
-        let chunks = result.unwrap();
-        assert_eq!(chunks.len(), 2);
-        let texts: Vec<&str> = chunks.iter().map(|c| c.content.text.as_str()).collect();
-        assert!(texts.iter().any(|t| t.contains("public struct")));
-        assert!(texts.iter().any(|t| t.contains("public enum")));
     }
 }

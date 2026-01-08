@@ -41,7 +41,11 @@ impl ChunkingDispatcher {
         .context(StrategyInitFailedSnafu)?;
 
         Ok(Self {
-            strategies: vec![Box::new(markdown_chunker), Box::new(rustdoc_chunker), Box::new(godoc_chunker)],
+            strategies: vec![
+                Box::new(markdown_chunker),
+                Box::new(rustdoc_chunker),
+                Box::new(godoc_chunker),
+            ],
         })
     }
 

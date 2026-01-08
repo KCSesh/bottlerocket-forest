@@ -243,3 +243,5 @@ mod build;
 mod context;
 mod gc;
 mod helpers;
+mod test_helpers;
+mod update;

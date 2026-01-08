@@ -186,13 +186,12 @@ impl FileScanner {
         Ok(Some(indexable_file))
     }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::knowledge::domain::ScanConfig;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use tempfile::TempDir;
 
     fn scanner_no_git(path: impl AsRef<Path>) -> FileScanner {
@@ -201,6 +200,28 @@ mod test {
             .use_crumblyignore(false)
             .build();
         FileScanner::with_config(path, config).unwrap()
+    }
+
+    fn setup_repo_with_files(root: &Path, repo: &str, files: &[(&str, &str)]) {
+        let repo_dir = root.join(repo);
+        for (path, content) in files {
+            let file_path = repo_dir.join(path);
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(file_path, content).unwrap();
+        }
+    }
+
+    fn setup_git_repo(root: &Path, repo: &str, gitignore: &str) {
+        let repo_dir = root.join(repo);
+        fs::create_dir_all(&repo_dir).unwrap();
+        fs::create_dir(repo_dir.join(".git")).unwrap();
+        fs::write(repo_dir.join(".gitignore"), gitignore).unwrap();
+    }
+
+    fn scan_forest(path: &Path) -> Vec<IndexableFile> {
+        FileScanner::new(path).unwrap().scan().unwrap()
     }
 
     #[test]
@@ -236,14 +257,14 @@ mod test {
     fn test_scan_finds_markdown_files() {
         // Given A forest with markdown files
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("README.md"), "# Test").unwrap();
-        fs::write(repo_dir.join("DESIGN.md"), "# Design").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "bottlerocket",
+            &[("README.md", "# Test"), ("DESIGN.md", "# Design")],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then It should find markdown files
         assert_eq!(files.len(), 2);
@@ -254,10 +275,14 @@ mod test {
     fn test_scan_finds_rust_files() {
         // Given A forest with rust files
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("twoliter");
-        fs::create_dir_all(repo_dir.join("src")).unwrap();
-        fs::write(repo_dir.join("src/main.rs"), "fn main() {}").unwrap();
-        fs::write(repo_dir.join("src/lib.rs"), "pub fn test() {}").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "twoliter",
+            &[
+                ("src/main.rs", "fn main() {}"),
+                ("src/lib.rs", "pub fn test() {}"),
+            ],
+        );
 
         // When Scanning without gitignore
         let scanner = scanner_no_git(temp_dir.path());
@@ -272,16 +297,19 @@ mod test {
     fn test_scan_ignores_unsupported_files() {
         // Given A forest with mixed file types
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("README.md"), "# Test").unwrap();
-        fs::write(repo_dir.join("Cargo.toml"), "[package]").unwrap();
-        fs::write(repo_dir.join("LICENSE"), "MIT").unwrap();
-        fs::write(repo_dir.join("data.json"), "{}").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "bottlerocket",
+            &[
+                ("README.md", "# Test"),
+                ("Cargo.toml", "[package]"),
+                ("LICENSE", "MIT"),
+                ("data.json", "{}"),
+            ],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then It should only return .md and .rs files
         assert_eq!(files.len(), 1);
@@ -292,13 +320,10 @@ mod test {
     fn test_scan_extracts_repo_name() {
         // Given A forest with repo structure
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("README.md"), "# Test").unwrap();
+        setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("README.md", "# Test")]);
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Repo name should be extracted correctly
         assert_eq!(files.len(), 1);
@@ -325,8 +350,7 @@ mod test {
             .as_secs() as i64;
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Last modified should match file metadata
         assert_eq!(files.len(), 1);
@@ -337,12 +361,8 @@ mod test {
     fn test_scan_repo_filters_by_repo() {
         // Given A forest with multiple repos
         let temp_dir = TempDir::new().unwrap();
-        let bottlerocket_dir = temp_dir.path().join("bottlerocket");
-        let twoliter_dir = temp_dir.path().join("twoliter");
-        fs::create_dir(&bottlerocket_dir).unwrap();
-        fs::create_dir(&twoliter_dir).unwrap();
-        fs::write(bottlerocket_dir.join("README.md"), "# BR").unwrap();
-        fs::write(twoliter_dir.join("README.md"), "# TL").unwrap();
+        setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("README.md", "# BR")]);
+        setup_repo_with_files(temp_dir.path(), "twoliter", &[("README.md", "# TL")]);
 
         // When Scanning specific repo
         let scanner = FileScanner::new(temp_dir.path()).unwrap();
@@ -362,14 +382,17 @@ mod test {
     fn test_scan_handles_nested_directories() {
         // Given A forest with nested directory structure
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir_all(repo_dir.join("docs/architecture")).unwrap();
-        fs::write(repo_dir.join("docs/README.md"), "# Docs").unwrap();
-        fs::write(repo_dir.join("docs/architecture/boot.md"), "# Boot").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "bottlerocket",
+            &[
+                ("docs/README.md", "# Docs"),
+                ("docs/architecture/boot.md", "# Boot"),
+            ],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then It should find files in nested directories
         assert_eq!(files.len(), 2);
@@ -380,13 +403,14 @@ mod test {
     fn test_scan_preserves_relative_paths() {
         // Given A forest with files in subdirectories
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir_all(repo_dir.join("docs")).unwrap();
-        fs::write(repo_dir.join("docs/guide.md"), "# Guide").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "bottlerocket",
+            &[("docs/guide.md", "# Guide")],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Relative path should be preserved
         assert_eq!(files.len(), 1);
@@ -406,8 +430,7 @@ mod test {
         fs::write(crumbly_dir.join("notes.md"), "# Notes").unwrap();
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then .crumbly directory should never be scanned
         assert!(files.is_empty());
@@ -431,11 +454,8 @@ mod test {
             .respect_gitignore(false)
             .use_crumblyignore(false)
             .build();
-
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test").unwrap();
+        setup_repo_with_files(temp_dir.path(), "repo", &[("test.md", "# Test")]);
 
         // When Creating scanner with custom config
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
@@ -449,19 +469,20 @@ mod test {
     fn test_gitignore_respected_by_default() {
         // Given A forest with .gitignore in a git repo
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir(&repo_dir).unwrap();
-
-        // Create .git directory (required for .gitignore to work)
-        fs::create_dir(repo_dir.join(".git")).unwrap();
-
-        fs::write(repo_dir.join(".gitignore"), "ignored.md\n").unwrap();
-        fs::write(repo_dir.join("included.md"), "# Included").unwrap();
-        fs::write(repo_dir.join("ignored.md"), "# Ignored").unwrap();
+        setup_git_repo(
+            temp_dir.path(),
+            "repo",
+            "ignored.md
+",
+        );
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("included.md", "# Included"), ("ignored.md", "# Ignored")],
+        );
 
         // When Scanning with default config
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Gitignored file should not be found (only included.md)
         assert_eq!(files.len(), 1);
@@ -472,11 +493,19 @@ mod test {
     fn test_gitignore_can_be_disabled() {
         // Given A forest with .gitignore
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join(".gitignore"), "ignored.md\n").unwrap();
-        fs::write(repo_dir.join("included.md"), "# Included").unwrap();
-        fs::write(repo_dir.join("ignored.md"), "# Ignored").unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[
+                (
+                    ".gitignore",
+                    "ignored.md
+",
+                ),
+                ("included.md", "# Included"),
+                ("ignored.md", "# Ignored"),
+            ],
+        );
 
         // When Scanning with gitignore disabled
         let config = ScanConfig::builder().respect_gitignore(false).build();
@@ -491,10 +520,7 @@ mod test {
     fn test_scan_with_empty_targets_uses_default_behavior() {
         // Given A ScanConfig with empty targets vector
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("test.md"), "# Test").unwrap();
-
+        setup_repo_with_files(temp_dir.path(), "repo", &[("test.md", "# Test")]);
         let config = ScanConfig::builder().targets(vec![]).build();
 
         // When Scanning
@@ -509,13 +535,8 @@ mod test {
     fn test_scan_with_single_target() {
         // Given A forest with multiple directories and config targeting one
         let temp_dir = TempDir::new().unwrap();
-        let docs_dir = temp_dir.path().join("docs");
-        let bottlerocket_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir(&docs_dir).unwrap();
-        fs::create_dir(&bottlerocket_dir).unwrap();
-        fs::write(docs_dir.join("guide.md"), "# Guide").unwrap();
-        fs::write(bottlerocket_dir.join("README.md"), "# BR").unwrap();
-
+        setup_repo_with_files(temp_dir.path(), "docs", &[("guide.md", "# Guide")]);
+        setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("README.md", "# BR")]);
         let config = ScanConfig::builder()
             .targets(vec![PathBuf::from("docs")])
             .build();
@@ -533,16 +554,9 @@ mod test {
     fn test_scan_with_multiple_targets() {
         // Given A forest with several directories and config with multiple targets
         let temp_dir = TempDir::new().unwrap();
-        let docs_dir = temp_dir.path().join("docs");
-        let skills_dir = temp_dir.path().join("skills");
-        let bottlerocket_dir = temp_dir.path().join("bottlerocket");
-        fs::create_dir(&docs_dir).unwrap();
-        fs::create_dir(&skills_dir).unwrap();
-        fs::create_dir(&bottlerocket_dir).unwrap();
-        fs::write(docs_dir.join("guide.md"), "# Guide").unwrap();
-        fs::write(skills_dir.join("skill.md"), "# Skill").unwrap();
-        fs::write(bottlerocket_dir.join("README.md"), "# BR").unwrap();
-
+        setup_repo_with_files(temp_dir.path(), "docs", &[("guide.md", "# Guide")]);
+        setup_repo_with_files(temp_dir.path(), "skills", &[("skill.md", "# Skill")]);
+        setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("README.md", "# BR")]);
         let config = ScanConfig::builder()
             .targets(vec![PathBuf::from("docs"), PathBuf::from("skills")])
             .build();
@@ -574,10 +588,7 @@ mod test {
     fn test_scan_with_nonexistent_target() {
         // Given A ScanConfig with a target that doesn't exist
         let temp_dir = TempDir::new().unwrap();
-        let docs_dir = temp_dir.path().join("docs");
-        fs::create_dir(&docs_dir).unwrap();
-        fs::write(docs_dir.join("guide.md"), "# Guide").unwrap();
-
+        setup_repo_with_files(temp_dir.path(), "docs", &[("guide.md", "# Guide")]);
         let config = ScanConfig::builder()
             .targets(vec![PathBuf::from("docs"), PathBuf::from("nonexistent")])
             .build();
@@ -595,11 +606,11 @@ mod test {
     fn test_scan_with_overlapping_targets() {
         // Given Targets that overlap
         let temp_dir = TempDir::new().unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir_all(repo_dir.join("subdir")).unwrap();
-        fs::write(repo_dir.join("top.md"), "# Top").unwrap();
-        fs::write(repo_dir.join("subdir/nested.md"), "# Nested").unwrap();
-
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("top.md", "# Top"), ("subdir/nested.md", "# Nested")],
+        );
         let config = ScanConfig::builder()
             .targets(vec![PathBuf::from("repo"), PathBuf::from("repo/subdir")])
             .build();
@@ -616,25 +627,28 @@ mod test {
     fn test_scan_respects_target_specific_gitignore() {
         // Given Multiple targets each with their own .gitignore
         let temp_dir = TempDir::new().unwrap();
-        let repo1_dir = temp_dir.path().join("repo1");
-        let repo2_dir = temp_dir.path().join("repo2");
-        fs::create_dir(&repo1_dir).unwrap();
-        fs::create_dir(&repo2_dir).unwrap();
-
-        // Create .git directories
-        fs::create_dir(repo1_dir.join(".git")).unwrap();
-        fs::create_dir(repo2_dir.join(".git")).unwrap();
-
-        // repo1 ignores "ignored.md"
-        fs::write(repo1_dir.join(".gitignore"), "ignored.md\n").unwrap();
-        fs::write(repo1_dir.join("included.md"), "# Included").unwrap();
-        fs::write(repo1_dir.join("ignored.md"), "# Ignored").unwrap();
-
-        // repo2 ignores "secret.md"
-        fs::write(repo2_dir.join(".gitignore"), "secret.md\n").unwrap();
-        fs::write(repo2_dir.join("public.md"), "# Public").unwrap();
-        fs::write(repo2_dir.join("secret.md"), "# Secret").unwrap();
-
+        setup_git_repo(
+            temp_dir.path(),
+            "repo1",
+            "ignored.md
+",
+        );
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo1",
+            &[("included.md", "# Included"), ("ignored.md", "# Ignored")],
+        );
+        setup_git_repo(
+            temp_dir.path(),
+            "repo2",
+            "secret.md
+",
+        );
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo2",
+            &[("public.md", "# Public"), ("secret.md", "# Secret")],
+        );
         let config = ScanConfig::builder()
             .respect_gitignore(true)
             .targets(vec![PathBuf::from("repo1"), PathBuf::from("repo2")])
@@ -672,16 +686,23 @@ mod test {
     fn test_crumblyignore_excludes_files() {
         // Given A forest with .crumblyignore
         let temp_dir = TempDir::new().unwrap();
-        fs::write(temp_dir.path().join(".crumblyignore"), "excluded/\n").unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir_all(repo_dir.join("excluded")).unwrap();
-        fs::create_dir_all(repo_dir.join("included")).unwrap();
-        fs::write(repo_dir.join("excluded/doc.md"), "# Excluded").unwrap();
-        fs::write(repo_dir.join("included/doc.md"), "# Included").unwrap();
+        fs::write(
+            temp_dir.path().join(".crumblyignore"),
+            "excluded/
+",
+        )
+        .unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[
+                ("excluded/doc.md", "# Excluded"),
+                ("included/doc.md", "# Included"),
+            ],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Only included file should be found
         assert_eq!(files.len(), 1);
@@ -692,10 +713,17 @@ mod test {
     fn test_crumblyignore_can_be_disabled() {
         // Given A forest with .crumblyignore
         let temp_dir = TempDir::new().unwrap();
-        fs::write(temp_dir.path().join(".crumblyignore"), "excluded/\n").unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir_all(repo_dir.join("excluded")).unwrap();
-        fs::write(repo_dir.join("excluded/doc.md"), "# Excluded").unwrap();
+        fs::write(
+            temp_dir.path().join(".crumblyignore"),
+            "excluded/
+",
+        )
+        .unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("excluded/doc.md", "# Excluded")],
+        );
 
         // When Scanning with crumblyignore disabled
         let config = ScanConfig::builder().use_crumblyignore(false).build();
@@ -710,20 +738,21 @@ mod test {
     fn test_crumblyignore_with_subdirectories() {
         // Given A forest with .crumblyignore excluding a subdirectory
         let temp_dir = TempDir::new().unwrap();
-
-        // Create .git directory to prevent global gitignore interference
         fs::create_dir(temp_dir.path().join(".git")).unwrap();
-
-        fs::write(temp_dir.path().join(".crumblyignore"), "*/vendor/\n").unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir_all(repo_dir.join("vendor")).unwrap();
-        fs::create_dir_all(repo_dir.join("docs")).unwrap();
-        fs::write(repo_dir.join("vendor/doc.md"), "# Vendor").unwrap();
-        fs::write(repo_dir.join("docs/doc.md"), "# Docs").unwrap();
+        fs::write(
+            temp_dir.path().join(".crumblyignore"),
+            "*/vendor/
+",
+        )
+        .unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("vendor/doc.md", "# Vendor"), ("docs/doc.md", "# Docs")],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Only docs file should be found (vendor excluded)
         assert_eq!(files.len(), 1);
@@ -734,15 +763,20 @@ mod test {
     fn test_crumblyignore_wildcard_patterns() {
         // Given A forest with .crumblyignore using wildcards
         let temp_dir = TempDir::new().unwrap();
-        fs::write(temp_dir.path().join(".crumblyignore"), "*.tmp.md\n").unwrap();
-        let repo_dir = temp_dir.path().join("repo");
-        fs::create_dir(&repo_dir).unwrap();
-        fs::write(repo_dir.join("keep.md"), "# Keep").unwrap();
-        fs::write(repo_dir.join("ignore.tmp.md"), "# Ignore").unwrap();
+        fs::write(
+            temp_dir.path().join(".crumblyignore"),
+            "*.tmp.md
+",
+        )
+        .unwrap();
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("keep.md", "# Keep"), ("ignore.tmp.md", "# Ignore")],
+        );
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Only non-matching file should be found
         assert_eq!(files.len(), 1);
@@ -755,16 +789,10 @@ mod test {
         // Given A forest with a symlink pointing outside
         let temp_dir = TempDir::new().unwrap();
         let outside_dir = TempDir::new().unwrap();
-
-        // Create file outside forest
         fs::write(outside_dir.path().join("external.md"), "# External").unwrap();
-
-        // Create repo with symlink to external file
         let repo_dir = temp_dir.path().join("repo");
         fs::create_dir(&repo_dir).unwrap();
         fs::write(repo_dir.join("internal.md"), "# Internal").unwrap();
-
-        #[cfg(unix)]
         std::os::unix::fs::symlink(
             outside_dir.path().join("external.md"),
             repo_dir.join("link.md"),
@@ -772,8 +800,7 @@ mod test {
         .unwrap();
 
         // When Scanning
-        let scanner = FileScanner::new(temp_dir.path()).unwrap();
-        let files = scanner.scan().unwrap();
+        let files = scan_forest(temp_dir.path());
 
         // Then Only internal file should be found (symlink not followed)
         assert_eq!(files.len(), 1);

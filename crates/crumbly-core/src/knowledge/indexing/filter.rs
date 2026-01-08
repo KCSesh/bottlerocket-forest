@@ -100,11 +100,7 @@ pub struct GoFilter {
 
 impl GoFilter {
     /// Create a filter with visibility, item types, and minimum documentation length
-    pub fn new(
-        visibility: Vec<Visibility>,
-        items: Vec<GoItemType>,
-        min_doc_lines: usize,
-    ) -> Self {
+    pub fn new(visibility: Vec<Visibility>, items: Vec<GoItemType>, min_doc_lines: usize) -> Self {
         Self {
             visibility,
             items,
@@ -275,29 +271,29 @@ mod test {
     }
 }
 
-    #[test]
-    fn test_go_filter_should_index_checks_doc_lines() {
-        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 3);
-        let short_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 2);
-        let long_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 5);
-        assert!(!short_doc);
-        assert!(long_doc);
-    }
+#[test]
+fn test_go_filter_should_index_checks_doc_lines() {
+    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 3);
+    let short_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 2);
+    let long_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 5);
+    assert!(!short_doc);
+    assert!(long_doc);
+}
 
-    #[test]
-    fn test_go_filter_should_index_checks_visibility() {
-        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 0);
-        let public = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
-        let private = filter.should_index(&Visibility::Private, &GoItemType::Function, 100);
-        assert!(public);
-        assert!(!private);
-    }
+#[test]
+fn test_go_filter_should_index_checks_visibility() {
+    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 0);
+    let public = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+    let private = filter.should_index(&Visibility::Private, &GoItemType::Function, 100);
+    assert!(public);
+    assert!(!private);
+}
 
-    #[test]
-    fn test_go_filter_should_index_checks_item_type() {
-        let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Struct], 0);
-        let struct_item = filter.should_index(&Visibility::Public, &GoItemType::Struct, 100);
-        let function_item = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
-        assert!(struct_item);
-        assert!(!function_item);
-    }
+#[test]
+fn test_go_filter_should_index_checks_item_type() {
+    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Struct], 0);
+    let struct_item = filter.should_index(&Visibility::Public, &GoItemType::Struct, 100);
+    let function_item = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+    assert!(struct_item);
+    assert!(!function_item);
+}
