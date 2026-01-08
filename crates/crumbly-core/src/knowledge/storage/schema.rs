@@ -67,19 +67,6 @@ CREATE TABLE IF NOT EXISTS chunks (
 )
 "#;
 
-const CREATE_CHUNKS_V2: &str = r#"
-CREATE TABLE IF NOT EXISTS chunks (
-    chunk_hash BLOB PRIMARY KEY,
-    file_hash BLOB NOT NULL,
-    repo_name TEXT NOT NULL,
-    context_type TEXT NOT NULL CHECK(context_type IN ('markdown', 'rust_doc')),
-    context_data TEXT NOT NULL,
-    content TEXT NOT NULL,
-    token_count INTEGER NOT NULL,
-    last_modified INTEGER NOT NULL
-)
-"#;
-
 const CREATE_INDEX_FILE_HASH: &str =
     "CREATE INDEX IF NOT EXISTS idx_chunks_file_hash ON chunks(file_hash)";
 const CREATE_INDEX_REPO: &str = "CREATE INDEX IF NOT EXISTS idx_chunks_repo ON chunks(repo_name)";
@@ -491,7 +478,7 @@ mod test {
         let conn = setup_connection();
 
         conn.execute(CREATE_INDEX_METADATA, []).unwrap();
-        conn.execute(CREATE_CHUNKS_V2, []).unwrap();
+        conn.execute(CREATE_CHUNKS, []).unwrap();
         conn.execute(CREATE_INDEX_FILE_HASH, []).unwrap();
         conn.execute(CREATE_INDEX_REPO, []).unwrap();
 

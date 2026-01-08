@@ -74,11 +74,10 @@ pub fn extract_identifier(node: Node, source: &[u8]) -> Option<String> {
         if child.kind() == node_kinds::IDENTIFIER || child.kind() == node_kinds::TYPE_IDENTIFIER {
             return child.utf8_text(source).ok().map(|s| s.to_string());
         }
-        // For type_declaration, the identifier is inside type_spec
-        if child.kind() == "type_spec" {
-            if let Some(name) = extract_identifier(child, source) {
-                return Some(name);
-            }
+        if child.kind() == "type_spec"
+            && let Some(name) = extract_identifier(child, source)
+        {
+            return Some(name);
         }
     }
     None

@@ -31,11 +31,35 @@ use crate::knowledge::indexing::GoFilter;
 
 const PACKAGE_ITEM_NAME: &str = "package";
 
+/// Metadata for creating a chunk from a Go declaration.
+struct ChunkMetadata {
+    item_name: ItemName,
+    visibility: GoVisibility,
+    signature: Option<Signature>,
+    item_type: GoItemType,
+}
+
 /// Extracts and chunks Go documentation comments.
 pub struct GoDocChunker {
     splitter: TextSplitter<Tokenizer>,
     tokenizer: Tokenizer,
     filter: Option<GoFilter>,
+}
+
+fn get_function_or_method_type(kind: &str) -> GoItemType {
+    if kind == node_kinds::METHOD_DECLARATION {
+        GoItemType::Method
+    } else {
+        GoItemType::Function
+    }
+}
+
+fn get_const_or_var_type(kind: &str) -> GoItemType {
+    if kind == node_kinds::CONST_DECLARATION {
+        GoItemType::Const
+    } else {
+        GoItemType::Var
+    }
 }
 
 impl GoDocChunker {
@@ -81,13 +105,82 @@ impl GoDocChunker {
         filter.should_index(&visibility, &filter_type, doc.lines().count())
     }
 
+    fn process_declaration(
+        &self,
+        node: tree_sitter::Node,
+        source_bytes: &[u8],
+        item_type: GoItemType,
+        signature: Option<Signature>,
+        package_name: &Option<PackageName>,
+        input: &ChunkingInput,
+    ) -> Result<Vec<Chunk>, ChunkingError> {
+        use super::strategy::chunking_error::*;
+        use snafu::ResultExt;
+
+        let Some(doc) = extract_doc_comment(node, source_bytes) else {
+            return Ok(Vec::new());
+        };
+        let Some(name) = extract_identifier(node, source_bytes) else {
+            return Ok(Vec::new());
+        };
+        if !self.should_index(&name, item_type, &doc) {
+            return Ok(Vec::new());
+        }
+        let (go_vis, _) = get_visibility(&name);
+        let metadata = ChunkMetadata {
+            item_name: ItemName::try_new(&name)
+                .map_err(crate::knowledge::error::box_err)
+                .context(ParseSnafu {
+                    file_path: input.source.file_path.to_string(),
+                })?,
+            visibility: go_vis,
+            signature,
+            item_type,
+        };
+        self.create_chunks(&doc, metadata, package_name, input)
+    }
+
+    fn process_package_clause(
+        &self,
+        node: tree_sitter::Node,
+        source_bytes: &[u8],
+        input: &ChunkingInput,
+    ) -> Result<(Option<PackageName>, Vec<Chunk>), ChunkingError> {
+        use super::strategy::chunking_error::*;
+        use snafu::ResultExt;
+
+        let pkg_name = node
+            .child_by_field_name("name")
+            .or_else(|| {
+                node.children(&mut node.walk())
+                    .find(|c| c.kind() == "package_identifier")
+            })
+            .and_then(|pkg_node| pkg_node.utf8_text(source_bytes).ok())
+            .and_then(|s| PackageName::try_new(s).ok());
+
+        let chunks = if let Some(doc) = extract_doc_comment(node, source_bytes) {
+            let metadata = ChunkMetadata {
+                item_name: ItemName::try_new(PACKAGE_ITEM_NAME)
+                    .map_err(crate::knowledge::error::box_err)
+                    .context(ParseSnafu {
+                        file_path: input.source.file_path.to_string(),
+                    })?,
+                visibility: GoVisibility::Exported,
+                signature: None,
+                item_type: GoItemType::Package,
+            };
+            self.create_chunks(&doc, metadata, &pkg_name, input)?
+        } else {
+            Vec::new()
+        };
+
+        Ok((pkg_name, chunks))
+    }
+
     fn create_chunks(
         &self,
         text: &str,
-        item_name: ItemName,
-        visibility: GoVisibility,
-        signature: Option<Signature>,
-        item_type: GoItemType,
+        metadata: ChunkMetadata,
         package_name: &Option<PackageName>,
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
@@ -116,7 +209,7 @@ impl GoDocChunker {
             let chunk = Chunk::builder()
                 .id(crate::knowledge::domain::ChunkId::new(uuid::Uuid::new_v4()))
                 .chunk_hash(chunk_hash)
-                .file_hash(input.file_hash.clone())
+                .file_hash(input.file_hash)
                 .source(input.source.clone())
                 .content(
                     ChunkContent::builder()
@@ -126,10 +219,10 @@ impl GoDocChunker {
                 )
                 .context(ChunkContext::GoDoc(
                     GoDocContext::builder()
-                        .item_name(item_name.clone())
-                        .visibility(visibility)
-                        .maybe_signature(signature.clone())
-                        .item_type(item_type)
+                        .item_name(metadata.item_name.clone())
+                        .visibility(metadata.visibility)
+                        .maybe_signature(metadata.signature.clone())
+                        .item_type(metadata.item_type)
                         .maybe_package_name(package_name.as_ref().cloned())
                         .build(),
                 ))
@@ -181,129 +274,47 @@ impl ChunkingStrategy for GoDocChunker {
         for node in root.children(&mut root.walk()) {
             match node.kind() {
                 node_kinds::PACKAGE_CLAUSE => {
-                    if let Some(pkg_node) = node.child_by_field_name("name").or_else(|| {
-                        node.children(&mut node.walk())
-                            .find(|c| c.kind() == "package_identifier")
-                    }) {
-                        package_name = pkg_node
-                            .utf8_text(source_bytes)
-                            .ok()
-                            .and_then(|s| PackageName::try_new(s).ok());
-                    }
-                    if let Some(doc) = extract_doc_comment(node, source_bytes) {
-                        chunks.extend(
-                            self.create_chunks(
-                                &doc,
-                                ItemName::try_new(PACKAGE_ITEM_NAME)
-                                    .map_err(crate::knowledge::error::box_err)
-                                    .context(ParseSnafu {
-                                        file_path: file_path.clone(),
-                                    })?,
-                                GoVisibility::Exported,
-                                None,
-                                GoItemType::Package,
-                                &package_name,
-                                input,
-                            )?,
-                        );
-                    }
+                    let (pkg_name, pkg_chunks) =
+                        self.process_package_clause(node, source_bytes, input)?;
+                    package_name = pkg_name;
+                    chunks.extend(pkg_chunks);
                 }
                 node_kinds::FUNCTION_DECLARATION | node_kinds::METHOD_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
-                        continue;
-                    };
-                    let Some(name) = extract_identifier(node, source_bytes) else {
-                        // Identifier not found, skipping node
-                        continue;
-                    };
-                    let item_type = if node.kind() == node_kinds::METHOD_DECLARATION {
-                        GoItemType::Method
-                    } else {
-                        GoItemType::Function
-                    };
-                    if !self.should_index(&name, item_type, &doc) {
-                        continue;
-                    }
-                    let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(
-                        self.create_chunks(
-                            &doc,
-                            ItemName::try_new(&name)
-                                .map_err(crate::knowledge::error::box_err)
-                                .context(ParseSnafu {
-                                    file_path: file_path.clone(),
-                                })?,
-                            go_vis,
-                            node.utf8_text(source_bytes)
-                                .ok()
-                                .and_then(|s| Signature::try_new(s).ok()),
-                            item_type,
-                            &package_name,
-                            input,
-                        )?,
-                    );
+                    let item_type = get_function_or_method_type(node.kind());
+                    let signature = node
+                        .utf8_text(source_bytes)
+                        .ok()
+                        .and_then(|s| Signature::try_new(s).ok());
+                    chunks.extend(self.process_declaration(
+                        node,
+                        source_bytes,
+                        item_type,
+                        signature,
+                        &package_name,
+                        input,
+                    )?);
                 }
                 node_kinds::TYPE_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
-                        continue;
-                    };
-                    let Some(name) = extract_identifier(node, source_bytes) else {
-                        // Identifier not found, skipping node
-                        continue;
-                    };
                     let item_type = determine_type_kind(node);
-                    if !self.should_index(&name, item_type, &doc) {
-                        continue;
-                    }
-                    let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(
-                        self.create_chunks(
-                            &doc,
-                            ItemName::try_new(&name)
-                                .map_err(crate::knowledge::error::box_err)
-                                .context(ParseSnafu {
-                                    file_path: file_path.clone(),
-                                })?,
-                            go_vis,
-                            None,
-                            item_type,
-                            &package_name,
-                            input,
-                        )?,
-                    );
+                    chunks.extend(self.process_declaration(
+                        node,
+                        source_bytes,
+                        item_type,
+                        None,
+                        &package_name,
+                        input,
+                    )?);
                 }
                 node_kinds::CONST_DECLARATION | node_kinds::VAR_DECLARATION => {
-                    let Some(doc) = extract_doc_comment(node, source_bytes) else {
-                        continue;
-                    };
-                    let Some(name) = extract_identifier(node, source_bytes) else {
-                        // Identifier not found, skipping node
-                        continue;
-                    };
-                    let item_type = if node.kind() == node_kinds::CONST_DECLARATION {
-                        GoItemType::Const
-                    } else {
-                        GoItemType::Var
-                    };
-                    if !self.should_index(&name, item_type, &doc) {
-                        continue;
-                    }
-                    let (go_vis, _) = get_visibility(&name);
-                    chunks.extend(
-                        self.create_chunks(
-                            &doc,
-                            ItemName::try_new(&name)
-                                .map_err(crate::knowledge::error::box_err)
-                                .context(ParseSnafu {
-                                    file_path: file_path.clone(),
-                                })?,
-                            go_vis,
-                            None,
-                            item_type,
-                            &package_name,
-                            input,
-                        )?,
-                    );
+                    let item_type = get_const_or_var_type(node.kind());
+                    chunks.extend(self.process_declaration(
+                        node,
+                        source_bytes,
+                        item_type,
+                        None,
+                        &package_name,
+                        input,
+                    )?);
                 }
                 _ => {}
             }
