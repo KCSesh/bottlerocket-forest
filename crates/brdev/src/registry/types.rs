@@ -176,3 +176,50 @@ impl Default for RegistryRuntimeConfig {
         RegistryRuntimeConfig::builder().build()
     }
 }
+
+/// Grove-specific registry configuration.
+///
+/// Derives container name, volume name, and port from the grove name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroveRegistryConfig {
+    pub grove_name: String,
+    pub port: RegistryPort,
+}
+
+impl GroveRegistryConfig {
+    /// Creates a new grove registry config with port derived from grove name hash.
+    pub fn new(grove_name: String) -> Self {
+        let port = Self::derive_port(&grove_name);
+        Self { grove_name, port }
+    }
+
+    /// Creates config with explicit port override.
+    pub fn with_port(grove_name: String, port: u16) -> Result<Self, RegistryPortError> {
+        Ok(Self {
+            grove_name,
+            port: RegistryPort::try_new(port)?,
+        })
+    }
+
+    /// Derives port from grove name hash (range 5001-5999).
+    fn derive_port(grove_name: &str) -> RegistryPort {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        grove_name.hash(&mut hasher);
+        let hash = hasher.finish();
+        let port = 5001 + (hash % 999) as u16;
+        RegistryPort::try_new(port).unwrap()
+    }
+
+    /// Converts to runtime configuration.
+    pub fn into_runtime(self) -> RegistryRuntimeConfig {
+        let container_name = ContainerName::try_new(format!("brdev-registry-{}", self.grove_name)).unwrap();
+        let volume_name = VolumeName::try_new(format!("brdev-registry-data-{}", self.grove_name)).unwrap();
+        RegistryRuntimeConfig {
+            port: self.port,
+            image: ImageRef::default(),
+            container_name,
+            volume_name,
+        }
+    }
+}

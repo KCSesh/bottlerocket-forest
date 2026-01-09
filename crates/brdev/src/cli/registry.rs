@@ -49,7 +49,7 @@ struct LogsArgs {
 pub fn run(cmd: RegistryCommand) -> Result<(), RegistryError> {
     use registry_error::*;
 
-    let config = config::load_config().context(ConfigSnafu)?;
+    let config = config::load_grove_config().context(ConfigSnafu)?;
 
     match cmd.subcommand {
         RegistrySubcommand::Start => start(&config),
