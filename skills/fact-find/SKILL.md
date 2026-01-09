@@ -22,59 +22,65 @@ Quickly find and cite concrete facts about Bottlerocket:
 - Question has a concrete, definitive answer
 - Looking for "what is" or "where is" information
 
-For broader questions about architecture or design, use **deep-research** instead.
+For broader questions about architecture or design, use **research-document** instead.
 
-## Roles
+## Procedure
 
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md | Creates workspace, spawns subagent, returns answer |
-| Subagent | phases/FACT-FIND.md | Searches, reads files, writes cited answer |
+### 1. Search
 
-⚠️ **You do NOT read the phase file** — pass it to the subagent via context_files. The subagent handles all search and file reading, keeping that context out of yours.
-
-## Orchestrator Instructions
-
-```
-workspace = "planning/<question-slug>"
-mkdir workspace
-write workspace/question.txt with the user's question
-
-result = spawn(
-    prompt = "Answer the factual question in the workspace.",
-    context_files = ["skills/fact-find/phases/FACT-FIND.md"],
-    context_data = {"workspace": workspace},
-    allow_tools = True
-)
-
-read workspace/ANSWER.md
-present to user
+Create a focused query with key terms:
+```bash
+(cd $FOREST_ROOT && crumbly search "specific terms from question")
 ```
 
-## Inputs
+Check top 3-5 results for relevant files.
 
-- User's factual question about Bottlerocket
+### 2. Read
 
-## Outputs
+Read the most relevant files to find the answer:
+```bash
+# Pattern search for targeted reading
+grep -n "relevant terms" path/to/file.md
 
-- `workspace/ANSWER.md`: Concise answer with inline citations, sources section, and Research Quality Indicator
+# Full file if needed
+cat path/to/file.md
+```
 
-## Citation Format
+### 3. If Documentation Is Insufficient
 
-The final answer uses this format:
+Crumbly indexes documentation, not source code. If you can't find the answer in docs, search the codebase directly:
 
-```markdown
-<Answer text with inline citations <sup>[1]</sup>.>
+```bash
+# IMPORTANT: Always scope searches to specific directories!
+# The forest is 80GB+ - unscoped searches will hang.
+rg "search_term" --type rust bottlerocket/sources/
+find bottlerocket/sources -name "*relevant_name*"
+```
+
+This indicates a documentation gap - note it in your Research Quality Indicator.
+
+### 4. Answer with Citations
+
+Provide a direct, concise answer with inline superscript citations and a Sources section:
+
+```
+Bottlerocket uses a dual partition scheme with sets A and B <sup>[1]</sup>. The default API socket is `/run/api.sock` <sup>[2]</sup>.
 
 ## Sources
 
-<sup>[1]</sup> [`path/to/file.md`](../path/to/file.md)
-- What this source provided
+<sup>[1]</sup> [`sources/updater/signpost/README.md`](../sources/updater/signpost/README.md)
+- Partition set structure
 
----
-
-✅ **Answered from documentation** | ⚠️ **Answered from source code** | 🔍 **Partial documentation**
+<sup>[2]</sup> [`sources/api/README.md`](../sources/api/README.md)
+- API socket configuration
 ```
+
+**Citation guidelines:**
+- Use `<sup>[1]</sup>`, `<sup>[2]</sup>`, etc. inline with facts
+- Paths relative to the target repository
+- Markdown links for file paths
+- GitHub URLs for cross-repo references: `https://github.com/bottlerocket-os/REPO/blob/develop/FILE.md`
+- Brief bullet points describing what each source provided
 
 ## Validation
 
@@ -83,5 +89,12 @@ A good fact-find response:
 - ✓ Concise (2-4 sentences typically)
 - ✓ Superscript citations inline
 - ✓ Sources section with numbered references
-- ✓ Research Quality Indicator at end
 - ✓ No unnecessary context or explanation
+
+## Research Quality Indicator
+
+End your response with:
+
+- ✅ **Answered from documentation** - Found in README files, design docs, or narrative documentation.
+- ⚠️ **Answered from source code** - Had to read implementation files due to insufficient documentation.
+- 🔍 **Partial documentation** - Required both docs and source code to answer fully.

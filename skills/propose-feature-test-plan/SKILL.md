@@ -5,92 +5,9 @@ description: Create a test plan mapping EARS requirements and Critical Constrain
 
 # Propose Feature Test Plan Skill
 
-Create a test plan that systematically maps requirements and constraints to concrete tests.
+## Purpose
 
-## Roles
-
-**You (reading this file) are the orchestrator.**
-
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, workspace files | Decides next action, validates gates |
-| Subagent | Phase file (e.g., VERIFY.md) | Executes phase instructions |
-
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
-
-## Orchestrator Loop
-
-```python
-import json
-
-workspace = f"planning/test-plan-{feature_number}-{feature_name}"
-bash(f"mkdir -p {workspace}", on_error="raise")
-
-input_data = {"feature_number": feature_number, "feature_name": feature_name}
-write("create", f"{workspace}/input.json", file_text=json.dumps(input_data))
-
-while True:
-    result = bash(f"python3 skills/propose-feature-test-plan/next-step.py {workspace}", on_error="raise")
-    action = json.loads(result)
-    
-    if action["type"] == "done":
-        summary = fs_read("Line", f"{workspace}/plan-summary.md", 1, 100)
-        log(summary)
-        break
-    
-    if action["type"] == "gate_failed":
-        log(f"Gate failed: {action['reason']}")
-        break
-    
-    if action["type"] == "spawn":
-        r = spawn(
-            action["prompt"],
-            context_files=action["context_files"],
-            context_data=action.get("context_data"),
-            allow_tools=True
-        )
-        write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
-```
-
-## Handling Exceptions
-
-The state machine handles the happy path. When things go wrong, **exercise judgment**:
-
-| Exception | Response |
-|-----------|----------|
-| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
-| Spawn returns error | Report failure to state machine, let it track retries |
-| Empty/invalid response | Treat as failure, report to state machine |
-
-**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
-
-## Anti-Patterns
-
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in progress.json |
-| Silently advance past failures | Retry, fail, or document gaps |
-
-## Phases
-
-1. **VERIFY**: Check that concept.md, requirements.md, and design.md exist
-2. **EXTRACT**: Pull all REQ-* and CC-* identifiers from documents
-3. **PLAN**: Create test-plan.md mapping requirements/constraints to tests
-
-## Inputs
-
-Before starting, gather:
-- Feature number (e.g., "0042")
-- Feature name (e.g., "custom-settings")
-
-## Outputs
-
-- Test plan document at `$FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md`
-- Summary in workspace showing coverage statistics
+Create a test plan that systematically maps requirements and constraints to concrete tests. This ensures every requirement has verification and guides test implementation.
 
 ## When to Use
 
@@ -104,34 +21,108 @@ Before starting, gather:
 - Requirements exist in `$FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md`
 - Design exists in `$FOREST_ROOT/docs/features/NNNN-feature-name/design.md` (contains Critical Constraints)
 
-## Test Plan Structure
+## Procedure
 
-The generated test plan includes:
+### 1. Verify Prerequisites Exist
 
-- **Overview**: Brief description of testing approach
-- **Test Types**: Definitions of unit/integration/not-testable/out-of-scope
-- **Requirements Coverage**: Table mapping each REQ-* to test type, name, and description
-- **Critical Constraints Verification**: Table mapping each CC-* to verification approach
-- **Integration Test Requirements**: Guidance for CLI testing (test actual commands, not internals)
-- **Test Implementation Notes**: Specific guidance for implementing tests
+```bash
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
+```
 
-## Test Type Guidelines
+If any don't exist, complete those steps first.
 
-- **Unit**: Internal logic, algorithms, data transformations (mocks allowed)
-- **Integration**: File I/O, network calls, CLI commands, external processes (NO mocks)
-- **Not testable**: Cannot be automated (subjective quality, human judgment, infeasible setup)
-- **Out of scope**: Requires authentication with external systems (cloud APIs, registries)
+### 2. Extract Requirements and Constraints
 
-## CLI Testing Principle
+Review requirements.md for all REQ-* identifiers.
+Review design.md for all CC-* Critical Constraints.
+
+### 3. Create Test Plan File
+
+Create `$FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md` with this structure:
+
+```markdown
+# Test Plan: Feature Name
+
+## Overview
+
+Brief description of testing approach.
+
+## Test Types
+
+- **Unit**: Test internal logic in isolation, mocks allowed
+- **Integration**: Touch real external resources (filesystem, network), NO mocks
+- **Not testable**: Cannot be verified by automated test (explain why)
+- **Out of scope**: Requires external authentication - document but do not implement
+
+## Requirements Coverage
+
+| Req ID | Test Type | Test Name | Description |
+|--------|-----------|-----------|-------------|
+| REQ-1  | unit      | test_xxx  | What it verifies |
+| REQ-2  | integration | test_yyy | What it verifies |
+| REQ-3  | not-testable | - | Why not testable |
+| REQ-4  | out-of-scope | - | Why out of scope |
+
+## Critical Constraints Verification
+
+| CC ID | Verification Approach | Test Name(s) |
+|-------|----------------------|--------------|
+| CC-1  | How constraint is verified | test_xxx |
+
+## Integration Test Requirements
 
 For CLI programs, integration tests MUST:
 - Exercise the actual CLI binary/commands users run
 - NOT test internal APIs directly
 - Do what the user/customer will actually do
 
-## Validation
+## Test Implementation Notes
 
-After completion, verify:
+Any specific guidance for implementing these tests.
+```
+
+### 4. Map Each Requirement
+
+For each REQ-* in requirements.md:
+
+1. Determine test type:
+   - **Unit**: Internal logic, algorithms, data transformations
+   - **Integration**: File I/O, network calls, CLI commands, external processes
+   - **Not testable**: Cannot be automated (e.g., subjective quality, requires human judgment, infeasible to set up)
+   - **Out of scope**: Requires authentication with external systems (cloud APIs, registries with auth)
+
+2. Name the test descriptively (e.g., `test_parses_valid_config`)
+
+3. Write brief description of what it verifies
+
+### 5. Map Each Critical Constraint
+
+For each CC-* in design.md:
+
+1. Describe how the constraint will be verified
+2. Link to specific test name(s) that enforce it
+3. Note if constraint requires code review rather than automated test
+
+### 6. Document CLI Testing Approach
+
+If the feature includes CLI commands:
+
+- Integration tests run the actual binary
+- Capture stdout/stderr for verification
+- Test real user workflows end-to-end
+- Do NOT mock the CLI layer
+
+### 7. Mark Out-of-Scope Tests
+
+For tests requiring external authentication:
+
+1. Document what WOULD be tested
+2. Explain why it's out of scope
+3. Note any manual verification steps
+
+## Validation
 
 ```bash
 # Check file exists
@@ -140,15 +131,17 @@ ls $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
 # Verify all requirements are covered
 grep -c "REQ-" $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
 grep -c "REQ-" $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
+# Counts should be comparable
 
 # Verify all constraints are covered
 grep -c "CC-" $FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md
 grep -c "CC-" $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
+# Counts should be comparable
 ```
 
 ## Common Issues
 
-**Missing coverage**: Every REQ-* and CC-* must appear in the test plan. Use validation grep commands to check.
+**Missing coverage**: Every REQ-* and CC-* must appear in the test plan. Use the validation grep commands to check.
 
 **Wrong test type**: Unit tests should not touch filesystem/network. Integration tests should not use mocks.
 

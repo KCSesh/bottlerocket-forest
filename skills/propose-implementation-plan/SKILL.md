@@ -5,20 +5,10 @@ description: Create an implementation plan with atomic commits that build toward
 
 # Propose Implementation Plan Skill
 
+## Purpose
+
 Create a detailed implementation plan that breaks a feature into atomic, reviewable commits.
 The plan serves as a roadmap for implementation, ensuring each commit is self-contained, tested, and buildable.
-
-## Roles
-
-**You (reading this file) are the orchestrator.**
-
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, workspace files | Decides next action, validates gates |
-| Subagent | Phase file (e.g., SETUP.md) | Executes phase instructions |
-
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
 ## When to Use
 
@@ -34,85 +24,60 @@ The plan serves as a roadmap for implementation, ensuring each commit is self-co
 - Design and test plan have been reviewed and approved
 - Implementor understands the technical approach
 
-## Orchestrator Loop
+## Procedure
 
-```python
-import json
+### 1. Verify Design Exists
 
-workspace = f"planning/{feature_number}-{feature_name}"
-bash(f"mkdir -p {workspace}", on_error="raise")
-
-while True:
-    result = bash(f"python3 skills/propose-implementation-plan/next-step.py {workspace}", on_error="raise")
-    action = json.loads(result)
-    
-    if action["type"] == "done":
-        final_plan = fs_read("Line", f"{workspace}/implementation-plan.md", 1, -1)
-        log(f"Implementation plan created at {workspace}/implementation-plan.md")
-        break
-    
-    if action["type"] == "gate_failed":
-        log(f"Gate failed: {action['reason']}")
-        break
-    
-    if action["type"] == "spawn":
-        r = spawn(
-            action["prompt"],
-            context_files=action["context_files"],
-            context_data=action.get("context_data"),
-            allow_tools=True
-        )
-        write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
+```bash
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
 ```
 
-## Handling Exceptions
+If it doesn't exist, use `propose-feature-design` skill first.
 
-The state machine handles the happy path. When things go wrong, **exercise judgment**:
+### 2. Create Planning Directory and Copy Template
 
-| Exception | Response |
-|-----------|----------|
-| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
-| Spawn returns error | Report failure to state machine, let it track retries |
-| Empty/invalid response | Treat as failure, report to state machine |
+Implementation plans go in `$FOREST_ROOT/planning/` (gitignored scratch space), not `$FOREST_ROOT/docs/features/`.
 
-**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
+```bash
+mkdir -p $FOREST_ROOT/planning/NNNN-feature-name
+cp $FOREST_ROOT/docs/features/0000-templates/implementation-plan.md $FOREST_ROOT/planning/NNNN-feature-name/
+```
 
-## Anti-Patterns
+### 3. Study the Design Document
 
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in progress.json |
-| Silently advance past failures | Retry, fail, or document gaps |
+Read the design thoroughly, noting:
+- Module structure and affected files
+- Dependencies between components
+- Migration requirements from current state
+- Critical Constraints table
 
-## Phases
+### 3a. Study the Test Plan
 
-1. **SETUP**: Verify design exists, create planning directory, copy template
-2. **ANALYZE**: Study design/test plan, extract constraints, identify boundaries
-3. **PLAN**: Break feature into atomic commits with proper sizing and dependencies
-4. **FINALIZE**: Validate plan and write final implementation-plan.md
+Read `$FOREST_ROOT/docs/features/NNNN-feature-name/test-plan.md` and note:
+- Which requirements map to which test types (unit/integration/out-of-scope)
+- Which Critical Constraints have test coverage vs. require review
+- Test names and descriptions that will be assigned to commits
 
-## Inputs
+### 3b. Extract Critical Constraints
 
-Before starting, gather:
-- Feature number (e.g., `0042`)
-- Feature name (e.g., `multi-context-support`)
+Review the design's Critical Constraints table (CC-1, CC-2, etc.).
+For each constraint:
+1. Identify which commit(s) implement it
+2. Copy the constraint and anti-pattern to those commits' Acceptance Criteria
+3. These become explicit review checkpoints
 
-The workspace will be `planning/{number}-{name}`.
+**This step prevents the most common implementation mistakes.**
+If the design lacks critical constraints, ask for clarification before proceeding.
 
-## Outputs
+### 4. Identify Natural Boundaries
 
-- `planning/NNNN-feature-name/implementation-plan.md` - Final implementation plan
-- `planning/NNNN-feature-name/00-setup.md` - Setup phase output
-- `planning/NNNN-feature-name/01-analyze.md` - Analysis phase output
-- `planning/NNNN-feature-name/02-plan.md` - Planning phase output
-- `planning/NNNN-feature-name/progress.json` - State machine progress
+Look for logical separation points:
+- New types that can be introduced independently
+- Trait definitions separate from implementations
+- Schema changes separate from code using them
+- Tests that can be written before implementation
 
-## Atomic Commit Rules
-
-The plan ensures each commit follows these rules:
+### 5. Plan Commits Following the Atomic Commit Rules
 
 **Each commit MUST be:**
 
@@ -127,9 +92,10 @@ The plan ensures each commit follows these rules:
 2. **Have a clear purpose** - The commit message explains why, not just what
 3. **Minimize risk** - Smaller commits are easier to revert if problems arise
 
-## Handling Test Breakage
+### 5a. Handle Test Breakage During Refactors
 
-When a commit breaks tests in distant modules (e.g., schema changes that break integration tests), the plan will explicitly disable them with a TODO that references when they should be re-enabled.
+When a commit breaks tests in distant modules (e.g., schema changes that break integration tests), **do not leave broken tests**.
+Instead, explicitly disable them with a TODO that references when they should be re-enabled.
 
 **Pattern for disabling tests:**
 
@@ -151,7 +117,30 @@ fn test_search_returns_results() {
 }
 ```
 
-## Commit Sizing Guidelines
+**When planning commits that break existing tests:**
+
+1. **Identify which tests will break** - Note them in the commit description
+2. **Disable tests explicitly** - Use `#[ignore]` or feature flags, not deletion
+3. **Add a TODO comment** - Reference the specific commit that will re-enable them
+4. **Plan a re-enablement commit** - Add a commit (e.g., "9a", "12a") that fixes and re-enables the tests
+5. **Place re-enablement after dependencies are ready** - The re-enable commit comes after all changes needed to fix the tests
+
+**Example from a real plan:**
+
+```markdown
+- [ ] **Commit 4**: Update database schema (disables incompatible tests)
+- [ ] **Commit 8**: Update IndexedFile to include new fields
+- [ ] **Commit 9**: Update Chunk to use content-addressed storage
+- [ ] **Commit 9a**: Re-enable and fix storage layer tests  ← Re-enablement commit
+```
+
+This approach:
+- Keeps the build green at every commit
+- Makes test debt explicit and trackable
+- Ensures tests aren't forgotten
+- Gives coders clear guidance on when to fix tests
+
+### 6. Size Commits Appropriately
 
 **Too Small** (avoid):
 - Adding a single import
@@ -169,16 +158,158 @@ fn test_search_returns_results() {
 - Add a new CLI command with tests (~100-300 lines)
 - Refactor a module to prepare for new feature (~100-400 lines)
 
+### 7. Order Commits by Dependency
+
+Structure commits so each builds on previous work:
+
+```
+Phase 1: Foundation
+  Commit 1: Add new types (no behavior yet)
+  Commit 2: Add trait definitions (interfaces only)
+  
+Phase 2: Core Implementation  
+  Commit 3: Implement trait for primary adapter
+  Commit 4: Wire into application layer
+  
+Phase 3: Integration
+  Commit 5: Add CLI commands
+  Commit 6: Add integration tests
+```
+
+### 8. Write the Commit Checklist
+
+Create the high-level checklist at the top of the document.
+Keep descriptions to one line—details go in the commit sections.
+
+```markdown
+- [ ] **Commit 1**: Add Context and ContextId types
+- [ ] **Commit 2**: Add ContextRepository trait
+- [ ] **Commit 3**: Implement SqliteContextRepository
+```
+
+### 9. Write Detailed Commit Descriptions
+
+For each commit, document:
+
+**Summary**: What and why in one paragraph.
+
+**Files Changed**: List files with brief description of changes.
+
+**Key Changes**: Bullet points of specific modifications.
+
+**Requirements Addressed**: List requirement IDs (REQ-*) this commit implements or advances. Reviewers use this as a checklist independent of test coverage.
+
+**Constraints Addressed**: List constraint IDs (CC-*) this commit must satisfy. Copy the constraint and anti-pattern from the design doc for reviewer reference.
+
+**Testing**: Reference tests from the test plan that cover this commit's changes. Include test names and requirement IDs (e.g., "Adds test_search_returns_results for REQ-3"). For requirements marked not-testable, note what reviewers should verify manually.
+
+**Dependencies**: Which prior commits must be complete.
+
+### 10. Identify Parallelization Opportunities
+
+Note which commits have no dependencies on each other.
+These can be implemented simultaneously by different people or in any order.
+
+```markdown
+## Parallelization Notes
+
+- Commits 3 and 4 can be developed in parallel (both depend only on 1-2)
+- Phase 2 requires all of Phase 1 to be complete
+```
+
+### 11. Document Open Questions
+
+Track decisions that need resolution during implementation:
+
+```markdown
+## Open Questions
+
+- [ ] Should we use async for the repository trait?
+- [ ] What's the migration strategy for existing databases?
+```
+
+## Commit Sizing Guidelines
+
+### Indicators a Commit is Too Large
+
+- More than 500 lines changed
+- Touches more than 5 files
+- Takes more than 2 hours to implement
+- Commit message needs multiple paragraphs to explain
+- Reviewer asks "can this be split up?"
+
+### Indicators a Commit is Too Small
+
+- Less than 20 lines changed
+- No tests included
+- Doesn't compile on its own
+- Commit message is longer than the change
+- Creates dead code that's only used in later commits
+
+### Splitting Large Changes
+
+If a change seems too large, look for:
+
+1. **Type extraction**: Can new types be introduced first?
+2. **Interface first**: Can traits be defined before implementations?
+3. **Refactor then change**: Can existing code be restructured first?
+4. **Test scaffolding**: Can test infrastructure be added separately?
+5. **Feature flags**: Can new code be added but disabled?
+
+### Example: Splitting a Large Feature
+
+Instead of one commit "Add multi-context support":
+
+```
+Commit 1: Add Context type and ContextId newtype
+Commit 2: Add ContextRepository trait definition
+Commit 3: Update database schema with contexts table
+Commit 4: Implement SqliteContextRepository
+Commit 5: Add context discovery (workspace walk)
+Commit 6: Wire context resolution into facade
+Commit 7: Add 'context list' CLI command
+Commit 8: Add 'context remove' CLI command
+Commit 9: Update indexing to use context-scoped storage
+Commit 10: Update search to filter by context
+```
+
+Each commit is reviewable, testable, and buildable.
+
 ## Validation
 
-The finalize phase validates that:
+Verify the implementation plan:
+
+```bash
+# Check file exists
+ls $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
+
+# Verify it has the checklist
+grep -E "^\- \[ \]" $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
+
+# Count commits planned
+grep -c "^#### Commit" $FOREST_ROOT/planning/NNNN-feature-name/implementation-plan.md
+```
+
+Review the plan for:
 - [ ] Each commit is atomic and buildable
 - [ ] Commits are appropriately sized (target <400 lines)
 - [ ] Dependencies are clearly stated
 - [ ] Testing approach is documented for each commit
 - [ ] Phases group related work logically
-- [ ] Critical constraints are mapped to commits
-- [ ] Requirements are mapped to commits
+
+## Common Issues
+
+**Commits too large**: Split by type/trait/implementation boundaries.
+
+**Commits too small**: Combine related changes that don't make sense alone.
+
+**Unclear dependencies**: Draw a dependency graph if needed.
+
+**Missing tests**: Every commit should include tests for new code.
+
+**Vague descriptions**: Be specific about files and changes.
+
+**Refactor breaks distant tests**: Don't leave tests broken or delete them. Disable with `#[ignore]` or feature flag, add a TODO referencing the re-enablement commit, and plan a specific commit to fix and re-enable them. See section 5a.
 
 ## Next Steps
 

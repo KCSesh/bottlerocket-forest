@@ -5,19 +5,9 @@ description: Create a new feature concept document to pitch the idea and explain
 
 # Propose Feature Concept Skill
 
+## Purpose
+
 Create a feature concept document that pitches the feature idea and explains the problem it solves. This is the first step in the feature proposal process.
-
-## Roles
-
-**You (reading this file) are the orchestrator.**
-
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, workspace files | Decides next action, validates gates |
-| Subagent | Phase file (e.g., SETUP.md) | Executes phase instructions |
-
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
 ## When to Use
 
@@ -29,84 +19,120 @@ Create a feature concept document that pitches the feature idea and explains the
 
 - User has described the feature idea
 
-## Optional: Offer Idea Honing First
+## Procedure
 
-Before starting the orchestrator loop, ask the user:
+### 0. Offer Idea Honing (Optional)
+
+Ask the user:
 
 > Would you like to use an idea honing process to bring more clarity to the concept? This involves working through questions one at a time to explore ambiguities and design considerations.
 
 If yes, use the `idea-honing` skill following the protocol in `skills/README.md`. Return to this skill after idea honing is complete.
 
-## Orchestrator Loop
+### 1. Determine Feature Number
 
-```python
-import json
+Find the next available feature number:
 
-workspace = f"planning/{feature_slug}"
-bash(f"mkdir -p {workspace}", on_error="raise")
-
-while True:
-    result = bash(f"python3 skills/propose-feature-concept/next-step.py {workspace}", on_error="raise")
-    action = json.loads(result)
-    
-    if action["type"] == "done":
-        setup = json.loads(fs_read("Line", f"{workspace}/setup.json", 1, -1))
-        review = fs_read("Line", f"{workspace}/review.md", 1, -1)
-        log(f"Feature concept created at {setup['feature_dir']}/concept.md")
-        log(review)
-        break
-    
-    if action["type"] == "gate_failed":
-        log(f"Gate failed: {action['reason']}")
-        break
-    
-    if action["type"] == "spawn":
-        r = spawn(
-            action["prompt"],
-            context_files=action["context_files"],
-            context_data=action.get("context_data"),
-            allow_tools=True
-        )
-        write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
+```bash
+ls -1d $FOREST_ROOT/docs/features/[0-9][0-9][0-9][0-9]-* 2>/dev/null | tail -1
 ```
 
-## Handling Exceptions
+If no features exist, start with `0001`. Otherwise, increment the last number.
 
-The state machine handles the happy path. When things go wrong, **exercise judgment**:
+### 2. Create Feature Name
 
-| Exception | Response |
-|-----------|----------|
-| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
-| Spawn returns error | Report failure to state machine, let it track retries |
-| Empty/invalid response | Treat as failure, report to state machine |
+Work with the user to create a concise, descriptive name:
+- Use lowercase with hyphens
+- Keep it short (2-4 words)
+- Make it descriptive
 
-**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
+Example: `semantic-search`, `registry-management`, `skill-validation`
 
-## Anti-Patterns
+### 3. Check for Idea Honing Document
 
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in progress.json |
-| Silently advance past failures | Retry, fail, or document gaps |
+```bash
+ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
+```
 
-## Phases
+If it exists, reference it when writing the concept. The Q&A provides valuable material for the narrative.
 
-1. **SETUP**: Determine feature number, create feature name, check for idea honing document, create feature directory
-2. **DRAFT**: Copy template and work with user to fill in concept document as narrative
-3. **REVIEW**: Review for narrative flow, validate creation, provide recommendations
+### 4. Create Feature Directory
 
-## Inputs
+```bash
+mkdir -p $FOREST_ROOT/docs/features/NNNN-feature-name
+```
 
-- Feature idea description from user
-- Optional: idea-honing.md from prior idea honing session
+Replace `NNNN` with the four-digit number and `feature-name` with the agreed name.
 
-## Outputs
+### 5. Copy Concept Template
 
-- `docs/features/NNNN-feature-name/concept.md` - The feature concept document
-- `planning/<feature-slug>/review.md` - Review and next steps
+```bash
+cp $FOREST_ROOT/docs/features/0000-templates/concept.md $FOREST_ROOT/docs/features/NNNN-feature-name/
+```
+
+### 6. Fill in Concept Document
+
+Work with the user to complete `concept.md` as a narrative:
+
+**Frontmatter**
+- Set `feature:` to `NNNN-feature-name`
+- Set `status:` to `proposed`
+- Add optional `tracking-issue:` if applicable
+
+**Problem Section**
+- Paint a picture of the current situation
+- Describe the pain this causes
+- Explain why this matters
+
+**Solution Section**
+- Describe what users will experience
+- Focus on "what" and "why" rather than "how"
+- Keep it narrative, not a list
+
+**How It Works Section**
+- Tell the story of using the feature
+- Walk through the workflow naturally
+- Show real usage, not abstract steps
+
+**Benefits Section**
+- Explain the value provided
+- Connect back to the problem
+- Show what becomes possible
+
+**Technical Notes Section**
+- Brief constraints or considerations
+- Keep it short - details go in design.md
+
+### 7. Review for Narrative Flow
+
+Ensure the document:
+- Reads like a story, not a specification
+- Avoids bullet points and numbered lists where possible
+- Focuses on user experience and value
+- Explains "why" before "what"
+
+## Validation
+
+Verify the concept was created correctly:
+
+```bash
+# Check directory exists
+ls -la $FOREST_ROOT/docs/features/NNNN-feature-name/
+
+# Verify concept file exists
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+
+# Check it has content
+cat $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+```
+
+## Common Issues
+
+**Too technical**: If the concept reads like a design doc, refocus on the problem and user experience.
+
+**Too abstract**: If the concept is vague, work with the user to add concrete examples of the pain point.
+
+**List-heavy**: If there are many bullet points, rewrite as narrative prose.
 
 ## Next Steps
 

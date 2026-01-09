@@ -5,19 +5,9 @@ description: Create or update feature technical design document with architectur
 
 # Propose Feature Design Skill
 
+## Purpose
+
 Create a technical design document that guides implementation. This provides architecture, patterns, and design decisions without writing the actual code.
-
-## Roles
-
-**You (reading this file) are the orchestrator.**
-
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, feature files | Decides next action, validates gates |
-| Subagent | Phase file (e.g., VERIFY.md) | Executes phase instructions |
-
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
 
 ## When to Use
 
@@ -25,112 +15,151 @@ Create a technical design document that guides implementation. This provides arc
 - Ready to plan the implementation approach
 - Need to document architecture and design patterns
 
-## Orchestrator Loop
+## Prerequisites
 
-```python
-import json
+- Feature concept exists in `docs/features/NNNN-feature-name/concept.md`
+- Requirements exist in `docs/features/NNNN-feature-name/requirements.md`
+- User understands the technical approach
 
-feature_dir = "docs/features/NNNN-feature-name"
+## Procedure
 
-while True:
-  result = bash(f"python3 skills/propose-feature-design/next-step.py {feature_dir}", on_error="raise")
-  action = json.loads(result)
-  
-  if action["type"] == "done":
-    log(f"Design document created at {feature_dir}/design.md")
-    break
-  
-  if action["type"] == "gate_failed":
-    log(f"Gate failed: {action['reason']}")
-    break
-  
-  if action["type"] == "spawn":
-    r = spawn(
-      action["prompt"],
-      context_files=action["context_files"],
-      context_data=action["context_data"],
-      allow_tools=True
-    )
-    write("create", f"{feature_dir}/{action['output_file']}", file_text=r.response)
+### 1. Verify Prerequisites Exist
+
+```bash
+# Check that concept and requirements exist
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/requirements.md
 ```
 
-## Handling Exceptions
+If either doesn't exist, complete those steps first.
 
-The state machine handles the happy path. When things go wrong, **exercise judgment**:
+### 2. Check for Idea Honing Document
 
-| Exception | Response |
-|-----------|----------|
-| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
-| Spawn returns error | Report failure to state machine, let it track retries |
-| Empty/invalid response | Treat as failure, report to state machine |
+```bash
+ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
+```
 
-**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
+If it exists, review it for design insights and technical considerations discussed during idea honing.
 
-## Anti-Patterns
+### 3. Copy Design Template
 
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in .design-progress.json |
-| Silently advance past failures | Retry, fail, or document gaps |
+```bash
+cp $FOREST_ROOT/docs/features/0000-templates/design.md $FOREST_ROOT/docs/features/NNNN-feature-name/
+```
 
-## Phases
+### 4. Fill in Overview
 
-1. **VERIFY**: Check that concept.md and requirements.md exist
-2. **PREPARE**: Copy design template and check for idea-honing context
-3. **DESIGN**: Fill in all design sections (overview, constraints, architecture, domain model, etc.)
+Write a high-level description of the architecture and design approach. Reference the concept and requirements.
 
-## Inputs
+### 5. Identify Critical Constraints
 
-- Feature directory path: `docs/features/NNNN-feature-name`
-- Existing files: `concept.md`, `requirements.md`
-- Optional: `planning/NNNN-feature-name/idea-honing.md`
-
-## Outputs
-
-- `docs/features/NNNN-feature-name/design.md`: Complete design document
-
-## Design Document Sections
-
-The DESIGN phase fills in:
-
-- **Overview**: High-level architecture and approach
-- **Critical Constraints**: What MUST be done specific ways (most important section)
-- **Architecture**: Component relationships, data flow, layer responsibilities
-- **Domain Model**: Core types, operations, invariants
-- **Module Structure**: Directory layout and organization
-- **Design Patterns**: Relevant patterns and why they apply
-- **Design Decisions**: Key choices and rationale
-- **Implementation Guidance**: References to constraints, performance, testing
-
-## Critical Constraints
-
-The most important section for preventing implementation mistakes. For each key operation:
-- What would be WRONG?
-- What performance is required?
+For each key operation, ask:
+- What would be a WRONG way to implement this?
+- What performance characteristics are required?
 - What invariants must hold?
 
-Format:
+Fill in the Critical Constraints table with:
 - **ID**: CC-1, CC-2, etc.
 - **Constraint**: What MUST be done a specific way
 - **Rationale**: Why (performance, correctness, security)
-- **Anti-pattern**: The wrong approach to reject
+- **Anti-pattern**: The wrong approach to reject in review
 
+This is the most important section for preventing implementation mistakes.
 Be specific—vague constraints don't help.
+
+### 6. Define Architecture
+
+Describe the overall structure:
+- Component relationships
+- Data flow
+- Layer responsibilities
+- Integration points
+
+Use simple diagrams with ASCII art if helpful.
+
+### 7. Define Domain Model
+
+Specify the core types and operations:
+
+**Types**
+- Purpose and role
+- Key properties
+- Validation rules
+- Relationships to other types
+
+**Operations**
+- Function signatures (conceptual)
+- What they do
+- Key behaviors
+- Invariants (what must always be true)
+
+### 8. Define Module Structure
+
+Show how code should be organized:
+- Directory structure
+- Module responsibilities
+- File organization
+- Separation of concerns
+
+### 9. Document Design Patterns
+
+Describe relevant patterns and why they apply:
+- Which patterns to use
+- How they fit the problem
+- Implementation guidance
+
+### 10. Document Design Decisions
+
+For significant choices between alternatives, add entries to the Design Decisions section:
+- What was decided
+- What alternatives were considered
+- Why this option was chosen
+- What it implies for implementation
+
+This creates a record that helps implementors understand the reasoning.
+
+### 11. Add Implementation Guidance
+
+Key considerations for implementors:
+- Reference Critical Constraints by ID
+- Performance considerations
+- Testing approach
+- Edge cases to handle
+
+### 12. Keep Code Minimal
+
+Remember:
+- Use minimal illustrative code
+- Focus on architecture and decisions
+- Guide implementors, don't implement
+- Reference requirements by ID when relevant
 
 ## Validation
 
-The state machine validates:
-- Prerequisites exist (concept.md, requirements.md)
-- Template copied successfully
-- Design document created and has substantial content (>500 chars)
+Verify the design document:
+
+```bash
+# Check file exists
+ls $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
+
+# Verify it has content
+head -50 $FOREST_ROOT/docs/features/NNNN-feature-name/design.md
+```
+
+## Common Issues
+
+**Too much code**: If there are large code blocks, remove them and focus on guidance.
+
+**Too abstract**: If the design is vague, add concrete type names and module structure.
+
+**Missing architecture**: Ensure the overall structure is clear before diving into details.
+
+**Not referencing requirements**: Link design decisions back to specific requirement IDs.
 
 ## Next Steps
 
 After creating the design:
 1. Review with implementors for feasibility
 2. Refine based on feedback
-3. Create test plan using `propose-feature-test-plan` skill
-4. Create implementation plan using `propose-implementation-plan` skill
+3. Once design is solid, create test plan using `propose-feature-test-plan` skill
+4. Then create implementation plan using `propose-implementation-plan` skill

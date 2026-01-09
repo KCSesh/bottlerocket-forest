@@ -49,7 +49,7 @@ New `bottlerocket-forest` repo has just configs, docs, and Bottlerocket-specific
 **Q: Where do skills live?**
 A: Three homes:
 
-- Built into forester (generic, auto-placed on `forester new`): `fact-find`, `deep-research`
+- Built into forester (generic, auto-placed on `forester new`): `fact-find`, `research-document`
 - In forester repo (for developing the tools): `idea-honing`, `brownfield-research`, `propose-feature-*`
 - In bottlerocket-forest (Bottlerocket-specific): `local-registry`, `build-kit-locally`, etc.
 

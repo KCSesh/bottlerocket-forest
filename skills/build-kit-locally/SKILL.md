@@ -5,92 +5,9 @@ description: Build a kit and publish it to a locally hosted registry for develop
 
 # Skill: Build and Publish Kit
 
-Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI registry for development testing and validation.
+## Purpose
 
-## Roles
-
-**You (reading this file) are the orchestrator.**
-
-| Role | Reads | Does |
-|------|-------|------|
-| Orchestrator (you) | SKILL.md, next-step.py output | Runs state machine, spawns subagents, writes outputs |
-| State machine | progress.json, workspace files | Decides next action, validates gates |
-| Subagent | Phase file (e.g., SETUP.md) | Executes phase instructions |
-
-⚠️ **You do NOT read files in `phases/`** — pass them to subagents via context_files. Subagents read their phase file and execute it.
-
-## Orchestrator Loop
-
-```python
-workspace = f"planning/build-kit-{kit_name}"
-bash(f"mkdir -p {workspace}", on_error="raise")
-
-input_data = {"kit_name": kit_name, "arch": arch}
-write("create", f"{workspace}/input.json", file_text=json.dumps(input_data))
-
-while True:
-    result = bash(f"python3 skills/build-kit-locally/next-step.py {workspace}", on_error="raise")
-    action = json.loads(result)
-    
-    if action["type"] == "done":
-        verify = fs_read("Line", f"{workspace}/04-verify.md", 1, 100)
-        break
-    
-    if action["type"] == "gate_failed":
-        log(f"Gate failed: {action['reason']}")
-        break
-    
-    if action["type"] == "spawn":
-        r = spawn(
-            action["prompt"],
-            context_files=action["context_files"],
-            context_data=action["context_data"],
-            allow_tools=True
-        )
-        write("create", f"{workspace}/{action['output_file']}", file_text=r.response)
-```
-
-## Handling Exceptions
-
-The state machine handles the happy path. When things go wrong, **exercise judgment**:
-
-| Exception | Response |
-|-----------|----------|
-| Spawn times out | Assess: retry with longer timeout? Report partial progress? |
-| Spawn returns error | Report failure to state machine, let it track retries |
-| Empty/invalid response | Treat as failure, report to state machine |
-
-**Don't silently advance past failures.** Either retry, fail explicitly, or document gaps.
-
-## Anti-Patterns
-
-| ❌ Don't | ✅ Do |
-|----------|-------|
-| Read phase files yourself | Pass phase files via context_files to subagents |
-| Decide what phase is next | State machine decides via next-step.py |
-| Skip gates "because it looks done" | Always validate gates |
-| Store state in your memory | State lives in progress.json |
-| Silently advance past failures | Retry, fail, or document gaps |
-
-## Phases
-
-1. **SETUP**: Ensure local registry is running and configure Infra.toml
-2. **BUILD**: Build the kit for specified architecture
-3. **PUBLISH**: Publish built kit to local OCI registry
-4. **VERIFY**: Verify kit was successfully published
-
-## Inputs
-
-Create `{{workspace}}/input.json` with:
-- `kit_name`: Name of the kit (e.g., "bottlerocket-core-kit")
-- `arch`: Architecture to build (default: "x86_64", or "aarch64")
-
-## Outputs
-
-- `{{workspace}}/01-setup.md`: Registry and Infra.toml configuration status
-- `{{workspace}}/02-build.md`: Build artifacts and status
-- `{{workspace}}/03-publish.md`: Published tags and registry info
-- `{{workspace}}/04-verify.md`: Verification results and next steps
+Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI registry for development testing and validation. This allows you to test kit changes in variant builds without publishing to production registries.
 
 ## When to Use
 
@@ -102,7 +19,64 @@ Create `{{workspace}}/input.json` with:
 
 - Docker installed and running
 - Kit repository cloned in `kits/` directory
-- FOREST_ROOT environment variable set
+
+## Procedure
+
+### 1. Ensure local registry is running
+
+```bash
+(cd $FOREST_ROOT && brdev registry start)
+```
+
+### 2. Configure Infra.toml for local registry
+
+Check if `Infra.toml` exists in the kit directory. If not, create it:
+
+```bash
+cd kits/<kit-name>
+cat > Infra.toml << 'EOF'
+[vendor.local]
+registry = "localhost:5000"
+EOF
+```
+
+### 3. Build the kit
+
+```bash
+make build
+```
+
+For specific architecture:
+```bash
+make build ARCH=x86_64
+# or
+make build ARCH=aarch64
+```
+
+### 4. Publish to local registry
+
+```bash
+make publish VENDOR=local
+```
+
+This publishes the kit to `localhost:5000` with the vendor prefix "local".
+
+### 5. Verify publication
+
+```bash
+curl http://localhost:5000/v2/_catalog
+```
+
+Should show your kit in the repositories list.
+
+## Validation
+
+Check the kit is available:
+```bash
+curl http://localhost:5000/v2/<kit-name>/tags/list
+```
+
+Should return the published version tags.
 
 ## Common Issues
 
@@ -110,20 +84,20 @@ Create `{{workspace}}/input.json` with:
 ```
 Error: connection refused
 ```
-Solution: The SETUP phase will start the registry automatically
+Solution: Run `(cd $FOREST_ROOT && brdev registry start)`
 
 **Infra.toml not configured:**
 ```
 Error: vendor 'local' not found
 ```
-Solution: The SETUP phase creates Infra.toml if missing
+Solution: Create or update `Infra.toml` with local registry configuration
 
 **Docker permission denied:**
 Solution: Ensure user is in docker group and Docker daemon is running
 
 ## Next Steps
 
-After the skill completes:
+After publishing a kit:
 1. Update variant's `Twoliter.toml` to reference the new kit version
 2. Run `make update` in the variant repo
 3. Build the variant with `cargo make`
