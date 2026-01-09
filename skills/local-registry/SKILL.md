@@ -24,7 +24,7 @@ Start and manage a local OCI registry for development. This allows building and 
 ### Start the registry
 
 ```bash
-(cd $FOREST_ROOT && brdev registry start)
+brdev registry start
 ```
 
 This will:
@@ -36,7 +36,7 @@ This will:
 ### Verify registry is running
 
 ```bash
-(cd $FOREST_ROOT && brdev registry status)
+brdev registry status
 ```
 
 Returns exit code 0 if running, non-zero otherwise.
@@ -44,18 +44,18 @@ Returns exit code 0 if running, non-zero otherwise.
 ### View registry logs
 
 ```bash
-(cd $FOREST_ROOT && brdev registry logs)
+brdev registry logs
 ```
 
 To follow logs in real-time:
 ```bash
-(cd $FOREST_ROOT && brdev registry logs --follow)
+brdev registry logs --follow
 ```
 
 ### Stop the registry
 
 ```bash
-(cd $FOREST_ROOT && brdev registry stop)
+brdev registry stop
 ```
 
 Note: This preserves the registry data volume.
@@ -63,7 +63,7 @@ Note: This preserves the registry data volume.
 ### Clean registry data
 
 ```bash
-(cd $FOREST_ROOT && brdev registry clean)
+brdev registry clean
 ```
 
 This removes both the container and the data volume.

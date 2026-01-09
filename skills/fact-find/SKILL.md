@@ -30,7 +30,7 @@ For broader questions about architecture or design, use **deep-research** instea
 
 Create a focused query with key terms:
 ```bash
-(cd $FOREST_ROOT && crumbly search "specific terms from question")
+crumbly search "specific terms from question"
 ```
 
 Check top 3-5 results for relevant files.

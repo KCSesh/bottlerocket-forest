@@ -43,7 +43,7 @@ Override `TWOLITER_DIR` to point to your local build directory:
 
 ```bash
 cd kits/bottlerocket-core-kit
-make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release
+make build TWOLITER_DIR=./twoliter/target/release
 ```
 
 ### 4. Iterate
@@ -51,12 +51,12 @@ make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release
 After making more changes:
 ```bash
 # Rebuild twoliter
-cd $FOREST_ROOT/twoliter
+cd ./twoliter
 cargo build --release
 
 # Test again
 cd kits/bottlerocket-core-kit
-make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release
+make build TWOLITER_DIR=./twoliter/target/release
 ```
 
 ## Validation
@@ -65,7 +65,7 @@ Verify the local twoliter is being used by checking the path:
 
 ```bash
 cd kits/bottlerocket-core-kit
-make build TWOLITER_DIR=$FOREST_ROOT/twoliter/target/release 2>&1 | head -5
+make build TWOLITER_DIR=./twoliter/target/release 2>&1 | head -5
 ```
 
 You should see your modified twoliter being invoked.
@@ -75,7 +75,7 @@ You should see your modified twoliter being invoked.
 **Changes not taking effect:**
 - Ensure you ran `cargo build --release` after making changes
 - Verify the path in `TWOLITER_DIR` is correct
-- Check that the binary exists: `ls -lh $FOREST_ROOT/twoliter/target/release/twoliter`
+- Check that the binary exists: `ls -lh ./twoliter/target/release/twoliter`
 
 **Build errors in twoliter:**
 - Run `cargo check` to see detailed error messages
@@ -98,12 +98,3 @@ make build
 This uses the default `tools/twoliter/twoliter` from the released version.
 
 ## Related Skills
-
-- **update-twoliter** - For updating to a new released version after testing
-
-## Notes
-
-- No file modifications needed - use `TWOLITER_DIR` override on command line
-- This is for local testing only
-- For variant builds, you may need to update `bottlerocket/Makefile.toml` similarly
-- The `prep` target will still download the official version to `tools/twoliter/`, but your override takes precedence

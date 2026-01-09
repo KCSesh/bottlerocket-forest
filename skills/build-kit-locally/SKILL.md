@@ -25,7 +25,7 @@ Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI 
 ### 1. Ensure local registry is running
 
 ```bash
-(cd $FOREST_ROOT && brdev registry start)
+brdev registry start
 ```
 
 ### 2. Configure Infra.toml for local registry
@@ -84,7 +84,7 @@ Should return the published version tags.
 ```
 Error: connection refused
 ```
-Solution: Run `(cd $FOREST_ROOT && brdev registry start)`
+Solution: Run `brdev registry start`
 
 **Infra.toml not configured:**
 ```

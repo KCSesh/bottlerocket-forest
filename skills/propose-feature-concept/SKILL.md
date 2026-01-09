@@ -34,7 +34,7 @@ If yes, use the `idea-honing` skill following the protocol in `skills/README.md`
 Find the next available feature number:
 
 ```bash
-ls -1d $FOREST_ROOT/docs/features/[0-9][0-9][0-9][0-9]-* 2>/dev/null | tail -1
+ls -1d ./docs/features/[0-9][0-9][0-9][0-9]-* 2>/dev/null | tail -1
 ```
 
 If no features exist, start with `0001`. Otherwise, increment the last number.
@@ -51,7 +51,7 @@ Example: `semantic-search`, `registry-management`, `skill-validation`
 ### 3. Check for Idea Honing Document
 
 ```bash
-ls $FOREST_ROOT/planning/NNNN-feature-name/idea-honing.md 2>/dev/null
+ls ./planning/NNNN-feature-name/idea-honing.md 2>/dev/null
 ```
 
 If it exists, reference it when writing the concept. The Q&A provides valuable material for the narrative.
@@ -59,7 +59,7 @@ If it exists, reference it when writing the concept. The Q&A provides valuable m
 ### 4. Create Feature Directory
 
 ```bash
-mkdir -p $FOREST_ROOT/docs/features/NNNN-feature-name
+mkdir -p ./docs/features/NNNN-feature-name
 ```
 
 Replace `NNNN` with the four-digit number and `feature-name` with the agreed name.
@@ -67,7 +67,7 @@ Replace `NNNN` with the four-digit number and `feature-name` with the agreed nam
 ### 5. Copy Concept Template
 
 ```bash
-cp $FOREST_ROOT/docs/features/0000-templates/concept.md $FOREST_ROOT/docs/features/NNNN-feature-name/
+cp ./docs/features/0000-templates/concept.md ./docs/features/NNNN-feature-name/
 ```
 
 ### 6. Fill in Concept Document
@@ -117,13 +117,13 @@ Verify the concept was created correctly:
 
 ```bash
 # Check directory exists
-ls -la $FOREST_ROOT/docs/features/NNNN-feature-name/
+ls -la ./docs/features/NNNN-feature-name/
 
 # Verify concept file exists
-ls $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+ls ./docs/features/NNNN-feature-name/concept.md
 
 # Check it has content
-cat $FOREST_ROOT/docs/features/NNNN-feature-name/concept.md
+cat ./docs/features/NNNN-feature-name/concept.md
 ```
 
 ## Common Issues

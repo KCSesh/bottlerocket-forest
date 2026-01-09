@@ -70,10 +70,10 @@ Research happens in tiers, not all at once. All artifacts go to the filesystem.
 
 ## Workspace Setup
 
-All research artifacts go to `$FOREST_ROOT/planning/<question-slug>/`:
+All research artifacts go to `./planning/<question-slug>/`:
 
 ```
-$FOREST_ROOT/planning/
+./planning/
 └── how-twoliter-builds-kits/
     ├── 00-scout.md           # Scout findings + sub-questions
     ├── 01-kit-structure.md   # Sub-question answer (fact-find)
@@ -133,13 +133,13 @@ This allows context window resets between phases if needed.
 **⚠️ Scouting is NOT research.** You're mapping the territory, not exploring it.
 
 ```bash
-mkdir -p $FOREST_ROOT/planning/<question-slug>
+mkdir -p ./planning/<question-slug>
 ```
 
 ```bash
 # Broad search to find relevant areas
-(cd $FOREST_ROOT && crumbly search "system-name overview")
-(cd $FOREST_ROOT && crumbly search "system-name architecture")
+crumbly search "system-name overview"
+crumbly search "system-name architecture"
 ```
 
 **Skim 2-3 top results for structure, not content:**
@@ -229,7 +229,7 @@ that lists packages as dependencies <sup>[2]</sup>.
 Create a subdirectory and recurse:
 
 ```
-$FOREST_ROOT/planning/how-twoliter-builds-kits/03-buildsys/
+./planning/how-twoliter-builds-kits/03-buildsys/
 ├── 00-scout.md
 ├── 01-....md
 └── FINAL.md
@@ -251,7 +251,7 @@ Before assembling FINAL.md, you MUST:
 
 1. **List the workspace files:**
    ```bash
-   ls -la $FOREST_ROOT/planning/<question-slug>/
+   ls -la ./planning/<question-slug>/
    ```
 
 2. **Verify file count matches sub-question count:**

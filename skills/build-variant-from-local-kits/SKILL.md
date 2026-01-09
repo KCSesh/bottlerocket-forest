@@ -25,7 +25,7 @@ Build a complete Bottlerocket variant image using kits published to the local de
 
 ### 1. Update variant Twoliter.toml
 
-Edit `$FOREST_ROOT/bottlerocket/Twoliter.toml` to reference local kits:
+Edit `./bottlerocket/Twoliter.toml` to reference local kits:
 
 ```toml
 [[kit]]
@@ -41,7 +41,7 @@ vendor = "local"
 
 ### 2. Configure Infra.toml
 
-Ensure `$FOREST_ROOT/bottlerocket/Infra.toml` includes local registry:
+Ensure `./bottlerocket/Infra.toml` includes local registry:
 
 ```toml
 [vendor.local]
@@ -51,7 +51,7 @@ registry = "localhost:5000"
 ### 3. Update lock file
 
 ```bash
-cd $FOREST_ROOT/bottlerocket
+cd ./bottlerocket
 ./tools/twoliter/twoliter update
 ```
 
@@ -87,7 +87,7 @@ The build should complete successfully and produce an `.img` file in `build/imag
 ```
 Error: failed to pull kit
 ```
-Solution: Verify kit is published with `(cd $FOREST_ROOT && brdev registry list)`
+Solution: Verify kit is published with `brdev registry list`
 
 **Version mismatch:**
 Solution: Ensure `Twoliter.toml` version matches the published kit version
