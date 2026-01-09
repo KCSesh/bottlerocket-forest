@@ -182,6 +182,12 @@ targets = [
             source: e,
         })?;
 
+        let grove_marker = wt_dir.join(".grove");
+        std::fs::create_dir_all(&grove_marker).map_err(|e| Error::CreateDir {
+            path: grove_marker,
+            source: e,
+        })?;
+
         for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
             let member_wt_path = wt_dir.join(&member.path);
