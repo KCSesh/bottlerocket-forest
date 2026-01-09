@@ -20,25 +20,26 @@ bottlerocket-forest/
 ├── groves/                    # Forest groves for doing work on bottlerocket
 ├── skills/                    # AI agent skills for common workflows
 ├── docs/                      # High-level Bottlerocket documentation
+├── grove-docs/                # Documentation symlinked into groves upon creation
 └── planning/                  # Scratch space for notes and planning (gitignored)
 ```
 
 ## Crumbly
 
-Semantic search tool for exploring Bottlerocket documentation. **Must run from forest root directory.**
+Semantic search tool for exploring documentation.
 
 Install via:
 ```bash
-cargo install crumbly
+cargo install --path ./crates/crumbly-cli
 ```
 
 Usage:
 ```bash
-crumbly build                    # Build search index
-crumbly search "boot process"    # Search documentation
-crumbly status                   # Check index status
-crumbly update                   # Update index incrementally
-crumbly rebuild                  # Rebuild from scratch
+crumbly build --context ./groves/develop   # Build search index
+crumbly search "boot process"              # Search documentation
+crumbly status                             # Check index status
+crumbly update                             # Update index incrementally
+crumbly rebuild                            # Rebuild from scratch
 ```
 
 Crumbly is a standalone open-source tool that can be applied to any codebase.
@@ -113,14 +114,6 @@ python3 scripts/sentence-split.py path/to/file.md --in-place
 
 ## Skills
 
-The `skills/` directory contains modular workflows for common Bottlerocket development tasks. Skills are mandatory when they exist for a task. See `skills/README.md` for the complete protocol.
+The `skills/` directory contains modular workflows for common Bottlerocket development tasks.
+These skills are designed to be used from within a grove, rather than from the forest root.
 
-## Component Dependencies
-
-When developing features:
-1. Changes to kits (core-kit, kernel-kit) require building and publishing to OCI registry
-2. Variants in `bottlerocket/` consume kits from OCI registries
-3. Building a variant requires specifying kit versions
-4. Testing requires deploying the built variant image
-
-The forest tools help orchestrate these dependencies.
