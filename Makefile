@@ -1,5 +1,9 @@
 .PHONY: fmt
 fmt:
+	cargo fmt --quiet --all
+
+.PHONY: check-fmt
+check-fmt:
 	cargo fmt --check --quiet --all
 
 .PHONY: clippy
@@ -24,7 +28,7 @@ lint-loc:
 	python3 scripts/lint_loc.py
 
 .PHONY: check
-check: fmt clippy deny lint-loc test
+check: check-fmt clippy deny lint-loc test
 
 .PHONY: integ
 integ: check

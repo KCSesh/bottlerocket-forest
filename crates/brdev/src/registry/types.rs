@@ -213,8 +213,10 @@ impl GroveRegistryConfig {
 
     /// Converts to runtime configuration.
     pub fn into_runtime(self) -> RegistryRuntimeConfig {
-        let container_name = ContainerName::try_new(format!("brdev-registry-{}", self.grove_name)).unwrap();
-        let volume_name = VolumeName::try_new(format!("brdev-registry-data-{}", self.grove_name)).unwrap();
+        let container_name =
+            ContainerName::try_new(format!("brdev-registry-{}", self.grove_name)).unwrap();
+        let volume_name =
+            VolumeName::try_new(format!("brdev-registry-data-{}", self.grove_name)).unwrap();
         RegistryRuntimeConfig {
             port: self.port,
             image: ImageRef::default(),

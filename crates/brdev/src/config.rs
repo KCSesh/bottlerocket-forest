@@ -30,12 +30,14 @@ pub fn load_grove_config() -> Result<RegistryRuntimeConfig, ConfigError> {
 
     let port_file = grove_root.join(".grove/registry-port");
     let config = if port_file.exists() {
-        let port_str = fs::read_to_string(&port_file)
-            .context(PortFileReadSnafu { path: port_file.clone() })?;
-        let port: u16 = port_str.trim().parse()
+        let port_str = fs::read_to_string(&port_file).context(PortFileReadSnafu {
+            path: port_file.clone(),
+        })?;
+        let port: u16 = port_str
+            .trim()
+            .parse()
             .context(PortFileParseSnafu { path: port_file })?;
-        GroveRegistryConfig::with_port(grove_name, port)
-            .context(InvalidPortSnafu)?
+        GroveRegistryConfig::with_port(grove_name, port).context(InvalidPortSnafu)?
     } else {
         GroveRegistryConfig::new(grove_name)
     };
@@ -53,11 +55,19 @@ pub enum ConfigError {
     Grove { source: GroveError },
 
     #[snafu(display("Failed to read port file: {}", path.display()))]
-    PortFileRead { path: std::path::PathBuf, source: std::io::Error },
+    PortFileRead {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
 
     #[snafu(display("Failed to parse port file: {}", path.display()))]
-    PortFileParse { path: std::path::PathBuf, source: std::num::ParseIntError },
+    PortFileParse {
+        path: std::path::PathBuf,
+        source: std::num::ParseIntError,
+    },
 
     #[snafu(display("Invalid port number"))]
-    InvalidPort { source: crate::registry::types::RegistryPortError },
+    InvalidPort {
+        source: crate::registry::types::RegistryPortError,
+    },
 }
