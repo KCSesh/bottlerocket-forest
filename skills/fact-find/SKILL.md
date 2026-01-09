@@ -22,7 +22,7 @@ Quickly find and cite concrete facts about Bottlerocket:
 - Question has a concrete, definitive answer
 - Looking for "what is" or "where is" information
 
-For broader questions about architecture or design, use **research-document** instead.
+For broader questions about architecture or design, use **deep-research** instead.
 
 ## Procedure
 

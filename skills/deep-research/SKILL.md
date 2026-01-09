@@ -1,5 +1,5 @@
 ---
-name: research-document
+name: deep-research
 description: Create educational documents that build understanding progressively with citations
 ---
 
@@ -179,7 +179,7 @@ Capture in `00-scout.md`:
 ## Sub-Questions
 
 ### 1. [Sub-question text]
-- **Type:** fact-find | research-document
+- **Type:** fact-find | deep-research
 - **Why:** [Why this classification]
 - **Key files:** [Files likely to answer this]
 
@@ -193,11 +193,11 @@ Capture in `00-scout.md`:
 |------------------------|------|--------|
 | Has a concrete, specific answer | fact-find | Answer in 1-2 paragraphs |
 | Asks "what is X" or "where is Y" | fact-find | Answer in 1-2 paragraphs |
-| Asks "how does X work" | research-document | Recurse (own scout/decompose) |
-| Involves multiple components interacting | research-document | Recurse |
-| Would need 3+ source files to answer | research-document | Recurse |
+| Asks "how does X work" | deep-research | Recurse (own scout/decompose) |
+| Involves multiple components interacting | deep-research | Recurse |
+| Would need 3+ source files to answer | deep-research | Recurse |
 
-**Recursion check:** If more than 2 sub-questions are type `research-document`, consider whether the original question is too broad.
+**Recursion check:** If more than 2 sub-questions are type `deep-research`, consider whether the original question is too broad.
 
 **Depth limit:** Maximum recursion depth is 2 levels. If a sub-sub-question would need its own recursion, either:
 - Force it to fact-find treatment (accept less depth)
@@ -224,7 +224,7 @@ that lists packages as dependencies <sup>[2]</sup>.
 <sup>[2]</sup> [`kits/bottlerocket-core-kit/Cargo.toml`](../kits/bottlerocket-core-kit/Cargo.toml) - Example kit manifest
 ```
 
-**For research-document sub-questions:**
+**For deep-research sub-questions:**
 
 Create a subdirectory and recurse:
 
