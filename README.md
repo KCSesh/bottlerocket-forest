@@ -2,10 +2,6 @@
 
 A meta-repository for Bottlerocket development.
 
-## 🤖 For AI Agents
-
-**Read [AGENTS.md](./AGENTS.md) first** - it contains the mandatory workflow and detailed guidance.
-
 ## Purpose
 
 The forest provides:

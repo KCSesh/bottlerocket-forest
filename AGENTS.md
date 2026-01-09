@@ -2,11 +2,15 @@
 
 This document contains the mandatory workflow for AI agents working in the Bottlerocket Forest.
 
-### Read Skills Documentation
+## Important Reference Docs
 
-```bash
-cat skills/README.md
-```
+If you do not have these files in context, you should probably read them:
+
+- [ ] Read `./docs/ARCHITECTURE.md`
+- [ ] Read `./docs/build-system.md`
+- [ ] Read `./skills/README.md` (contains skill protocol and skill index)
+
+### Read Skills Documentation
 
 **REQUIRED: Read the entire skills/README.md file.** It contains:
 - The skill announcement protocol (mandatory format)
@@ -34,15 +38,6 @@ Using the index in skills/README.md:
 - ❌ Will reinvent tested procedures
 - ❌ Will miss validation steps
 - ❌ May produce inconsistent results
-
-### Verification Checklist
-
-Before answering, confirm you completed:
-- [ ] Ran `./seed-forest.sh` and verified output
-- [ ] Read `./docs/ARCHITECTURE.md`
-- [ ] Read `./docs/build-system.md`
-- [ ] Read `./skills/README.md` (contains protocol and skill index)
-- [ ] Identified applicable skill (or confirmed none exists)
 
 **⚠️ STOP: If a skill applies, announce it to the user before executing.**
 
@@ -93,109 +88,12 @@ bottlerocket-forest/           # $FOREST_ROOT
 
 Process:
 1. **Read `skills/README.md`** to see the skill index
-2. Check if a skill exists for your task (e.g., `research-with-citations`)
+2. Check if a skill exists for your task (e.g., `fact-find` or `deep-research`)
 3. If yes: Follow the protocol from skills/README.md
 4. If no: Use `crumbly search` to find relevant documentation
 5. Always cite sources in your response
 
 Never guess or rely on training data for Bottlerocket-specific questions.
-
-## Reading Code
-
-**Use a tool that displays line numbers when you need accurate citations.**
-
-This is essential when:
-- Citing code in documentation or responses
-- Researching existing code (brownfield development)
-- Referencing specific functions or types
-- Creating implementation plans with file:line references
-
-```bash
-# View file with line numbers
-cat -n path/to/file.rs | head -100
-
-# View specific line range (lines 50-100)
-sed -n '50,100p' path/to/file.rs | cat -n
-
-# Search for pattern with line numbers
-grep -n "function_name" path/to/file.rs
-```
-
-**When citing code**, use the `file.rs:45-60` format and verify line numbers.
-
-
-## Searching Code (ripgrep/grep)
-
-You can run `rg` from the forest root to search across all repositories:
-
-```bash
-# Search all repos from forest root
-rg "pattern" --type rust
-
-# Search specific directory
-rg "pattern" bottlerocket/sources/
-```
-
-The forest uses `.gitignore` and `.ignore` together:
-- `.gitignore` excludes component repos from git (keeps `git status` clean)
-- `.ignore` un-ignores them for ripgrep (enables cross-repo search)
-- Each repo's own `.gitignore` excludes `target/`, `vendor/`, etc.
-
-This gives you fast, focused searches without build artifacts.
-## Crumbly Usage
-
-Crumbly provides semantic search for Bottlerocket documentation.
-
-**⚠️ CRITICAL: Run from the worktree root (where the index was built)**
-
-The crumbly index is context-specific. If built from `worktrees/develop`, searches must run from there.
-
-```bash
-# From the worktree where index was built:
-cd /path/to/bottlerocket-forest/worktrees/develop
-crumbly search "boot process"
-
-# Index management (also from worktree root)
-crumbly build      # Build search index
-crumbly status     # Check index status
-crumbly update     # Update incrementally
-crumbly rebuild    # Rebuild from scratch
-```
-
-## Forester Usage
-
-Forester manages worktrees and the local OCI registry.
-
-**⚠️ CRITICAL: Run from forest root (use subshell from worktrees)**
-
-```bash
-# Worktree management (from forest root)
-forester worktree create my-feature
-forester worktree list
-forester worktree remove my-feature
-
-# Registry management (from forest root or via subshell)
-(cd $FOREST_ROOT && brdev registry start)
-(cd $FOREST_ROOT && brdev registry status)
-(cd $FOREST_ROOT && brdev registry list)
-```
-
-## Common Patterns
-
-### Answering "How does X work?" Questions
-
-1. Check for `research-with-citations` skill
-2. Use `crumbly search` to find relevant docs
-3. Read the source files
-4. Cite specific files and line numbers in your answer
-
-### Making Code Changes
-
-1. Check for applicable skills (e.g., `add-package-to-kit`)
-2. Read relevant documentation first
-3. Understand the component's role in the system
-4. Make minimal, focused changes
-5. Verify changes build successfully
 
 ### Building and Testing
 
@@ -222,59 +120,3 @@ The skills/README.md file contains:
 
 **Do not skip reading skills/README.md** - it contains critical information not duplicated here.
 
-### Common Skills
-
-From the skills/README.md index:
-- `research-with-citations` - Answer questions about Bottlerocket
-- `add-package-to-kit` - Add a new package to a kit
-- `update-package-version` - Update an existing package
-
-(See skills/README.md for complete list and descriptions)
-
-## For Orchestrating Agents
-
-If you are an orchestrating agent that delegates work to subagents:
-
-1. **Read skill files yourself** before delegating skill execution - you need to understand the expected output format
-2. **Present subagent output verbatim** when it follows a skill protocol - do not summarize, reformat, or "improve" it
-3. **Skill output formats are prescribed** - quality indicators, citation formats, and structure are part of the protocol
-
-Delegating "use skill X" without reading the skill yourself leaves you unable to verify the output or present it correctly.
-
-## Error Recovery
-
-If something goes wrong:
-
-1. **Don't guess** - Check documentation or ask for clarification
-2. **Verify assumptions** - Re-read relevant docs
-3. **Check build logs** - Errors often indicate what's wrong
-4. **Start fresh** - Run `./seed-forest.sh` again if needed
-
-## Best Practices
-
-- **Always cite sources** - Reference specific files and line numbers
-- **Verify before claiming** - Check that files exist, commands work, builds succeed
-- **Use exact commands** - Don't paraphrase or modify tested procedures
-- **Ask when uncertain** - Better to ask than to give wrong information
-- **Keep responses focused** - Answer the specific question asked
-- **Update documentation** - If you find gaps, note them for improvement
-
-## Anti-Patterns to Avoid
-
-- ❌ Skipping the mandatory workflow steps
-- ❌ Guessing about Bottlerocket internals
-- ❌ Ignoring available skills
-- ❌ Running forester from wrong directory
-- ❌ Using `twoliter` directly instead of Makefile targets
-- ❌ Making changes without understanding the system
-- ❌ Claiming success without verification
-
-## Getting Help
-
-If you're stuck:
-1. Re-read the relevant documentation
-2. Search for similar examples in the codebase
-3. Check if a skill exists for the task
-4. Ask the user for clarification
-
-Remember: The forest is designed to help you succeed. Use the tools provided.
