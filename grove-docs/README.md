@@ -1,4 +1,4 @@
-# Bottlerocket Forest
+# Bottlerocket Grove
 
 A meta-repository for Bottlerocket development.
 
@@ -14,28 +14,32 @@ The forest provides:
 - Tooling to simplify local development and testing
 - High-level documentation for understanding the Bottlerocket ecosystem
 
+## Helpful Documentation
+See:
+* [ARCHITECTURE.md](./docs/ARCHITECTURE.md) for information on Bottlerocket's overall design
+* [build-system.md](./docs/build-system.md) to learn more about how Bottlerocket is constructed
+
 ## Layout
 
 ```
 bottlerocket-forest/
-├── bottlerocket/              # Main Bottlerocket OS repository (variants, build configs)
+├── bottlerocket/                       # Main Bottlerocket OS repository (variants, build configs)
 ├── kits/
-│   ├── bottlerocket-core-kit/     # Core OS packages and dependencies
-│   └── bottlerocket-kernel-kit/   # Kernel packages
+│   ├── bottlerocket-core-kit/          # Core OS packages and dependencies
+│   └── bottlerocket-kernel-kit/        # Kernel packages
 ├── sdk/
-│   └── bottlerocket-sdk/          # Build SDK and toolchain
+│   └── bottlerocket-sdk/               # Build SDK and toolchain
 ├── host-containers/
 │   ├── bottlerocket-admin-container/   # Admin container for system access
 │   └── bottlerocket-control-container/ # Control container for orchestration
-├── twoliter/                  # Bottlerocket build tool
-├── bottlerocket-settings-sdk/ # SDK for settings plugins
-├── skills/                    # AI agent skills for common workflows
-├── docs/                      # High-level Bottlerocket documentation
-└── planning/                  # Scratch space for notes and planning (gitignored)
+├── twoliter/                           # Bottlerocket build tool
+├── bottlerocket-settings-sdk/          # SDK for settings plugins
+├── skills/                             # AI agent skills for common workflows
+├── docs/                               # High-level Bottlerocket documentation
+└── planning/                           # Scratch space for notes and planning (gitignored)
 ```
 
-## Getting Started
-## Sembly
+## Crumbly
 
 Semantic search tool for exploring Bottlerocket documentation.
 
@@ -54,8 +58,6 @@ brdev registry status   # Check registry status
 brdev registry list     # List published images
 ```
 
-See `crates/brdev/README.md` for complete documentation.
-
 ## Documentation Guidelines
 
 **Add Keywords for Search:**
@@ -66,7 +68,7 @@ Include a keywords line near the top of documentation files:
 **Keywords:** primary-topic, related-term, technical-concept, component-name
 ```
 
-Include 5-15 terms: technical concepts, component names, use cases, related features.
+Include 5-10 terms: technical concepts, component names, use cases, related features.
 Use lowercase, comma-separated. Improves `crumbly search` discoverability.
 
 **Example:**
@@ -88,16 +90,3 @@ You can also fix documents after the fact with this script:
 python3 scripts/sentence-split.py path/to/file.md --in-place
 ```
 
-## Skills
-
-The `skills/` directory contains modular workflows for common Bottlerocket development tasks. Skills are mandatory when they exist for a task. See `skills/README.md` for the complete protocol.
-
-## Component Dependencies
-
-When developing features:
-1. Changes to kits (core-kit, kernel-kit) require building and publishing to OCI registry
-2. Variants in `bottlerocket/` consume kits from OCI registries
-3. Building a variant requires specifying kit versions
-4. Testing requires deploying the built variant image
-
-The forest tools help orchestrate these dependencies.

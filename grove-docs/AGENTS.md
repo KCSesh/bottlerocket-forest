@@ -1,21 +1,29 @@
-# Agent Workflow Guide
+# Bottlerocket Grove - Agent Steering Guide
 
-This document contains the mandatory workflow for AI agents working in the Bottlerocket Forest.
+The directory containing this document (likely your cwd if you are reading this) is *not* a member of a git repository.
+Despite that, you are currently working on a collection of git repositories called a `forester` "grove."
 
-## Read Core Documentation
+## Forester Reference
 
-```bash
-cat ./docs/ARCHITECTURE.md
-cat ./docs/build-system.md
-```
+`forester` is a tool designed to create faux-monorepo structures that allow AI agents to effectively work on codebases that span multiple git repositories.
+These faux-monorepos are configured in a parent repository known as a "forest".
+Your current working directory is *not* a repository; however, you have many "grove members" that exist in this directory as worktrees.
+Some content is also symlinked into this "grove" from the parent "forest".
+
+When modifying content, be careful to identify which repository *does* or *should* contain the content you are modifying.
+For example, only modify forest-symlinked content if you are confident that you are meant to be modifying the entire forest and not only your grove.
+
+## Bottlerocket Grove Core Documentation
+
+If not already present in your context, you should read these:
+* [ ] ./docs/ARCHITECTURE.md
+* [ ] ./docs/build-system.md
 
 **Always read these files.** They explain:
 - How kits and variants relate
 - The build system workflow
 - Component dependencies
 - Common development patterns
-
-Takes 30 seconds, prevents hours of mistakes.
 
 **If you skip this:**
 - ❌ Will guess instead of citing facts
@@ -25,9 +33,7 @@ Takes 30 seconds, prevents hours of mistakes.
 ### Read Skills Documentation
 If you do not have this in context yet, read it.
 
-```bash
-cat skills/README.md
-```
+* [ ] ./skills/README.md
 
 **REQUIRED: Read the entire skills/README.md file.** It contains:
 - The skill announcement protocol (mandatory format)
@@ -41,33 +47,6 @@ cat skills/README.md
 - ❌ Won't know which skills are available
 - ❌ Will reinvent tested procedures incorrectly
 - ❌ Will miss validation steps
-
-### Skills
-
-**Before responding to a user message, check if a skill should be loaded to respond appropriately.**
-
-Using the index in skills/README.md:
-1. Determine if a skill applies to the user's request
-2. If yes: You MUST announce it to the user before executing (see protocol in skills/README.md)
-3. If no: Proceed with the appropriate approach (e.g., `crumbly search` for research)
-
-**If you skip this:**
-- ❌ Will reinvent tested procedures
-- ❌ Will miss validation steps
-- ❌ May produce inconsistent results
-
-### Verification Checklist
-
-Before answering user messages, confirm you completed:
-- [ ] Read `./docs/ARCHITECTURE.md`
-- [ ] Read `./docs/build-system.md`
-- [ ] Read `./skills/README.md` (contains protocol and skill index)
-- [ ] Identified applicable skill (or confirmed none exists)
-
-**⚠️ STOP: If a skill applies, announce it to the user before executing.**
-
-Tell the user which skill you're using with `USING SKILL "skill-name"` before proceeding.
-This is a user-facing checkpoint, not an internal process step.
 
 ## Multi-Step Workflows
 
@@ -86,51 +65,15 @@ This helps track progress, prevents skipped steps, and provides clear status upd
 
 Process:
 1. **Read `skills/README.md`** to see the skill index
-2. Check if a skill exists for your task (e.g., `research-with-citations`)
+2. Check if a skill exists for your task (e.g., `deep-research`)
 3. If yes: Follow the protocol from skills/README.md
-4. If no: Use `crumbly search` to find relevant documentation
-5. Always cite sources in your response
+4. Always cite sources in your response
 
 Never guess or rely on training data for Bottlerocket-specific questions.
 
-## Reading Code
-
-**Use a tool that displays line numbers when you need accurate citations.**
-
-This is essential when:
-- Citing code in documentation or responses
-- Researching existing code (brownfield development)
-- Referencing specific functions or types
-- Creating implementation plans with file:line references
-
-```bash
-# View file with line numbers
-cat -n path/to/file.rs | head -100
-
-# View specific line range (lines 50-100)
-sed -n '50,100p' path/to/file.rs | cat -n
-
-# Search for pattern with line numbers
-grep -n "function_name" path/to/file.rs
-```
-
-**When citing code**, use the `file.rs:45-60` format and verify line numbers.
-
-## Sembly Usage
-
-Sembly provides semantic search for Bottlerocket documentation.
-This is *substantially more efficient* for finding information if documentation exists.
-Consider executing several queries simultaneously.
-
-```bash
-crumbly search "boot process"
-crumbly search "disk partition layout"
-```
-## Common Patterns
-
 ### Answering "How does X work?" Questions
 
-1. Check for `research-with-citations` skill
+1. Use `fact-find` or `deep-research` skill
 2. Use `crumbly search` to find relevant docs
 3. Read the source files
 4. Cite specific files and line numbers in your answer

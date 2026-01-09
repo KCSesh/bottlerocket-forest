@@ -63,9 +63,9 @@ source = "scripts"
 target = "scripts"
 
 [[grove.symlink]]
-source = "wt-docs/AGENTS.md"
+source = "grove-docs/AGENTS.md"
 target = "AGENTS.md"
 
 [[grove.symlink]]
-source = "wt-docs/README.md"
+source = "grove-docs/README.md"
 target = "README.md"
