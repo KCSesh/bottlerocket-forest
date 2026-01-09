@@ -1,3 +1,28 @@
+# Bottlerocket Forest Root - Agent Steering Guide
+
+The directory containing this document is the **forest root**, not a grove.
+If you want to work on Bottlerocket components, you should create or enter a grove first.
+
+## Forester Reference
+
+`forester` is a tool that creates faux-monorepo structures allowing AI agents to work effectively across multiple git repositories.
+
+Key abstractions:
+- **Forest**: This parent repository containing configuration, shared documentation, and tooling
+- **Groves**: Working directories created under `./groves/` that contain worktrees of all member repositories
+- **Grove members**: The actual git repositories (bottlerocket, kits, twoliter, etc.) checked out as worktrees within a grove
+
+To create a grove:
+```bash
+forester grove create my-feature
+# Creates: ./groves/my-feature/ with all repos ready to use
+```
+
+When modifying content, identify which repository contains what you're changing.
+Forest-level changes (docs, skills, tooling) belong here; component changes belong in a grove.
+
+---
+
 # Agent Workflow Guide
 
 ## Git Commits
