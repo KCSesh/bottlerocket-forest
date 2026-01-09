@@ -18,7 +18,7 @@ pub struct SeedArgs {
     verbose: bool,
 }
 
-#[instrument(err)]
+#[instrument(skip_all, err)]
 pub fn run(args: SeedArgs) -> miette::Result<()> {
     let (forest_root, config) = if let Some(config_path) = args.config {
         let config = ForestConfig::load(&config_path)?;

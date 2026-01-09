@@ -4,7 +4,7 @@
 
 mod common;
 
-use common::{create_bare_repo, forester_seed, forester_grove, temp_forest};
+use common::{create_bare_repo, forester_grove, forester_seed, temp_forest};
 use std::fs;
 
 fn setup_forest_with_local_repos() -> tempfile::TempDir {
@@ -78,11 +78,7 @@ fn seed_creates_develop_grove() {
     assert!(temp.path().join("groves/develop/nested/repo-b").exists());
 
     // And: README.md exists (from our test commit)
-    assert!(
-        temp.path()
-            .join("groves/develop/repo-a/README.md")
-            .exists()
-    );
+    assert!(temp.path().join("groves/develop/repo-a/README.md").exists());
 }
 
 #[test]
@@ -118,11 +114,7 @@ fn grove_create_makes_new_grove() {
     // And: New grove directory exists
     assert!(temp.path().join("groves/feature-x").exists());
     assert!(temp.path().join("groves/feature-x/repo-a").exists());
-    assert!(
-        temp.path()
-            .join("groves/feature-x/nested/repo-b")
-            .exists()
-    );
+    assert!(temp.path().join("groves/feature-x/nested/repo-b").exists());
 }
 
 #[test]

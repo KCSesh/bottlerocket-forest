@@ -29,7 +29,7 @@ impl ForestManager {
     }
 
     /// Seed the forest - clone bare repos and create develop worktree.
-    #[instrument(err)]
+    #[instrument(skip(self), err)]
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
         std::fs::create_dir_all(&bare_dir).map_err(|e| Error::CreateDir {
@@ -52,7 +52,7 @@ impl ForestManager {
     }
 
     /// Clone a member repo as bare.
-    #[instrument(err)]
+    #[instrument(skip(self), err)]
     fn clone_bare(&self, member: &Member, verbose: bool) -> Result<(), Error> {
         let bare_path = self.bare_dir().join(format!("{}.git", member.name));
 
@@ -162,7 +162,7 @@ targets = [
     }
 
     /// Create a new forest grove.
-    #[instrument(err)]
+    #[instrument(skip(self), err)]
     pub fn create_grove(
         &self,
         name: &str,
@@ -185,6 +185,14 @@ targets = [
         for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
             let member_wt_path = wt_dir.join(&member.path);
+
+            // Skip if worktree already exists (handles partial grove creation)
+            if member_wt_path.exists() {
+                if verbose {
+                    println!("✓ {} worktree already exists", member.name);
+                }
+                continue;
+            }
 
             // Ensure parent exists
             if let Some(parent) = member_wt_path.parent() {
@@ -308,7 +316,7 @@ targets = [
     }
 
     /// List existing forest groves.
-    #[instrument(err)]
+    #[instrument(skip(self), err)]
     pub fn list_groves(&self) -> Result<Vec<String>, Error> {
         let wt_dir = self.groves_dir();
         if !wt_dir.exists() {
@@ -333,7 +341,7 @@ targets = [
     }
 
     /// Remove a forest grove.
-    #[instrument(err)]
+    #[instrument(skip(self), err)]
     pub fn remove_grove(&self, name: &str, force: bool) -> Result<(), Error> {
         let wt_dir = self.groves_dir().join(name);
         if !wt_dir.exists() {

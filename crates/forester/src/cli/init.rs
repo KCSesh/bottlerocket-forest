@@ -29,7 +29,7 @@ name = "{name}"
 # default_branch = "main"
 "#;
 
-#[instrument(err)]
+#[instrument(skip_all, err)]
 pub fn run(args: InitArgs) -> miette::Result<()> {
     let cwd = std::env::current_dir().expect("Failed to get current directory");
     let name = args.name.unwrap_or_else(|| {

@@ -36,7 +36,7 @@ pub struct RemoveArgs {
     force: bool,
 }
 
-#[instrument(err)]
+#[instrument(skip_all, err)]
 pub fn run(cmd: GroveCommand) -> miette::Result<()> {
     let (forest_root, config) = ForestConfig::find()?;
     let manager = ForestManager::new(forest_root, config);

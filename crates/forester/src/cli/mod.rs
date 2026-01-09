@@ -1,8 +1,8 @@
 //! CLI for forester.
 
+mod grove;
 mod init;
 mod seed;
-mod grove;
 
 use clap::{Parser, Subcommand};
 
