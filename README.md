@@ -81,6 +81,8 @@ make release-build  # Build optimized binaries
 
 Binaries are output to `./target/release/forester` and `./target/release/brdev`.
 
+**⚠️ Always run `make integ` before committing changes to crates.**
+
 ## Documentation Guidelines
 
 **Add Keywords for Search:**
