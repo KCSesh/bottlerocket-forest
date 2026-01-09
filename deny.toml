@@ -37,6 +37,7 @@ skip-tree = [
 
 skip = [
     # Add entries here if needed for version conflicts
+    { name = "supports-color", reason = "owo-colors depends on two different versions of supports-color" }
 ]
 
 [bans.workspace-dependencies]

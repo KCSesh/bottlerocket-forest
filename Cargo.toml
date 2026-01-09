@@ -12,7 +12,7 @@ edition = "2024"
 license = "Apache-2.0 OR MIT"
 
 [workspace.dependencies]
-crumbly-core = { path = "crates/crumbly-core" }
+crumbly-core = { path = "crates/crumbly-core", version = "0.1" }
 
 # CLI and parsing
 clap = { version = "4", features = ["derive", "color"] }
