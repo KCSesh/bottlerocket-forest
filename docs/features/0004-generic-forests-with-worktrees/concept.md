@@ -7,13 +7,13 @@
 The Bottlerocket forest contains multiple independent git repositories (bottlerocket, core-kit, kernel-kit, twoliter, etc.) that are intentionally NOT submodules.
 This creates two problems:
 
-1. **No coordinated worktrees** - You can't `git worktree` the forest itself, making parallel feature development awkward.
+1. **No coordinated groves** - You can't `git worktree` the forest itself, making parallel feature development awkward.
 
 1. **Bottlerocket-specific tooling** - The current forester and seed-forest.sh are hardcoded for Bottlerocket. The forest concept is useful for any multi-repo project.
 
 ## Solution
 
-Make forests a generic, portable concept with first-class worktree support.
+Make forests a generic, portable concept with first-class grove support.
 
 ### Forest Definition
 
@@ -51,14 +51,14 @@ my-forest/
       bottlerocket.git/
       bottlerocket-core-kit.git/
   
-  # "Main" worktree (default)
-  bottlerocket/               # Worktree from .forest/bare/bottlerocket.git
+  # "Main" grove (default)
+  bottlerocket/               # Git worktree from .forest/bare/bottlerocket.git
   kits/bottlerocket-core-kit/
   .crumbly/                    # Sembly context for main
 
-  worktrees/
+  groves/
     feature-x/
-      bottlerocket/           # Worktree on feature-x branch
+      bottlerocket/           # Git worktree on feature-x branch
       kits/bottlerocket-core-kit/
       .crumbly/                # Sembly context for feature-x
 ```
@@ -68,18 +68,18 @@ my-forest/
 **`forester seed`**
 
 1. Clone repos as bare to `.forest/bare/`
-1. Create main worktree for each repo in expected locations
+1. Create main grove (git worktrees for each repo in expected locations)
 1. Build crumbly index
 
-**`forester worktree create <name>`**
+**`forester grove create <name>`**
 
-1. Create new worktree for each member repo
-1. Assemble into `worktrees/<name>/`
+1. Create new git worktree for each member repo
+1. Assemble into `groves/<name>/`
 1. Initialize crumbly context
 
-**`forester worktree list`** - Show existing worktrees
+**`forester grove list`** - Show existing groves
 
-**`forester worktree remove <name>`** - Clean up worktree
+**`forester grove remove <name>`** - Clean up grove
 
 **`forester new <name>`** - Create new forest with templates:
 

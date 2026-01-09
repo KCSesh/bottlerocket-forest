@@ -5,7 +5,7 @@ Generic forest management for multi-repo projects.
 A forest is a collection of related git repositories that are developed together but maintained as separate repos (not submodules). Forester provides:
 
 - Forest configuration via `forester.toml`
-- Coordinated worktree management across all member repos
+- Coordinated grove management across all member repos
 - Integration with crumbly for semantic search
 
 ## Installation
@@ -25,26 +25,26 @@ forester seed
 forester seed --verbose
 ```
 
-### Manage Worktrees
+### Manage Groves
 
-Create a new forest worktree (creates worktrees for all member repos):
+Create a new forest grove (creates git worktrees for all member repos):
 
 ```bash
-forester worktree create feature-x
-forester worktree create feature-x --branch my-branch
+forester grove create feature-x
+forester grove create feature-x --branch my-branch
 ```
 
-List existing worktrees:
+List existing groves:
 
 ```bash
-forester worktree list
+forester grove list
 ```
 
-Remove a worktree:
+Remove a grove:
 
 ```bash
-forester worktree remove feature-x
-forester worktree remove feature-x --force
+forester grove remove feature-x
+forester grove remove feature-x --force
 ```
 
 ## Configuration
@@ -87,12 +87,12 @@ my-forest/
       main-repo.git/
       lib-repo.git/
   
-  # Main worktree
+  # Main grove
   main-repo/
   libs/lib-repo/
   .crumbly/                    # Sembly index
 
-  worktrees/
+  groves/
     feature-x/
       main-repo/
       libs/lib-repo/

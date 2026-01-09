@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 pub struct ForestConfig {
     pub forest: ForestMeta,
     #[serde(default)]
-    pub worktree: Option<WorktreeConfig>,
+    pub grove: Option<GroveConfig>,
 }
 
 /// Forest metadata.
@@ -22,14 +22,14 @@ pub struct ForestMeta {
     pub member: Vec<Member>,
 }
 
-/// Worktree configuration.
+/// Grove configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorktreeConfig {
+pub struct GroveConfig {
     #[serde(default)]
     pub symlink: Vec<SymlinkEntry>,
 }
 
-/// A symlink to create in worktrees.
+/// A symlink to create in groves.
 #[derive(Debug, Clone, Serialize, Deserialize, Builder)]
 #[builder(on(_, into))]
 #[non_exhaustive]

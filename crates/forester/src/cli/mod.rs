@@ -2,7 +2,7 @@
 
 mod init;
 mod seed;
-mod worktree;
+mod grove;
 
 use clap::{Parser, Subcommand};
 
@@ -21,9 +21,9 @@ enum Command {
     Init(init::InitArgs),
     /// Clone all member repositories and set up the forest
     Seed(seed::SeedArgs),
-    /// Manage forest worktrees
+    /// Manage forest groves
     #[command(subcommand)]
-    Worktree(worktree::WorktreeCommand),
+    Grove(grove::GroveCommand),
 }
 
 pub fn run() -> miette::Result<()> {
@@ -31,6 +31,6 @@ pub fn run() -> miette::Result<()> {
     match cli.command {
         Command::Init(args) => init::run(args),
         Command::Seed(args) => seed::run(args),
-        Command::Worktree(cmd) => worktree::run(cmd),
+        Command::Grove(cmd) => grove::run(cmd),
     }
 }

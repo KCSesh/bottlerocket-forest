@@ -10,7 +10,7 @@
 pub mod cli;
 pub mod error;
 pub mod forest;
-pub mod worktree;
+pub mod grove;
 
 pub use error::Error;
 pub use forest::ForestConfig;

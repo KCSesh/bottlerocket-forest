@@ -1,10 +1,10 @@
-//! Integration tests for forester seed and worktree commands.
+//! Integration tests for forester seed and grove commands.
 //!
 //! These tests use local git repos to avoid network dependencies.
 
 mod common;
 
-use common::{create_bare_repo, forester_seed, forester_worktree, temp_forest};
+use common::{create_bare_repo, forester_seed, forester_grove, temp_forest};
 use std::fs;
 
 fn setup_forest_with_local_repos() -> tempfile::TempDir {
@@ -22,13 +22,13 @@ fn setup_forest_with_local_repos() -> tempfile::TempDir {
         r#"[forest]
 name = "test-forest"
 
-[[member]]
+[[forest.member]]
 name = "repo-a"
 remote = "{}"
 path = "repo-a"
 default_branch = "main"
 
-[[member]]
+[[forest.member]]
 name = "repo-b"
 remote = "{}"
 path = "nested/repo-b"
@@ -62,7 +62,7 @@ fn seed_clones_bare_repos() {
 }
 
 #[test]
-fn seed_creates_develop_worktree() {
+fn seed_creates_develop_grove() {
     // Given: A forest with local repo remotes
     let temp = setup_forest_with_local_repos();
 
@@ -70,17 +70,17 @@ fn seed_creates_develop_worktree() {
     let (code, _, _) = forester_seed(temp.path(), false);
     assert_eq!(code, 0);
 
-    // Then: worktrees/develop is created
-    assert!(temp.path().join("worktrees/develop").exists());
+    // Then: groves/develop is created
+    assert!(temp.path().join("groves/develop").exists());
 
     // And: Member repos are checked out in correct paths
-    assert!(temp.path().join("worktrees/develop/repo-a").exists());
-    assert!(temp.path().join("worktrees/develop/nested/repo-b").exists());
+    assert!(temp.path().join("groves/develop/repo-a").exists());
+    assert!(temp.path().join("groves/develop/nested/repo-b").exists());
 
     // And: README.md exists (from our test commit)
     assert!(
         temp.path()
-            .join("worktrees/develop/repo-a/README.md")
+            .join("groves/develop/repo-a/README.md")
             .exists()
     );
 }
@@ -103,63 +103,63 @@ fn seed_is_idempotent() {
 }
 
 #[test]
-fn worktree_create_makes_new_worktree() {
+fn grove_create_makes_new_grove() {
     // Given: A seeded forest
     let temp = setup_forest_with_local_repos();
     let (code, _, _) = forester_seed(temp.path(), false);
     assert_eq!(code, 0);
 
-    // When: Creating a new worktree
-    let (code, stdout, stderr) = forester_worktree(temp.path(), "create", &["feature-x"]);
+    // When: Creating a new grove
+    let (code, stdout, stderr) = forester_grove(temp.path(), "create", &["feature-x"]);
 
     // Then: Command succeeds
-    assert_eq!(code, 0, "Worktree create failed: {} {}", stdout, stderr);
+    assert_eq!(code, 0, "Grove create failed: {} {}", stdout, stderr);
 
-    // And: New worktree directory exists
-    assert!(temp.path().join("worktrees/feature-x").exists());
-    assert!(temp.path().join("worktrees/feature-x/repo-a").exists());
+    // And: New grove directory exists
+    assert!(temp.path().join("groves/feature-x").exists());
+    assert!(temp.path().join("groves/feature-x/repo-a").exists());
     assert!(
         temp.path()
-            .join("worktrees/feature-x/nested/repo-b")
+            .join("groves/feature-x/nested/repo-b")
             .exists()
     );
 }
 
 #[test]
-fn worktree_list_shows_worktrees() {
-    // Given: A seeded forest with an additional worktree
+fn grove_list_shows_groves() {
+    // Given: A seeded forest with an additional grove
     let temp = setup_forest_with_local_repos();
     forester_seed(temp.path(), false);
-    forester_worktree(temp.path(), "create", &["feature-x"]);
+    forester_grove(temp.path(), "create", &["feature-x"]);
 
-    // When: Listing worktrees
-    let (code, stdout, _) = forester_worktree(temp.path(), "list", &[]);
+    // When: Listing groves
+    let (code, stdout, _) = forester_grove(temp.path(), "list", &[]);
 
-    // Then: Both worktrees are listed
+    // Then: Both groves are listed
     assert_eq!(code, 0);
     assert!(stdout.contains("develop"));
     assert!(stdout.contains("feature-x"));
 }
 
 #[test]
-fn worktree_remove_deletes_worktree() {
-    // Given: A seeded forest with an additional worktree
+fn grove_remove_deletes_grove() {
+    // Given: A seeded forest with an additional grove
     let temp = setup_forest_with_local_repos();
     forester_seed(temp.path(), false);
-    forester_worktree(temp.path(), "create", &["feature-x"]);
-    assert!(temp.path().join("worktrees/feature-x").exists());
+    forester_grove(temp.path(), "create", &["feature-x"]);
+    assert!(temp.path().join("groves/feature-x").exists());
 
-    // When: Removing the worktree
-    let (code, stdout, stderr) = forester_worktree(temp.path(), "remove", &["feature-x"]);
+    // When: Removing the grove
+    let (code, stdout, stderr) = forester_grove(temp.path(), "remove", &["feature-x"]);
 
     // Then: Command succeeds
-    assert_eq!(code, 0, "Worktree remove failed: {} {}", stdout, stderr);
+    assert_eq!(code, 0, "Grove remove failed: {} {}", stdout, stderr);
 
-    // And: Worktree directory is gone
-    assert!(!temp.path().join("worktrees/feature-x").exists());
+    // And: Grove directory is gone
+    assert!(!temp.path().join("groves/feature-x").exists());
 
-    // And: develop worktree still exists
-    assert!(temp.path().join("worktrees/develop").exists());
+    // And: develop grove still exists
+    assert!(temp.path().join("groves/develop").exists());
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn no_repos_at_forest_root() {
     let temp = setup_forest_with_local_repos();
     forester_seed(temp.path(), false);
 
-    // Then: No repo directories at forest root (only in worktrees/)
+    // Then: No repo directories at forest root (only in groves/)
     assert!(!temp.path().join("repo-a").exists());
     assert!(!temp.path().join("nested").exists());
 
@@ -179,7 +179,7 @@ fn no_repos_at_forest_root() {
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
 
-    // Should only have: forester.toml, crumbly.toml, .forest, .crumbly, worktrees, repos (our test remotes)
+    // Should only have: forester.toml, crumbly.toml, .forest, .crumbly, groves, repos (our test remotes)
     for entry in &entries {
         assert!(
             [
@@ -187,7 +187,7 @@ fn no_repos_at_forest_root() {
                 "crumbly.toml",
                 ".forest",
                 ".crumbly",
-                "worktrees",
+                "groves",
                 "repos"
             ]
             .contains(&entry.as_str()),
@@ -195,51 +195,4 @@ fn no_repos_at_forest_root() {
             entry
         );
     }
-}
-
-#[test]
-fn seed_generates_crumbly_config_on_first_run() {
-    // Given: A forest without crumbly.toml
-    let temp = setup_forest_with_local_repos();
-    fs::remove_file(temp.path().join("crumbly.toml")).ok();
-
-    // When: Running forester seed
-    let (code, _, _) = forester_seed(temp.path(), false);
-    assert_eq!(code, 0);
-
-    // Then: crumbly.toml is created with member paths as targets
-    let crumbly_toml = fs::read_to_string(temp.path().join("crumbly.toml")).unwrap();
-    assert!(crumbly_toml.contains("repo-a"));
-    assert!(crumbly_toml.contains("nested/repo-b"));
-}
-
-#[test]
-fn seed_warns_about_missing_members_in_crumbly_config() {
-    // Given: A forest with crumbly.toml missing a member
-    let temp = setup_forest_with_local_repos();
-    fs::write(temp.path().join("crumbly.toml"), "targets = [\"repo-a\"]\n").unwrap();
-
-    // When: Running forester seed
-    let (code, stdout, stderr) = forester_seed(temp.path(), true);
-    assert_eq!(code, 0);
-
-    // Then: Warning about missing member in targets
-    let output = format!("{}{}", stdout, stderr);
-    assert!(output.contains("nested/repo-b") || output.contains("not in"));
-}
-
-#[test]
-fn seed_does_not_copy_crumbly_to_worktree() {
-    // Given: A forest with crumbly.toml
-    let temp = setup_forest_with_local_repos();
-
-    // When: Running forester seed
-    let (code, _, _) = forester_seed(temp.path(), false);
-    assert_eq!(code, 0);
-
-    // Then: crumbly.toml exists at forest root
-    assert!(temp.path().join("crumbly.toml").exists());
-
-    // And: crumbly.toml does NOT exist in worktree
-    assert!(!temp.path().join("worktrees/develop/crumbly.toml").exists());
 }

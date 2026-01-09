@@ -55,13 +55,13 @@ For complex tasks with multiple steps:
 
 This helps track progress, prevents skipped steps, and provides clear status updates.
 
-### Creating a Bottlerocket Worktree
+### Creating a Bottlerocket Grove
 
 ```bash
-# From forest root, create a new worktree
-forester worktree create my-feature
+# From forest root, create a new grove
+forester grove create my-feature
 
-# This creates: ./worktrees/my-feature/
+# This creates: ./groves/my-feature/
 # With all repos checked out and ready to use
 ```
 
@@ -69,16 +69,16 @@ forester worktree create my-feature
 
 ```
 bottlerocket-forest/           # $FOREST_ROOT
-├── worktrees/
-│   └── my-feature/            # $WORKTREE_ROOT - Your working directory
+├── groves/
+│   └── my-feature/            # $GROVE_ROOT - Your working directory
 │       ├── bottlerocket/
 │       ├── kits/
 │       │   ├── bottlerocket-core-kit/
 │       │   └── bottlerocket-kernel-kit/
 │       └── ...
-├── docs/                      # Shared (not in worktrees)
-├── skills/                    # Shared (not in worktrees)
-├── planning/                  # Shared (not in worktrees)
+├── docs/                      # Shared (not in groves)
+├── skills/                    # Shared (not in groves)
+├── planning/                  # Shared (not in groves)
 └── .crumbly/                   # Shared search index
 ```
 

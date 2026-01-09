@@ -17,7 +17,7 @@ bottlerocket-forest/
 ├── crates/                    # Rust workspace
 │   ├── forester/              # Generic forest management CLI
 │   └── brdev/                 # Bottlerocket-specific dev tooling
-├── worktrees/                 # Forest worktrees for doing work on bottlerocket
+├── groves/                    # Forest groves for doing work on bottlerocket
 ├── skills/                    # AI agent skills for common workflows
 ├── docs/                      # High-level Bottlerocket documentation
 └── planning/                  # Scratch space for notes and planning (gitignored)

@@ -1,7 +1,7 @@
 //! Seed command - clone all member repos and set up the forest.
 
 use crate::forest::ForestConfig;
-use crate::worktree::ForestManager;
+use crate::grove::ForestManager;
 use clap::Args;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;

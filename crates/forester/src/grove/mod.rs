@@ -1,4 +1,4 @@
-//! Forest worktree management.
+//! Forest grove management.
 
 use crate::error::Error;
 use crate::forest::{ForestConfig, Member};
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use tracing::instrument;
 
-/// Manages forest operations including seeding and worktrees.
+/// Manages forest operations including seeding and groves.
 #[derive(Debug)]
 pub struct ForestManager {
     root: PathBuf,
@@ -23,9 +23,9 @@ impl ForestManager {
         self.root.join(".forest").join("bare")
     }
 
-    /// Path to worktrees directory.
-    fn worktrees_dir(&self) -> PathBuf {
-        self.root.join("worktrees")
+    /// Path to groves directory.
+    fn groves_dir(&self) -> PathBuf {
+        self.root.join("groves")
     }
 
     /// Seed the forest - clone bare repos and create develop worktree.
@@ -45,8 +45,8 @@ impl ForestManager {
         // Ensure crumbly.toml exists, generate if needed
         self.ensure_crumbly_config(verbose)?;
 
-        // Create the default "develop" worktree
-        self.create_worktree("develop", None, verbose)?;
+        // Create the default "develop" grove
+        self.create_grove("develop", None, verbose)?;
 
         Ok(())
     }
@@ -161,18 +161,18 @@ targets = [
         )
     }
 
-    /// Create a new forest worktree.
+    /// Create a new forest grove.
     #[instrument(err)]
-    pub fn create_worktree(
+    pub fn create_grove(
         &self,
         name: &str,
         branch: Option<&str>,
         verbose: bool,
     ) -> Result<(), Error> {
-        let wt_dir = self.worktrees_dir().join(name);
+        let wt_dir = self.groves_dir().join(name);
         if wt_dir.exists() {
             if verbose {
-                println!("✓ worktree '{}' already exists", name);
+                println!("✓ grove '{}' already exists", name);
             }
             return Ok(());
         }
@@ -195,13 +195,13 @@ targets = [
             }
 
             if verbose {
-                println!("Creating worktree for {} in {}...", member.name, name);
+                println!("Creating grove for {} in {}...", member.name, name);
             }
 
             // Determine branch: explicit > member default
             let target_branch = branch.unwrap_or_else(|| member.branch());
 
-            // For non-develop worktrees, create a unique branch to avoid conflicts
+            // For non-develop groves, create a unique branch to avoid conflicts
             let use_new_branch = name != "develop" && branch.is_none();
             let new_branch_name = if use_new_branch {
                 format!("{}/{}", name, member.name)
@@ -265,7 +265,7 @@ targets = [
         }
 
         // Create configured symlinks
-        if let Some(wt_config) = &self.config.worktree {
+        if let Some(wt_config) = &self.config.grove {
             for symlink in &wt_config.symlink {
                 let source = self.root.join(&symlink.source);
                 let target = wt_dir.join(&symlink.target);
@@ -294,28 +294,28 @@ targets = [
         if verbose {
             println!("Updating crumbly index for {}...", name);
         }
-        let context_path = format!("worktrees/{}", name);
+        let context_path = format!("groves/{}", name);
         let _ = Command::new("crumbly")
             .args(["update", "--context", &context_path])
             .current_dir(&self.root)
             .status();
 
         if verbose {
-            println!("✓ Created worktree '{}'", name);
+            println!("✓ Created grove '{}'", name);
         }
 
         Ok(())
     }
 
-    /// List existing forest worktrees.
+    /// List existing forest groves.
     #[instrument(err)]
-    pub fn list_worktrees(&self) -> Result<Vec<String>, Error> {
-        let wt_dir = self.worktrees_dir();
+    pub fn list_groves(&self) -> Result<Vec<String>, Error> {
+        let wt_dir = self.groves_dir();
         if !wt_dir.exists() {
             return Ok(vec![]);
         }
 
-        let mut worktrees = Vec::new();
+        let mut groves = Vec::new();
         let entries = std::fs::read_dir(&wt_dir).map_err(|e| Error::CreateDir {
             path: wt_dir.clone(),
             source: e,
@@ -325,19 +325,19 @@ targets = [
             if entry.path().is_dir()
                 && let Some(name) = entry.file_name().to_str()
             {
-                worktrees.push(name.to_string());
+                groves.push(name.to_string());
             }
         }
 
-        Ok(worktrees)
+        Ok(groves)
     }
 
-    /// Remove a forest worktree.
+    /// Remove a forest grove.
     #[instrument(err)]
-    pub fn remove_worktree(&self, name: &str, force: bool) -> Result<(), Error> {
-        let wt_dir = self.worktrees_dir().join(name);
+    pub fn remove_grove(&self, name: &str, force: bool) -> Result<(), Error> {
+        let wt_dir = self.groves_dir().join(name);
         if !wt_dir.exists() {
-            return Err(Error::WorktreeNotFound {
+            return Err(Error::GroveNotFound {
                 name: name.to_string(),
             });
         }
@@ -358,7 +358,7 @@ targets = [
             let _ = cmd.status(); // Ignore errors, directory might already be gone
         }
 
-        // Remove the worktree directory
+        // Remove the grove directory
         let _ = std::fs::remove_dir_all(&wt_dir);
 
         Ok(())

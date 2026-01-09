@@ -15,7 +15,7 @@ pub struct InitArgs {
 
 const GITIGNORE: &str = r#"# Forester
 .forest/
-worktrees/
+groves/
 "#;
 
 const FORESTER_TOML_TEMPLATE: &str = r#"[forest]

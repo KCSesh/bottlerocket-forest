@@ -26,7 +26,7 @@ fn init_creates_config_files() {
     // And: .gitignore is created with correct entries
     let gitignore = fs::read_to_string(temp.path().join(".gitignore")).unwrap();
     assert!(gitignore.contains(".forest/"));
-    assert!(gitignore.contains("worktrees/"));
+    assert!(gitignore.contains("groves/"));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn init_appends_to_existing_gitignore() {
     let gitignore = fs::read_to_string(temp.path().join(".gitignore")).unwrap();
     assert!(gitignore.contains("node_modules/"));
     assert!(gitignore.contains(".forest/"));
-    assert!(gitignore.contains("worktrees/"));
+    assert!(gitignore.contains("groves/"));
 }
 
 #[test]

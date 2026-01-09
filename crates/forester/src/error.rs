@@ -35,11 +35,11 @@ pub enum Error {
         source: std::io::Error,
     },
 
-    #[snafu(display("Worktree '{}' already exists", name))]
-    WorktreeExists { name: String },
+    #[snafu(display("Grove '{}' already exists", name))]
+    GroveExists { name: String },
 
-    #[snafu(display("Worktree '{}' not found", name))]
-    WorktreeNotFound { name: String },
+    #[snafu(display("Grove '{}' not found", name))]
+    GroveNotFound { name: String },
 
     #[snafu(display("Failed to create symlink from {} to {}", src.display(), tgt.display()))]
     Symlink {

@@ -40,9 +40,9 @@ pub fn forester_seed(cwd: &Path, verbose: bool) -> (i32, String, String) {
     forester_cmd(cwd, &args)
 }
 
-/// Run forester worktree command
-pub fn forester_worktree(cwd: &Path, subcmd: &str, args: &[&str]) -> (i32, String, String) {
-    let mut full_args = vec!["worktree", subcmd];
+/// Run forester grove command
+pub fn forester_grove(cwd: &Path, subcmd: &str, args: &[&str]) -> (i32, String, String) {
+    let mut full_args = vec!["grove", subcmd];
     full_args.extend(args);
     forester_cmd(cwd, &full_args)
 }
