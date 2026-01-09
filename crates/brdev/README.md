@@ -1,10 +1,11 @@
 # brdev
 
-brdev is a Rust CLI tool that orchestrates development workflows across the Bottlerocket Forest. It provides higher-level commands for managing local development infrastructure.
+brdev is a Rust CLI tool that orchestrates development workflows across the Bottlerocket Forest.
+It provides higher-level commands for managing local development infrastructure.
 
 ## Purpose
 
-Forester provides:
+brdev provides:
 
 - **Local OCI Registry** - Run a local Docker registry for kit development
 
@@ -22,6 +23,10 @@ The binary will be at `target/release/brdev`.
 ## Usage
 
 ### Registry Management
+
+The registry is grove-aware.
+All registry commands must be run from within a grove directory.
+Each grove gets its own isolated registry container and data volume.
 
 Start a local OCI registry for development:
 
@@ -61,17 +66,12 @@ brdev registry clean
 
 ### Configuration
 
-Forester uses environment variables for configuration. Create a `.env` file in the forest root or set environment variables:
+Container and volume names are derived from the grove name as `brdev-registry-{grove}` and `brdev-registry-data-{grove}`.
 
-```bash
-# Registry port (default: 5000, minimum: 1024)
-FORESTER_REGISTRY_PORT=5000
+The registry port is automatically derived from a hash of the grove name (range 5001-5999).
+To override the port, create a `.grove/registry-port` file containing the desired port number.
 
-# Registry image (default: registry:2)
-FORESTER_REGISTRY_IMAGE=registry:2
-```
-
-Note: Container and volume names are automatically derived from the port as `brdev-registry-{port}` and `brdev-registry-data-{port}`.
+The registry image defaults to `registry:2` and can be overridden with the `FORESTER_REGISTRY_IMAGE` environment variable.
 
 ## Requirements
 
@@ -99,4 +99,5 @@ make integ  # Full test suite (fmt, clippy, deny, tests)
 make check  # Quick validation (fmt, clippy, deny, unit tests)
 ```
 
-Integration tests use the `serial_test` crate with `#[serial(registry)]` to ensure tests that manipulate the Docker registry run one at a time. Tests use a dedicated test port (5555), and each test starts with a clean state and cleans up after itself.
+Integration tests use the `serial_test` crate with `#[serial(registry)]` to ensure tests that manipulate the Docker registry run one at a time.
+Tests use a dedicated test port (5555), and each test starts with a clean state and cleans up after itself.
