@@ -87,5 +87,4 @@ The Bottlerocket SDK provides the build environment:
 ## Further Reading
 
 - [Bottlerocket Documentation](https://bottlerocket.dev/)
-- [Twoliter Documentation](../twoliter/docs/)
 - Component-specific READMEs in each repository
