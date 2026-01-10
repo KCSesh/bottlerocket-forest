@@ -34,34 +34,51 @@ def main():
         print("""
 === Refactoring Guidance ===
 
-1. SPLIT IMPLEMENTATION (preferred for large files)
-   If a module has multiple logical operations, split them:
-   
-   BEFORE: facade/build.rs (877 lines)
-     - build(), rebuild(), update(), clear() + all tests
-   
-   AFTER:
-     - facade/build.rs (550 lines): build(), rebuild() + their tests
-     - facade/update.rs (189 lines): update(), clear() + their tests
-   
-   Tests stay co-located with their implementation.
+1. INTERNAL DECOMPOSITION (preferred for large structs)
+   If a struct has too many methods, decompose into internal components:
 
-2. DRY TEST HELPERS (module-local)
-   Add helpers to #[cfg(test)] module to reduce setup boilerplate:
-   
-   fn setup_test_repo() -> (TempDir, PathBuf) { ... }
-   fn create_test_file(dir: &Path, name: &str, content: &str) { ... }
+   BEFORE: facade/mod.rs (900 lines)
+     - KnowledgeIndex with build(), search(), gc(), etc. all in one file
+
+   AFTER:
+     - facade/mod.rs (500 lines): KnowledgeIndex struct + delegating methods
+     - facade/inner/builder.rs: BuildOperations component
+     - facade/inner/searcher.rs: SearchOperations component
+
+   Components are private implementation details. Public API unchanged.
+
+   ⚠️ DO NOT split a struct's impl blocks across files without decomposition.
+   Scattered impl blocks fragment semantic understanding for LLMs.
+
+2. SPLIT BY OPERATION (for files with distinct operations)
+   If a module has multiple logical operations, split them:
+
+   BEFORE: facade/build.rs (700 lines)
+     - build(), rebuild(), update(), clear() + all tests
+
+   AFTER:
+     - facade/build.rs (400 lines): build(), rebuild() + their tests
+     - facade/update.rs (300 lines): update(), clear() + their tests
+
+   Tests stay co-located with their implementation.
 
 3. USE test_case FOR PARAMETERIZED TESTS
    Consolidate similar tests that differ only in inputs:
-   
+
    #[test_case("" ; "empty string")]
    #[test_case("   " ; "whitespace only")]
    fn rejects_blank_input(input: &str) { ... }
 
+* Preserve Given/When/Then comments int tests (required by style guide)
 * Keep tests co-located with implementation
-* Preserve Given/When/Then comments (required by style guide)
 * DO NOT delete docstrings or comments to reduce line count
+* If LOC limit signals a problem, the abstraction may be too large
+
+4. DRY TEST HELPERS (module-local)
+   Add helpers to #[cfg(test)] module to reduce setup boilerplate:
+
+   fn setup_test_repo() -> (TempDir, PathBuf) { ... }
+   fn create_test_file(dir: &Path, name: &str, content: &str) { ... }
 """)
         sys.exit(1)
     print("All modules are within LOC limits")
