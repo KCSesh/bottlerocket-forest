@@ -106,11 +106,24 @@ impl ForestManager {
                 );
             }
         } else {
-            // Check for missing members
+            // Check for missing members - parse targets and check path prefixes
             let content = std::fs::read_to_string(&crumbly_path).unwrap_or_default();
+            let targets: Vec<&str> = content
+                .lines()
+                .filter_map(|line| {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('"') {
+                        Some(trimmed.trim_matches(|c| c == '"' || c == ',' || c == ' '))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             let missing: Vec<_> = member_paths
                 .iter()
-                .filter(|p| !content.contains(p.as_str()))
+                .filter(|p| {
+                    !targets.iter().any(|t| p.as_str() == *t || p.starts_with(&format!("{}/", t)))
+                })
                 .collect();
             if !missing.is_empty() {
                 println!(
