@@ -62,7 +62,7 @@ fn seed_clones_bare_repos() {
 }
 
 #[test]
-fn seed_creates_develop_grove() {
+fn seed_does_not_create_develop_grove() {
     // Given: A forest with local repo remotes
     let temp = setup_forest_with_local_repos();
 
@@ -70,15 +70,11 @@ fn seed_creates_develop_grove() {
     let (code, _, _) = forester_seed(temp.path(), false);
     assert_eq!(code, 0);
 
-    // Then: groves/develop is created
-    assert!(temp.path().join("groves/develop").exists());
+    // Then: No develop grove exists (hidden grove used for indexing is cleaned up)
+    assert!(!temp.path().join("groves/develop").exists());
 
-    // And: Member repos are checked out in correct paths
-    assert!(temp.path().join("groves/develop/repo-a").exists());
-    assert!(temp.path().join("groves/develop/nested/repo-b").exists());
-
-    // And: README.md exists (from our test commit)
-    assert!(temp.path().join("groves/develop/repo-a/README.md").exists());
+    // And: Hidden index grove is also cleaned up
+    assert!(!temp.path().join(".forest/.index-grove").exists());
 }
 
 #[test]
@@ -119,7 +115,7 @@ fn grove_create_makes_new_grove() {
 
 #[test]
 fn grove_list_shows_groves() {
-    // Given: A seeded forest with an additional grove
+    // Given: A seeded forest with a created grove
     let temp = setup_forest_with_local_repos();
     forester_seed(temp.path(), false);
     forester_grove(temp.path(), "create", &["feature-x"]);
@@ -127,31 +123,32 @@ fn grove_list_shows_groves() {
     // When: Listing groves
     let (code, stdout, _) = forester_grove(temp.path(), "list", &[]);
 
-    // Then: Both groves are listed
+    // Then: Created grove is listed
     assert_eq!(code, 0);
-    assert!(stdout.contains("develop"));
     assert!(stdout.contains("feature-x"));
 }
 
 #[test]
 fn grove_remove_deletes_grove() {
-    // Given: A seeded forest with an additional grove
+    // Given: A seeded forest with two groves
     let temp = setup_forest_with_local_repos();
     forester_seed(temp.path(), false);
     forester_grove(temp.path(), "create", &["feature-x"]);
+    forester_grove(temp.path(), "create", &["feature-y"]);
     assert!(temp.path().join("groves/feature-x").exists());
+    assert!(temp.path().join("groves/feature-y").exists());
 
-    // When: Removing the grove
+    // When: Removing one grove
     let (code, stdout, stderr) = forester_grove(temp.path(), "remove", &["feature-x"]);
 
     // Then: Command succeeds
     assert_eq!(code, 0, "Grove remove failed: {} {}", stdout, stderr);
 
-    // And: Grove directory is gone
+    // And: Removed grove is gone
     assert!(!temp.path().join("groves/feature-x").exists());
 
-    // And: develop grove still exists
-    assert!(temp.path().join("groves/develop").exists());
+    // And: Other grove still exists
+    assert!(temp.path().join("groves/feature-y").exists());
 }
 
 #[test]

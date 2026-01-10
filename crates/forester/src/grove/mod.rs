@@ -31,7 +31,7 @@ impl ForestManager {
         self.root.join("groves")
     }
 
-    /// Seed the forest - clone bare repos and create develop worktree.
+    /// Seed the forest - clone bare repos and build crumbly index.
     #[instrument(skip(self), err)]
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
@@ -48,8 +48,10 @@ impl ForestManager {
         // Ensure crumbly.toml exists, generate if needed
         self.ensure_crumbly_config(verbose)?;
 
-        // Create the default "develop" grove
-        self.create_grove("develop", None, verbose)?;
+        // Create hidden grove for indexing, then remove it
+        let index_grove = self.root.join(".forest").join(".index-grove");
+        self.create_grove_at(&index_grove, verbose)?;
+        self.remove_grove_at(&index_grove);
 
         Ok(())
     }
@@ -172,6 +174,53 @@ targets = [
 "#,
             targets.join(",\n")
         )
+    }
+
+    /// Create grove at arbitrary path for internal use (e.g., indexing).
+    fn create_grove_at(&self, path: &PathBuf, verbose: bool) -> Result<(), Error> {
+        std::fs::create_dir_all(path).map_err(|e| Error::CreateDir {
+            path: path.clone(),
+            source: e,
+        })?;
+
+        for member in &self.config.forest.member {
+            let bare_path = self.bare_dir().join(format!("{}.git", member.name));
+            let member_wt_path = path.join(&member.path);
+            if member_wt_path.exists() {
+                continue;
+            }
+            if let Some(parent) = member_wt_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| Error::CreateDir {
+                    path: parent.to_path_buf(),
+                    source: e,
+                })?;
+            }
+            let status = Command::new("git")
+                .args(["worktree", "add"])
+                .arg(&member_wt_path)
+                .arg(member.branch())
+                .current_dir(&bare_path)
+                .status()
+                .map_err(|_| Error::Git {
+                    message: format!("Failed to create worktree for {}", member.name),
+                })?;
+            if !status.success() {
+                return Err(Error::Git {
+                    message: format!("git worktree add failed for {}", member.name),
+                });
+            }
+        }
+
+        let context_path = path.strip_prefix(&self.root).unwrap_or(path);
+        if verbose {
+            println!("Updating crumbly index...");
+        }
+        let _ = Command::new("crumbly")
+            .args(["update", "--context", &context_path.display().to_string()])
+            .current_dir(&self.root)
+            .status();
+
+        Ok(())
     }
 
     /// Create a new forest grove.
@@ -368,26 +417,21 @@ targets = [
                 name: name.to_string(),
             });
         }
+        self.remove_grove_at(&wt_dir);
+        Ok(())
+    }
 
-        // Remove git worktrees for each member
+    /// Remove worktrees at an arbitrary path.
+    fn remove_grove_at(&self, path: &PathBuf) {
         for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
-            let member_wt_path = wt_dir.join(&member.path);
-
-            let mut cmd = Command::new("git");
-            cmd.args(["worktree", "remove"]);
-            if force {
-                cmd.arg("--force");
-            }
-            cmd.arg(&member_wt_path);
-            cmd.current_dir(&bare_path);
-
-            let _ = cmd.status(); // Ignore errors, directory might already be gone
+            let member_wt_path = path.join(&member.path);
+            let _ = Command::new("git")
+                .args(["worktree", "remove", "--force"])
+                .arg(&member_wt_path)
+                .current_dir(&bare_path)
+                .status();
         }
-
-        // Remove the grove directory
-        let _ = std::fs::remove_dir_all(&wt_dir);
-
-        Ok(())
+        let _ = std::fs::remove_dir_all(path);
     }
 }
