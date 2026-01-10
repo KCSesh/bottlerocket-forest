@@ -9,7 +9,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-mod progress;
+pub mod progress;
 
 /// Arguments for building the knowledge index.
 #[derive(Parser)]

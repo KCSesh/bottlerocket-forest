@@ -22,6 +22,15 @@ impl FilesystemSource {
     }
 }
 
+fn to_content_entry(file: IndexableFile) -> ContentEntry<AbsolutePath> {
+    ContentEntry::builder()
+        .id(file.absolute_path)
+        .relative_path(file.relative_path)
+        .repo_name(file.repo_name)
+        .file_type(file.file_type)
+        .build()
+}
+
 impl ContentSource for FilesystemSource {
     type Error = FilesystemSourceError;
     type EntryId = AbsolutePath;
@@ -39,15 +48,6 @@ impl ContentSource for FilesystemSource {
     }
 }
 
-fn to_content_entry(file: IndexableFile) -> ContentEntry<AbsolutePath> {
-    ContentEntry::builder()
-        .id(file.absolute_path)
-        .relative_path(file.relative_path)
-        .repo_name(file.repo_name)
-        .file_type(file.file_type)
-        .build()
-}
-
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum FilesystemSourceError {
@@ -55,5 +55,8 @@ pub enum FilesystemSourceError {
     Scan { source: ScanError },
 
     #[snafu(display("Failed to read file: {path}"))]
-    ReadFile { path: String, source: std::io::Error },
+    ReadFile {
+        path: String,
+        source: std::io::Error,
+    },
 }

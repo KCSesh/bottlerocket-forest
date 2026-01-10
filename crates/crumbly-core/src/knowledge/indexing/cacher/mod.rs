@@ -6,20 +6,20 @@
 
 mod types;
 
-pub use types::{CacheError, CacheResult};
+pub use types::CacheResult;
 
 use std::sync::Arc;
 
 use bon::Builder;
-use snafu::ResultExt;
+use snafu::{ResultExt, Snafu};
 
 use super::source::ContentSource;
-use super::{BatchConfig, IndexDataProvider, ProgressReporter};
-use crate::knowledge::chunking::{ChunkingDispatcher, ChunkingInput};
+use super::{BatchConfig, IndexDataError, IndexDataProvider, ProgressReporter};
+use crate::knowledge::chunking::{ChunkingDispatcher, ChunkingInput, DispatchError};
 use crate::knowledge::domain::{
     ChunkHash, ChunkSource, ChunkableContent, FileHash, IndexedChunk, Timestamp,
 };
-use crate::knowledge::storage::ChunkRepository;
+use crate::knowledge::storage::{ChunkRepository, StorageError};
 
 /// Caches chunks and embeddings without context association.
 #[derive(Builder)]
@@ -35,22 +35,33 @@ pub struct ChunkCacher<S: ContentSource, R: ChunkRepository> {
 }
 
 impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
+    fn flush_batch(&mut self, batch: &mut Vec<IndexedChunk>) -> Result<(), CacheError<S::Error>> {
+        use cache_error::*;
+        if !batch.is_empty() {
+            self.repository
+                .save_batch(batch)
+                .context(StorageFailedSnafu)?;
+            batch.clear();
+        }
+        Ok(())
+    }
+
     /// Cache all content from source, skipping existing embeddings.
     pub fn cache(&mut self) -> Result<CacheResult, CacheError<S::Error>> {
-        use types::cache_error::*;
+        use cache_error::*;
 
         let entries = self.source.scan().context(ScanFailedSnafu)?;
         let entries_scanned = entries.len();
 
-        let mut chunks_created = 0;
-        let mut chunks_skipped = 0;
-        let mut embeddings_generated = 0;
+        let mut chunks_created: usize = 0;
+        let mut chunks_skipped: usize = 0;
+        let mut embeddings_generated: usize = 0;
         let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size);
 
         for entry in &entries {
             let content = self.source.fetch(entry).context(FetchFailedSnafu)?;
             let file_hash = FileHash::from_reader(std::io::Cursor::new(content.as_bytes()))
-                .expect("in-memory read cannot fail");
+                .context(HashComputeSnafu)?;
 
             let input = ChunkingInput {
                 content: ChunkableContent::new(content),
@@ -106,21 +117,14 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
                     .build();
                 batch_buffer.push(indexed);
                 chunks_created += 1;
+            }
 
-                if batch_buffer.len() >= self.batch_config.batch_size {
-                    self.repository
-                        .save_batch(&batch_buffer)
-                        .context(StorageFailedSnafu)?;
-                    batch_buffer.clear();
-                }
+            if batch_buffer.len() >= self.batch_config.batch_size {
+                self.flush_batch(&mut batch_buffer)?;
             }
         }
 
-        if !batch_buffer.is_empty() {
-            self.repository
-                .save_batch(&batch_buffer)
-                .context(StorageFailedSnafu)?;
-        }
+        self.flush_batch(&mut batch_buffer)?;
 
         Ok(CacheResult::builder()
             .entries_scanned(entries_scanned)
@@ -129,4 +133,30 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
             .embeddings_generated(embeddings_generated)
             .build())
     }
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(module, visibility(pub))]
+#[non_exhaustive]
+pub enum CacheError<E: std::error::Error + 'static> {
+    #[snafu(display("Failed to scan content source"))]
+    ScanFailed { source: E },
+
+    #[snafu(display("Failed to fetch content"))]
+    FetchFailed { source: E },
+
+    #[snafu(display("Failed to chunk content"))]
+    ChunkingFailed { source: DispatchError },
+
+    #[snafu(display("Failed to generate embeddings"))]
+    EmbeddingFailed { source: IndexDataError },
+
+    #[snafu(display("Failed to save to storage"))]
+    StorageFailed { source: StorageError },
+
+    #[snafu(display("Failed to compute file hash"))]
+    HashCompute { source: std::io::Error },
+
+    #[snafu(display("Failed to initialize dispatcher"))]
+    DispatcherInit { source: DispatchError },
 }

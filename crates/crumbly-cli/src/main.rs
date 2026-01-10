@@ -3,6 +3,7 @@ use std::io::IsTerminal;
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::Result;
 
+mod cache;
 mod context;
 mod gc;
 mod index;
@@ -51,6 +52,8 @@ enum Command {
     Context(context::ContextCommand),
     /// Remove orphaned chunks not referenced by any context.
     Gc(gc::GcArgs),
+    /// Cache chunks from content sources.
+    Cache(cache::CacheArgs),
 }
 
 fn main() -> Result<()> {
@@ -76,5 +79,6 @@ fn main() -> Result<()> {
         Command::Status(args) => Ok(index::handle_status(args)?),
         Command::Context(cmd) => Ok(context::run(cmd)?),
         Command::Gc(args) => Ok(gc::handle_gc(args)?),
+        Command::Cache(args) => Ok(cache::handle_cache(args)?),
     }
 }

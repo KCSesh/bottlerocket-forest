@@ -3,15 +3,13 @@
 //! Provides [`BareGitSource`] for reading content from bare git repositories,
 //! enabling indexing of forest documentation without working tree checkouts.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
+use crate::knowledge::domain::{FileType, IndexRelativePath, RepoName};
+use crate::knowledge::indexing::filter::IndexingFilter;
 use bon::Builder;
 use nutype::nutype;
 use snafu::{ResultExt, Snafu};
-
-use crate::knowledge::domain::{FileType, IndexRelativePath, RepoName};
-use crate::knowledge::indexing::filter::IndexingFilter;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use super::{ContentEntry, ContentSource};
 
@@ -27,9 +25,21 @@ pub struct GitRev(String);
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct GitBlobRef {
-    pub repo_name: RepoName,
-    pub rev: GitRev,
-    pub path: IndexRelativePath,
+    repo_name: RepoName,
+    rev: GitRev,
+    path: IndexRelativePath,
+}
+
+impl GitBlobRef {
+    pub fn repo_name(&self) -> &RepoName {
+        &self.repo_name
+    }
+    pub fn rev(&self) -> &GitRev {
+        &self.rev
+    }
+    pub fn path(&self) -> &IndexRelativePath {
+        &self.path
+    }
 }
 
 /// Content source for bare git repositories.
@@ -62,15 +72,12 @@ impl BareGitSource {
                 path: self.bare_repos_dir.clone(),
             })?;
             let path = entry.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.ends_with(".git") {
-                        let repo_name = name.trim_end_matches(".git");
-                        if let Ok(rn) = RepoName::try_new(repo_name) {
-                            repos.push((rn, path));
-                        }
-                    }
-                }
+            if path.is_dir()
+                && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && let Some(repo_name) = name.strip_suffix(".git")
+                && let Ok(rn) = RepoName::try_new(repo_name)
+            {
+                repos.push((rn, path));
             }
         }
         Ok(repos)
@@ -155,11 +162,9 @@ impl ContentSource for BareGitSource {
     fn fetch(&self, entry: &ContentEntry<Self::EntryId>) -> Result<String, Self::Error> {
         use bare_git_source_error::*;
 
-        let git_dir = self
-            .bare_repos_dir
-            .join(format!("{}.git", entry.repo_name));
+        let git_dir = self.bare_repos_dir.join(format!("{}.git", entry.repo_name));
 
-        let rev_path = format!("{}:{}", entry.id.rev, entry.id.path);
+        let rev_path = format!("{}:{}", entry.id.rev(), entry.id.path());
         let output = Command::new("git")
             .args(["--git-dir", &git_dir.to_string_lossy()])
             .args(["show", &rev_path])

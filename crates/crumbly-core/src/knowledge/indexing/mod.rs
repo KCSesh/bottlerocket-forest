@@ -38,6 +38,7 @@ pub mod provider;
 pub mod scanner;
 pub mod source;
 
+pub use cacher::{CacheError, CacheResult, ChunkCacher};
 pub use config::{CrumblyConfig, CrumblyConfigError, load_crumbly_config};
 pub use filter::{GoFilter, GoItemType, IndexingFilter, RustFilter, RustItemType};
 pub use indexer::{BatchConfig, IndexResult, IndexStrategy, Indexer, IndexingError};
@@ -47,7 +48,6 @@ pub use scanner::{FileScanner, IndexableFile, ScanError};
 pub use source::{
     BareGitSource, BareGitSourceError, ContentEntry, ContentSource, GitBlobRef, GitRev,
 };
-pub use cacher::{CacheError, CacheResult, ChunkCacher};
 
 // Re-export for indexer module
 pub(crate) use crate::knowledge::chunking::DispatchError;
