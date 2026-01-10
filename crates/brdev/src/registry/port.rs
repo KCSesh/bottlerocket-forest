@@ -77,7 +77,9 @@ pub enum RegistryState {
 }
 
 /// Complete status information for the registry.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder)]
+#[builder(on(_, into))]
+#[non_exhaustive]
 pub struct RegistryStatus {
     pub state: RegistryState,
     pub volume_exists: bool,

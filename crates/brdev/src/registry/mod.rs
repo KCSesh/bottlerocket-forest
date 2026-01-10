@@ -88,10 +88,10 @@ pub fn status(config: &RegistryRuntimeConfig) -> Result<RegistryStatus, Registry
 
     let volume_exists = docker::volume_exists(&config.volume_name).context(DockerSnafu)?;
 
-    Ok(RegistryStatus {
-        state,
-        volume_exists,
-    })
+    Ok(RegistryStatus::builder()
+        .state(state)
+        .volume_exists(volume_exists)
+        .build())
 }
 
 /// Remove the registry container and data volume
