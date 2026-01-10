@@ -296,15 +296,42 @@ mod test {
         (temp_file, repo)
     }
 
-    pub(super) fn create_test_chunk_at(file_path: &str, repo_name: &str) -> IndexedChunk {
-        let content = format!("best test content for {}", file_path);
-        let chunk_hash = ChunkHash::from_text(&content);
-        let file_hash = FileHash::new([1u8; 32]);
+    fn default_context() -> ChunkContext {
+        ChunkContext::Markdown(MarkdownContext::builder().heading_hierarchy(vec![]).build())
+    }
 
+    fn build_indexed_chunk(content: &str, context: ChunkContext, file_hash_byte: u8) -> IndexedChunk {
         let chunk = Chunk::builder()
             .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
+            .chunk_hash(ChunkHash::from_text(content))
+            .file_hash(FileHash::new([file_hash_byte; 32]))
+            .source(
+                ChunkSource::builder()
+                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
+                    .repo_name(RepoName::try_new("test-repo").unwrap())
+                    .build(),
+            )
+            .content(
+                ChunkContent::builder()
+                    .text(content)
+                    .token_count(TokenCount::try_new(10).unwrap())
+                    .build(),
+            )
+            .context(context)
+            .build();
+        IndexedChunk::builder()
+            .chunk(chunk)
+            .embedding(Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap())
+            .indexed_at(Timestamp::now())
+            .build()
+    }
+
+    pub(super) fn create_test_chunk_at(file_path: &str, repo_name: &str) -> IndexedChunk {
+        let content = format!("best test content for {}", file_path);
+        let chunk = Chunk::builder()
+            .id(ChunkId::new(uuid::Uuid::new_v4()))
+            .chunk_hash(ChunkHash::from_text(&content))
+            .file_hash(FileHash::new([1u8; 32]))
             .source(
                 ChunkSource::builder()
                     .file_path(IndexRelativePath::try_new(file_path).unwrap())
@@ -317,11 +344,8 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-            ))
+            .context(default_context())
             .build();
-
         IndexedChunk::builder()
             .chunk(chunk)
             .embedding(Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap())
@@ -334,10 +358,7 @@ mod test {
     }
 
     fn save_chunks(repo: &mut SqliteChunkRepository, paths: &[&str]) -> Vec<IndexedChunk> {
-        let chunks: Vec<_> = paths
-            .iter()
-            .map(|p| create_test_chunk_at(p, "test-repo"))
-            .collect();
+        let chunks: Vec<_> = paths.iter().map(|p| create_test_chunk_at(p, "test-repo")).collect();
         for chunk in &chunks {
             repo.save(chunk).unwrap();
         }
@@ -346,14 +367,9 @@ mod test {
 
     #[test]
     fn test_save_and_retrieve() {
-        // Given A repository and a chunk
         let (_temp, mut repo) = setup_repo();
         let indexed_chunk = create_test_chunk();
-
-        // When Saving the chunk
         repo.save(&indexed_chunk).unwrap();
-
-        // Then It should be retrievable via find_all
         let all = repo.find_all().unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].chunk.content.text, indexed_chunk.chunk.content.text);
@@ -362,55 +378,37 @@ mod test {
 
     #[test]
     fn test_save_batch() {
-        // Given A repository and multiple chunks with different content
         let (_temp, mut repo) = setup_repo();
         let chunks = vec![
             create_test_chunk_at("file1.md", "test-repo"),
             create_test_chunk_at("file2.md", "test-repo"),
         ];
-
-        // When Saving in batch
         repo.save_batch(&chunks).unwrap();
-
-        // Then All chunks should be retrievable
         assert_eq!(repo.find_all().unwrap().len(), 2);
     }
 
     #[test]
     fn test_find_by_file() {
-        // Given A repository with chunks from different files
         let (_temp, mut repo) = setup_repo();
         save_chunks(&mut repo, &["test.md", "other.md"]);
-
-        // When Finding by file (note: in new schema, file_path is not stored in chunks)
         let results = repo
             .find_by_file(&IndexRelativePath::try_new("test.md").unwrap())
             .unwrap();
-
-        // Then Returns empty because file_path is no longer stored in chunks table
         assert_eq!(results.len(), 0);
     }
 
     #[test]
     fn test_clear() {
-        // Given A repository with chunks
         let (_temp, mut repo) = setup_repo();
         save_chunks(&mut repo, &["file1.md", "file2.md"]);
-
-        // When Clearing
         let count = repo.clear().unwrap();
-
-        // Then All chunks should be removed
         assert_eq!(count, 2);
         assert_eq!(repo.find_all().unwrap().len(), 0);
     }
 
     #[test]
     fn test_metadata() {
-        // Given A repository
         let (_temp, mut repo) = setup_repo();
-
-        // When Setting metadata
         let metadata = IndexMetadata::builder()
             .last_build(SystemTime::now())
             .chunk_count(10)
@@ -418,8 +416,6 @@ mod test {
             .model_config(EmbeddingModelConfig::default())
             .build();
         repo.set_metadata(&metadata).unwrap();
-
-        // Then It should be retrievable
         let retrieved = repo.get_metadata().unwrap();
         assert_eq!(retrieved.chunk_count, 0);
         assert_eq!(retrieved.file_count, 0);
@@ -463,90 +459,17 @@ mod test {
         ; "rustdoc context without signature"
     )]
     fn test_context_roundtrip(context: ChunkContext) {
-        // Given A repository and a chunk with specific context
         let (_temp, mut repo) = setup_repo();
-        let content = "test content for context roundtrip";
-        let chunk_hash = ChunkHash::from_text(content);
-        let file_hash = FileHash::new([2u8; 32]);
-
-        let chunk = Chunk::builder()
-            .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
-            .source(
-                ChunkSource::builder()
-                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
-                    .repo_name(RepoName::try_new("test-repo").unwrap())
-                    .build(),
-            )
-            .content(
-                ChunkContent::builder()
-                    .text(content)
-                    .token_count(TokenCount::try_new(10).unwrap())
-                    .build(),
-            )
-            .context(context.clone())
-            .build();
-
-        let indexed_chunk = IndexedChunk::builder()
-            .chunk(chunk)
-            .embedding(Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap())
-            .indexed_at(Timestamp::now())
-            .build();
-
-        // When Saving and retrieving the chunk
+        let indexed_chunk = build_indexed_chunk("test content for context roundtrip", context.clone(), 2);
         repo.save(&indexed_chunk).unwrap();
-
-        // Then The context should be preserved with correct type
         assert_eq!(repo.find_all().unwrap()[0].chunk.context, context);
     }
 
     #[test]
     fn test_save_with_embedding_stores_in_both_tables() {
-        // Given A repository and a chunk with an embedding
         let (_temp, mut repo) = setup_repo();
-        let embedding = Embedding::try_new(
-            (1..=EMBEDDING_DIM)
-                .map(|i| i as f32 / EMBEDDING_DIM as f32)
-                .collect(),
-        )
-        .unwrap();
-
-        let content = "test content for embedding";
-        let chunk_hash = ChunkHash::from_text(content);
-        let file_hash = FileHash::new([3u8; 32]);
-
-        let chunk = Chunk::builder()
-            .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
-            .source(
-                ChunkSource::builder()
-                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
-                    .repo_name(RepoName::try_new("test-repo").unwrap())
-                    .build(),
-            )
-            .content(
-                ChunkContent::builder()
-                    .text(content)
-                    .token_count(TokenCount::try_new(10).unwrap())
-                    .build(),
-            )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-            ))
-            .build();
-
-        let indexed_chunk = IndexedChunk::builder()
-            .chunk(chunk)
-            .embedding(embedding)
-            .indexed_at(Timestamp::now())
-            .build();
-
-        // When Saving the chunk
+        let indexed_chunk = build_indexed_chunk("test content for embedding", default_context(), 3);
         repo.save(&indexed_chunk).unwrap();
-
-        // Then It should be in both chunks and vec_chunks tables
         let chunk_exists: bool = repo
             .conn
             .query_row(
@@ -556,7 +479,6 @@ mod test {
             )
             .unwrap();
         assert!(chunk_exists);
-
         let vec_chunk_exists: bool = repo
             .conn
             .query_row(
@@ -570,15 +492,10 @@ mod test {
 
     #[test]
     fn test_get_indexed_files() {
-        // Given A repository with multiple chunks from different files
         let (_temp, mut repo) = setup_repo();
         save_chunks(&mut repo, &["repo1/file1.md", "repo2/file2.md"]);
-
-        // When Getting indexed files for default context
         let default_ctx = ContextId::from_path(".").unwrap();
         let indexed_files = repo.get_indexed_files(&default_ctx).unwrap();
-
-        // Then In the new schema, get_indexed_files returns empty map
         assert_eq!(indexed_files.len(), 0);
     }
 
@@ -586,11 +503,8 @@ mod test {
     #[test_case(&["file1.md", "file2.md"], &[0, 1] ; "all embeddings exist")]
     #[test_case(&["file1.md", "file2.md"], &[0] ; "subset of embeddings exist")]
     fn test_has_embedding_batch(saved_files: &[&str], existing_indices: &[usize]) {
-        // Given a repository with some chunks saved
         let (_temp, mut repo) = setup_repo();
         let saved = save_chunks(&mut repo, saved_files);
-
-        // When checking which hashes have embeddings
         let mut hashes = vec![];
         for idx in existing_indices {
             hashes.push(saved[*idx].chunk.chunk_hash);
@@ -598,10 +512,7 @@ mod test {
         if !saved.is_empty() && existing_indices.len() < saved.len() {
             hashes.push(ChunkHash::from_text("nonexistent"));
         }
-
         let result = repo.has_embedding_batch(&hashes).unwrap();
-
-        // Then it should return only the hashes that exist
         assert_eq!(result.len(), existing_indices.len());
         for idx in existing_indices {
             assert!(result.contains(&saved[*idx].chunk.chunk_hash));
@@ -610,20 +521,14 @@ mod test {
 
     #[test]
     fn has_embedding_batch_handles_empty_input() {
-        // Given A repository
         let (_temp, repo) = setup_repo();
-
-        // When Checking an empty list of hashes
         let result = repo.has_embedding_batch(&[]);
-
-        // Then It should return an empty set
         assert!(result.unwrap().is_empty());
     }
 
     #[test_case(true ; "embedding exists")]
     #[test_case(false ; "embedding does not exist")]
     fn test_has_embedding(exists: bool) {
-        // Given a repository with or without a saved chunk
         let (_temp, mut repo) = setup_repo();
         let chunk = create_test_chunk();
         let hash = if exists {
@@ -632,11 +537,7 @@ mod test {
         } else {
             ChunkHash::from_text("nonexistent content")
         };
-
-        // When checking if the embedding exists
         let result = repo.has_embedding(&hash);
-
-        // Then it should return the expected result
         assert_eq!(result.unwrap(), exists);
     }
 }
