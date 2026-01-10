@@ -72,13 +72,13 @@ impl GroveRegistryConfig {
     }
 }
 
-/// Derives port from grove name hash (range 5001-5999).
+/// Derives port from grove name hash (range 5001-6999).
 fn derive_port(grove_name: &str) -> RegistryPort {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     grove_name.hash(&mut hasher);
     let hash = hasher.finish();
-    let port = 5001 + (hash % 999) as u16;
+    let port = 5001 + (hash % 1999) as u16;
     RegistryPort::try_new(port).unwrap()
 }
 
