@@ -1,4 +1,4 @@
-use crate::grove::{self, GroveError};
+use crate::grove_old::{self as grove, GroveError};
 use crate::registry::types::{GroveRegistryConfig, RegistryConfig, RegistryRuntimeConfig};
 use snafu::{ResultExt, Snafu};
 use std::fs;

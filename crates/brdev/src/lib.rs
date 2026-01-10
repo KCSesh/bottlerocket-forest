@@ -5,5 +5,7 @@
 
 pub mod cli;
 pub mod config;
+#[path = "grove_old.rs"]
+pub mod grove_old;
 pub mod grove;
 pub mod registry;
