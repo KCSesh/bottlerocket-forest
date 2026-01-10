@@ -10,7 +10,23 @@ The forest provides:
 - Tooling to simplify local development and testing
 - High-level documentation for understanding the Bottlerocket ecosystem
 
-## Layout
+## Getting Started
+
+After seeding the forest, create a grove to begin working:
+
+```bash
+forester grove create develop
+cd groves/develop
+
+# Then, start your AI agent
+```
+
+Groves are isolated working directories containing all Bottlerocket repositories.
+Name yours anything—"develop" is conventional for general work.
+
+AI agents are meant to be run from within a grove when working on Bottlerocket.
+
+## Forest Layout
 
 ```
 bottlerocket-forest/
