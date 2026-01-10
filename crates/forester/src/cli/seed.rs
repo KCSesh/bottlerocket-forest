@@ -49,9 +49,10 @@ pub fn run(args: SeedArgs) -> miette::Result<()> {
     let manager = ForestManager::new(forest_root, config);
     manager.seed(args.verbose)?;
 
-    if args.verbose {
-        println!("{}", "✓ Forest seeded successfully".green());
-    }
+    println!("{}", "✓ Forest seeded successfully".green());
+    println!();
+    println!("To start working, create a grove:");
+    println!("  {}", "forester grove create <name>".cyan());
 
     Ok(())
 }

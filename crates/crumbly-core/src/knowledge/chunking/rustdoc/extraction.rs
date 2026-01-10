@@ -558,6 +558,10 @@ pub fn public_function() {}
 
         // Then: Only matching items are chunked
         assert_eq!(chunks.len(), expected_count);
-        assert!(chunks.iter().any(|c| c.content.text.contains(expected_text)));
+        assert!(
+            chunks
+                .iter()
+                .any(|c| c.content.text.contains(expected_text))
+        );
     }
 }
