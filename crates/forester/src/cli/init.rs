@@ -1,7 +1,10 @@
 //! Init command - initialize a new forest.
 
+use crate::grove::GroveContext;
 use clap::Args;
+use miette::Diagnostic;
 use owo_colors::OwoColorize;
+use snafu::Snafu;
 use std::fs;
 use std::path::Path;
 use tracing::instrument;
@@ -11,6 +14,14 @@ pub struct InitArgs {
     /// Forest name
     #[arg(short, long)]
     name: Option<String>,
+}
+
+#[derive(Debug, Snafu, Diagnostic)]
+#[snafu(module)]
+pub enum InitError {
+    #[snafu(display("cannot initialize forest inside grove '{name}'"))]
+    #[diagnostic(help("Change to a directory outside any grove before running init"))]
+    InsideGrove { name: String },
 }
 
 const GITIGNORE: &str = r#"# Forester
@@ -31,6 +42,10 @@ name = "{name}"
 
 #[instrument(skip_all, err)]
 pub fn run(args: InitArgs) -> miette::Result<()> {
+    use init_error::*;
+    if let Ok(Some(ctx)) = GroveContext::detect() {
+        return Err(InsideGroveSnafu { name: ctx.name().to_string() }.build().into());
+    }
     let cwd = std::env::current_dir().expect("Failed to get current directory");
     let name = args.name.unwrap_or_else(|| {
         cwd.file_name()

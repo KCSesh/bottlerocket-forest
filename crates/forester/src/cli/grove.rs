@@ -1,10 +1,20 @@
 //! Grove subcommands.
 
 use crate::forest::ForestConfig;
-use crate::grove::ForestManager;
+use crate::grove::{ForestManager, GroveContext};
 use clap::{Args, Subcommand};
+use miette::Diagnostic;
 use owo_colors::OwoColorize;
+use snafu::Snafu;
 use tracing::instrument;
+
+#[derive(Debug, Snafu, Diagnostic)]
+#[snafu(module)]
+pub enum GroveError {
+    #[snafu(display("cannot remove grove '{name}' while inside it"))]
+    #[diagnostic(help("Change to a directory outside the grove before removing it"))]
+    RemoveCurrentGrove { name: String },
+}
 
 #[derive(Subcommand, Debug)]
 pub enum GroveCommand {
@@ -48,16 +58,27 @@ pub fn run(cmd: GroveCommand) -> miette::Result<()> {
         }
         GroveCommand::List => {
             let groves = manager.list_groves()?;
+            let current = GroveContext::detect().ok().flatten();
             if groves.is_empty() {
                 println!("No groves found");
             } else {
                 println!("Forest groves:");
                 for g in groves {
-                    println!("  {}", g.cyan());
+                    if current.as_ref().is_some_and(|c| c.name() == g) {
+                        println!("* {} {}", g.cyan(), "(current)".dimmed());
+                    } else {
+                        println!("  {}", g.cyan());
+                    }
                 }
             }
         }
         GroveCommand::Remove(args) => {
+            use grove_error::*;
+            if let Ok(Some(ctx)) = GroveContext::detect() {
+                if ctx.name() == args.name {
+                    return Err(RemoveCurrentGroveSnafu { name: args.name }.build().into());
+                }
+            }
             manager.remove_grove(&args.name, args.force)?;
             println!("{} Removed grove '{}'", "✓".green(), args.name.cyan());
         }

@@ -1,7 +1,7 @@
 //! Seed command - clone all member repos and set up the forest.
 
 use crate::forest::ForestConfig;
-use crate::grove::ForestManager;
+use crate::grove::{ForestManager, GroveContext};
 use clap::Args;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
@@ -20,6 +20,13 @@ pub struct SeedArgs {
 
 #[instrument(skip_all, err)]
 pub fn run(args: SeedArgs) -> miette::Result<()> {
+    if let Ok(Some(ctx)) = GroveContext::detect() {
+        println!(
+            "{} Running seed from grove '{}'. This affects the entire forest.",
+            "!".yellow(),
+            ctx.name().cyan()
+        );
+    }
     let (forest_root, config) = if let Some(config_path) = args.config {
         let config = ForestConfig::load(&config_path)?;
         let root = config_path
