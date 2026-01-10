@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{crumbly_build, crumbly_cmd, setup_fixture};
+use common::{crumbly_build, setup_fixture};
 use std::path::Path;
 
 fn crumbly_cmd_from_dir(workspace: &Path, subdir: &str, args: &[&str]) -> (i32, String, String) {
