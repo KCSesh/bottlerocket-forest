@@ -1,16 +1,12 @@
 //! Build and rebuild operations for the knowledge index.
 
 use super::KnowledgeIndex;
+use super::inner;
 use super::types::IndexError;
-use snafu::ResultExt;
 use std::sync::Arc;
 
-use crate::knowledge::domain::{Context, ContextId, IndexMetadata};
-use crate::knowledge::indexing::{
-    BatchConfig, IndexDataProvider, IndexResult, IndexStrategy, Indexer, ProgressReporter,
-};
-use crate::knowledge::storage::sqlite::SqliteChunkRepository;
-use crate::knowledge::storage::{ChunkRepository, ContextRepository};
+use crate::knowledge::domain::ContextId;
+use crate::knowledge::indexing::{IndexResult, ProgressReporter};
 
 #[bon::bon]
 impl KnowledgeIndex {
@@ -21,61 +17,7 @@ impl KnowledgeIndex {
         #[builder(default = 100)] batch_size: usize,
         #[builder(default)] context_id: ContextId,
     ) -> Result<IndexResult, IndexError> {
-        use super::types::index_error::*;
-
-        snafu::ensure!(
-            !self.db_path.exists(),
-            IndexAlreadyExistsSnafu {
-                path: self.db_path.display().to_string()
-            }
-        );
-
-        let mut repository = SqliteChunkRepository::open(&self.db_path, &self.config)
-            .context(DatabaseAccessFailedSnafu)?;
-
-        let metadata = IndexMetadata::builder()
-            .last_build(std::time::SystemTime::now())
-            .chunk_count(0)
-            .file_count(0)
-            .model_config(self.config.clone())
-            .build();
-        repository
-            .set_metadata(&metadata)
-            .context(DatabaseAccessFailedSnafu)?;
-
-        let context = Context::builder().context_id(context_id.clone()).build();
-        repository
-            .context_repository()
-            .insert_context(&context)
-            .context(ContextRegistrationFailedSnafu)?;
-
-        let provider = Box::new(self.create_provider()?) as Box<dyn IndexDataProvider>;
-        let scan_config = self.load_scan_config_for_context(&context_id)?;
-        let filter = self.load_indexing_filter()?;
-        let repository = self.repository()?;
-
-        let batch_config = BatchConfig { batch_size };
-
-        let mut indexer = Indexer::builder()
-            .index_root(&self.index_root)
-            .repository(repository)
-            .config(&self.config)
-            .provider(provider)
-            .scan_config(scan_config)
-            .filter(filter)
-            .maybe_progress(progress)
-            .batch_config(batch_config)
-            .context_id(context_id)
-            .build()
-            .context(IndexingFailedSnafu)?;
-
-        let result = indexer
-            .index(IndexStrategy::Build)
-            .context(IndexingFailedSnafu)?;
-
-        self.update_last_build_timestamp()?;
-
-        Ok(result)
+        inner::build(self, progress, batch_size, context_id)
     }
 
     /// Delete the index and rebuild from scratch
@@ -88,68 +30,7 @@ impl KnowledgeIndex {
         #[builder(default = 100)] batch_size: usize,
         #[builder(default)] context_id: ContextId,
     ) -> Result<IndexResult, IndexError> {
-        use super::types::index_error::*;
-
-        if self.db_path.exists() {
-            std::fs::remove_file(&self.db_path).context(IndexDeletionFailedSnafu)?;
-        }
-
-        let mut repository = SqliteChunkRepository::open(&self.db_path, &self.config)
-            .context(DatabaseAccessFailedSnafu)?;
-
-        let metadata = IndexMetadata::builder()
-            .last_build(std::time::SystemTime::now())
-            .chunk_count(0)
-            .file_count(0)
-            .model_config(self.config.clone())
-            .build();
-        repository
-            .set_metadata(&metadata)
-            .context(DatabaseAccessFailedSnafu)?;
-
-        let default_context = Context::builder()
-            .context_id(ContextId::from_path(".").expect("'.' is valid context id"))
-            .build();
-        repository
-            .context_repository()
-            .insert_context(&default_context)
-            .context(ContextRegistrationFailedSnafu)?;
-
-        if context_id.as_str() != "." {
-            let context = Context::builder().context_id(context_id.clone()).build();
-            repository
-                .context_repository()
-                .insert_context(&context)
-                .context(ContextRegistrationFailedSnafu)?;
-        }
-
-        let provider = Box::new(self.create_provider()?) as Box<dyn IndexDataProvider>;
-        let scan_config = self.load_scan_config_for_context(&context_id)?;
-        let filter = self.load_indexing_filter()?;
-        let repository = self.repository()?;
-
-        let batch_config = BatchConfig { batch_size };
-
-        let mut indexer = Indexer::builder()
-            .index_root(&self.index_root)
-            .repository(repository)
-            .config(&self.config)
-            .provider(provider)
-            .scan_config(scan_config)
-            .filter(filter)
-            .maybe_progress(progress)
-            .batch_config(batch_config)
-            .context_id(context_id)
-            .build()
-            .context(IndexingFailedSnafu)?;
-
-        let result = indexer
-            .index(IndexStrategy::Build)
-            .context(IndexingFailedSnafu)?;
-
-        self.update_last_build_timestamp()?;
-
-        Ok(result)
+        inner::rebuild(self, progress, batch_size, context_id)
     }
 }
 

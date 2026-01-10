@@ -1,33 +1,96 @@
 //! Update and clear operations for the knowledge index.
 
-use super::KnowledgeIndex;
-use super::inner;
-use super::types::IndexError;
 use std::sync::Arc;
 
-use crate::knowledge::domain::ContextId;
-use crate::knowledge::indexing::{IndexResult, ProgressReporter};
+use snafu::ResultExt;
 
-#[bon::bon]
-impl KnowledgeIndex {
-    /// Update the index incrementally
-    ///
-    /// Processes only files that have been added, modified, or deleted since
-    /// the last index operation. Requires an existing index.
-    #[builder]
-    pub fn update(
-        &self,
-        progress: Option<Arc<dyn ProgressReporter>>,
-        #[builder(default = 100)] batch_size: usize,
-        #[builder(default)] context_id: ContextId,
-    ) -> Result<IndexResult, IndexError> {
-        inner::update(self, progress, batch_size, context_id)
+use super::KnowledgeIndex;
+use crate::knowledge::domain::{Context, ContextId};
+use crate::knowledge::facade::types::IndexError;
+use crate::knowledge::facade::types::index_error::*;
+use crate::knowledge::indexing::{
+    BatchConfig, IndexDataProvider, IndexResult, IndexStrategy, Indexer, ProgressReporter,
+};
+use crate::knowledge::storage::ContextRepository;
+
+pub(in crate::knowledge::facade) fn update(
+    index: &KnowledgeIndex,
+    progress: Option<Arc<dyn ProgressReporter>>,
+    batch_size: usize,
+    context_id: ContextId,
+) -> Result<IndexResult, IndexError> {
+    snafu::ensure!(
+        index.db_path.exists(),
+        IndexNotFoundSnafu {
+            path: index.db_path.display().to_string()
+        }
+    );
+
+    let provider = Box::new(super::create_provider(index)?) as Box<dyn IndexDataProvider>;
+    let scan_config = super::load_scan_config_for_context(index, &context_id)?;
+    let filter = super::load_indexing_filter(index)?;
+    let repository = super::repository(index)?;
+
+    let batch_config = BatchConfig { batch_size };
+
+    if context_id.as_str() != "." {
+        let context_repo = repository.context_repository();
+        let exists = context_repo
+            .get_context(&context_id)
+            .context(ContextRegistrationFailedSnafu)?
+            .is_some();
+
+        if !exists {
+            let context = Context::builder().context_id(context_id.clone()).build();
+            context_repo
+                .insert_context(&context)
+                .context(ContextRegistrationFailedSnafu)?;
+        }
     }
+
+    let mut indexer = Indexer::builder()
+        .index_root(&index.index_root)
+        .repository(repository)
+        .config(&index.config)
+        .provider(provider)
+        .scan_config(scan_config)
+        .filter(filter)
+        .maybe_progress(progress)
+        .batch_config(batch_config)
+        .context_id(context_id)
+        .build()
+        .context(IndexingFailedSnafu)?;
+
+    let result = indexer
+        .index(IndexStrategy::Incremental)
+        .context(IndexingFailedSnafu)?;
+
+    super::update_last_build_timestamp(index)?;
+
+    Ok(result)
+}
+
+pub(in crate::knowledge::facade) fn clear(
+    index: &KnowledgeIndex,
+    context_id: &ContextId,
+) -> Result<usize, IndexError> {
+    use crate::knowledge::storage::ChunkRepository;
+
+    let mut repository = super::repository(index)?;
+    let deleted = repository
+        .clear_context_files(context_id)
+        .context(DatabaseAccessFailedSnafu)?;
+    repository
+        .delete_orphaned_chunks()
+        .context(DatabaseAccessFailedSnafu)?;
+
+    Ok(deleted)
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::knowledge::KnowledgeIndex;
+    use crate::knowledge::domain::ContextId;
     use crate::knowledge::facade::test_helpers::test_helpers::*;
     use std::fs;
     use tempfile::TempDir;

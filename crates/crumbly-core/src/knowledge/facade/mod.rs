@@ -29,32 +29,25 @@
 //! # }
 //! ```
 
+mod inner;
 mod types;
 
 pub use types::{GcStats, IndexError, IndexStatus};
 
-use bon::Builder;
 use snafu::ResultExt;
 use std::path::{Path, PathBuf};
 
-use crate::knowledge::constants::SEMBLY_DIR;
-use crate::knowledge::domain::{
-    ContextId, EmbeddingModelConfig, QueryText, ResultLimit, SearchQuery, SearchResults,
-};
-use crate::knowledge::search::SearchEngine;
+use crate::knowledge::domain::{Context, ContextId, EmbeddingModelConfig, SearchResults};
 use crate::knowledge::storage::ChunkRepository;
-use crate::knowledge::storage::sqlite::SqliteChunkRepository;
 
 /// High-level interface for the knowledge index
 ///
 /// Coordinates indexing, storage, and search operations. Provides a unified
 /// API for all knowledge index functionality.
-#[derive(Builder)]
-#[builder(on(_, into), builder_type = KnowledgeIndexConstructor)]
 pub struct KnowledgeIndex {
-    index_root: PathBuf,
-    db_path: PathBuf,
-    config: EmbeddingModelConfig,
+    pub(crate) index_root: PathBuf,
+    pub(crate) db_path: PathBuf,
+    pub(crate) config: EmbeddingModelConfig,
 }
 
 impl KnowledgeIndex {
@@ -73,7 +66,9 @@ impl KnowledgeIndex {
         index_root: impl AsRef<Path>,
         config: EmbeddingModelConfig,
     ) -> Result<Self, IndexError> {
+        use crate::knowledge::constants::SEMBLY_DIR;
         use crate::knowledge::storage::StorageError;
+        use crate::knowledge::storage::sqlite::SqliteChunkRepository;
         use types::index_error::*;
 
         let index_root = index_root.as_ref();
@@ -89,9 +84,8 @@ impl KnowledgeIndex {
             std::fs::create_dir_all(&crumbly_dir).context(CrumblyDirCreationFailedSnafu)?;
         }
 
-        let db_path = Self::default_db_path(index_root);
+        let db_path = inner::default_db_path(index_root);
 
-        // If database exists, validate config matches
         if db_path.exists() {
             let repository = SqliteChunkRepository::open(&db_path, &config)
                 .context(DatabaseAccessFailedSnafu)?;
@@ -138,10 +132,6 @@ impl KnowledgeIndex {
         Self::open_with_config(workspace.root(), config)
     }
 
-    /// Resolve the context for a given working directory
-    ///
-    /// Returns the most specific registered context that contains the given path.
-    /// The path must be within the workspace.
     /// Search the index
     ///
     /// Executes a semantic search query using embeddings. The limit parameter
@@ -152,20 +142,7 @@ impl KnowledgeIndex {
         query: impl AsRef<str>,
         limit: usize,
     ) -> Result<SearchResults, IndexError> {
-        use types::index_error::*;
-
-        // Use the default context for search
-        // SAFETY: "." is always a valid path that normalizes to "."
-        let context_id = ContextId::from_path(".").expect("'.' is valid context id");
-
-        let search_query = SearchQuery::builder()
-            .text(QueryText::try_new(query.as_ref()).context(InvalidQuerySnafu)?)
-            .limit(ResultLimit::try_new(limit).context(InvalidResultLimitSnafu)?)
-            .context_id(context_id)
-            .build();
-
-        let engine = self.create_search_engine()?;
-        engine.search(&search_query).context(SearchFailedSnafu)
+        inner::search(self, query, limit)
     }
 
     /// Search the index within a specific context
@@ -177,26 +154,7 @@ impl KnowledgeIndex {
         limit: usize,
         context_id: ContextId,
     ) -> Result<SearchResults, IndexError> {
-        use types::index_error::*;
-
-        snafu::ensure!(
-            self.db_path.exists(),
-            IndexNotFoundSnafu {
-                path: self.db_path.display().to_string()
-            }
-        );
-
-        let text = QueryText::try_new(query.as_ref()).context(InvalidQuerySnafu)?;
-        let limit = ResultLimit::try_new(limit).context(InvalidResultLimitSnafu)?;
-
-        let search_query = SearchQuery::builder()
-            .text(text)
-            .limit(limit)
-            .context_id(context_id)
-            .build();
-
-        let engine = self.create_search_engine()?;
-        engine.search(&search_query).context(SearchFailedSnafu)
+        inner::search_in_context(self, query, limit, context_id)
     }
 
     /// Get index status and statistics
@@ -205,7 +163,7 @@ impl KnowledgeIndex {
     pub fn status(&self) -> Result<IndexStatus, IndexError> {
         use types::index_error::*;
 
-        let repository = self.repository()?;
+        let repository = inner::repository(self)?;
         let metadata = repository
             .get_metadata()
             .context(DatabaseAccessFailedSnafu)?;
@@ -222,7 +180,42 @@ impl KnowledgeIndex {
             .build())
     }
 
+    /// Resolve the context for a given working directory
+    ///
+    /// Returns the most specific registered context that contains the given path.
+    pub fn resolve_context(&self, cwd: impl AsRef<Path>) -> Result<Context, IndexError> {
+        inner::resolve_context(self, cwd)
+    }
+
     /// List all registered contexts in the workspace
+    pub fn list_contexts(&self) -> Result<Vec<Context>, IndexError> {
+        inner::list_contexts(self)
+    }
+
+    /// Remove a registered context from the workspace
+    ///
+    /// Removes the context's indexed file records and the context itself.
+    /// The default context (`.`) cannot be removed.
+    pub fn remove_context(&self, context_id: &ContextId) -> Result<(), IndexError> {
+        inner::remove_context(self, context_id)
+    }
+
+    /// Run garbage collection to remove orphaned chunks
+    ///
+    /// Deletes chunks whose file_hash is not referenced by any context's indexed files.
+    pub fn gc(&self) -> Result<GcStats, IndexError> {
+        inner::gc(self)
+    }
+
+    /// Clear file mappings for a context
+    ///
+    /// Removes file mappings for the specified context, leaving the context registered.
+    /// Also runs garbage collection to remove orphaned chunks.
+    pub fn clear(&self, context_id: &ContextId) -> Result<usize, IndexError> {
+        inner::clear(self, context_id)
+    }
+
+    /// Get the index root path
     pub fn index_root(&self) -> &Path {
         &self.index_root
     }
@@ -239,9 +232,6 @@ impl KnowledgeIndex {
 }
 
 mod build;
-mod context;
-mod gc;
-mod helpers;
 mod test_helpers;
 mod update;
 
