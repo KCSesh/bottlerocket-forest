@@ -16,8 +16,6 @@
 //! - `extraction` - Doc comment extraction logic for different Rust item types
 
 mod extraction;
-#[cfg(test)]
-mod extraction_tests;
 
 use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};

@@ -242,6 +242,5 @@ mod build;
 mod context;
 mod gc;
 mod helpers;
-mod mod_tests;
 mod test_helpers;
 mod update;

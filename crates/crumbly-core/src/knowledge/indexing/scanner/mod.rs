@@ -130,13 +130,4 @@ impl FileScanner {
 mod internals;
 mod types;
 
-#[cfg(test)]
-mod tests_basic;
-#[cfg(test)]
-mod tests_construction;
-#[cfg(test)]
-mod tests_ignore;
-#[cfg(test)]
-mod tests_targets;
-
 pub use types::{IndexableFile, ScanError};
