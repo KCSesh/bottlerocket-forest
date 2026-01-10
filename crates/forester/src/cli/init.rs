@@ -44,7 +44,11 @@ name = "{name}"
 pub fn run(args: InitArgs) -> miette::Result<()> {
     use init_error::*;
     if let Ok(Some(ctx)) = GroveContext::detect() {
-        return Err(InsideGroveSnafu { name: ctx.name().to_string() }.build().into());
+        return Err(InsideGroveSnafu {
+            name: ctx.name().to_string(),
+        }
+        .build()
+        .into());
     }
     let cwd = std::env::current_dir().expect("Failed to get current directory");
     let name = args.name.unwrap_or_else(|| {

@@ -78,10 +78,8 @@ pub fn run(cmd: GroveCommand) -> miette::Result<()> {
         }
         GroveCommand::Remove(args) => {
             use grove_error::*;
-            if let Ok(Some(ctx)) = GroveContext::detect() {
-                if ctx.name() == args.name {
-                    return Err(RemoveCurrentGroveSnafu { name: args.name }.build().into());
-                }
+            if let Ok(Some(ctx)) = GroveContext::detect() && ctx.name() == args.name {
+                return Err(RemoveCurrentGroveSnafu { name: args.name }.build().into());
             }
             manager.remove_grove(&args.name, args.force)?;
             println!("{} Removed grove '{}'", "✓".green(), args.name.cyan());

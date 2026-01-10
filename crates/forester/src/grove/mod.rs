@@ -113,22 +113,13 @@ impl ForestManager {
             let content = std::fs::read_to_string(&crumbly_path).unwrap_or_default();
             let targets: Vec<&str> = content
                 .lines()
-                .filter_map(|line| {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with('"') {
-                        Some(trimmed.trim_matches(|c| c == '"' || c == ',' || c == ' '))
-                    } else {
-                        None
-                    }
-                })
+                .map(str::trim)
+                .filter(|t| t.starts_with('"'))
+                .map(|t| t.trim_matches(|c| c == '"' || c == ',' || c == ' '))
                 .collect();
             let missing: Vec<_> = member_paths
                 .iter()
-                .filter(|p| {
-                    !targets
-                        .iter()
-                        .any(|t| p.as_str() == *t || p.starts_with(&format!("{}/", t)))
-                })
+                .filter(|p| !targets.iter().any(|t| p.as_str() == *t || p.starts_with(&format!("{}/", t))))
                 .collect();
             if !missing.is_empty() {
                 println!(
