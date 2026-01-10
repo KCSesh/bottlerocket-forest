@@ -4,5 +4,7 @@
 //! walking up the directory tree to find the `.grove/` marker directory.
 
 mod context;
+pub mod registry;
 
 pub use context::{GroveContext, GroveContextError};
+pub use registry::{GroveRegistryConfig, GroveRegistryConfigError};
