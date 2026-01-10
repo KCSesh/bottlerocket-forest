@@ -296,15 +296,51 @@ mod test {
         (temp_file, repo)
     }
 
-    pub(super) fn create_test_chunk_at(file_path: &str, repo_name: &str) -> IndexedChunk {
-        let content = format!("best test content for {}", file_path);
-        let chunk_hash = ChunkHash::from_text(&content);
-        let file_hash = FileHash::new([1u8; 32]);
-
+    fn build_chunk(
+        content: &str,
+        file_path: &str,
+        context: ChunkContext,
+        embedding: Embedding,
+    ) -> IndexedChunk {
         let chunk = Chunk::builder()
             .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
+            .chunk_hash(ChunkHash::from_text(content))
+            .file_hash(FileHash::new([1u8; 32]))
+            .source(
+                ChunkSource::builder()
+                    .file_path(IndexRelativePath::try_new(file_path).unwrap())
+                    .repo_name(RepoName::try_new("test-repo").unwrap())
+                    .build(),
+            )
+            .content(
+                ChunkContent::builder()
+                    .text(content)
+                    .token_count(TokenCount::try_new(10).unwrap())
+                    .build(),
+            )
+            .context(context)
+            .build();
+        IndexedChunk::builder()
+            .chunk(chunk)
+            .embedding(embedding)
+            .indexed_at(Timestamp::now())
+            .build()
+    }
+
+    fn default_context() -> ChunkContext {
+        ChunkContext::Markdown(MarkdownContext::builder().heading_hierarchy(vec![]).build())
+    }
+
+    fn default_embedding() -> Embedding {
+        Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap()
+    }
+
+    pub(super) fn create_test_chunk_at(file_path: &str, repo_name: &str) -> IndexedChunk {
+        let content = format!("best test content for {}", file_path);
+        let chunk = Chunk::builder()
+            .id(ChunkId::new(uuid::Uuid::new_v4()))
+            .chunk_hash(ChunkHash::from_text(&content))
+            .file_hash(FileHash::new([1u8; 32]))
             .source(
                 ChunkSource::builder()
                     .file_path(IndexRelativePath::try_new(file_path).unwrap())
@@ -317,14 +353,11 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-            ))
+            .context(default_context())
             .build();
-
         IndexedChunk::builder()
             .chunk(chunk)
-            .embedding(Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap())
+            .embedding(default_embedding())
             .indexed_at(Timestamp::now())
             .build()
     }
@@ -431,68 +464,39 @@ mod test {
         ; "markdown context with empty hierarchy"
     )]
     #[test_case(
-        ChunkContext::Markdown(
-            MarkdownContext::builder()
-                .heading_hierarchy(vec![
-                    HeadingText::try_new("Architecture").unwrap(),
-                    HeadingText::try_new("Boot Process").unwrap(),
-                ])
-                .build()
-        )
+        ChunkContext::Markdown(MarkdownContext::builder()
+            .heading_hierarchy(vec![
+                HeadingText::try_new("Architecture").unwrap(),
+                HeadingText::try_new("Boot Process").unwrap(),
+            ]).build())
         ; "markdown context with hierarchy"
     )]
     #[test_case(
-        ChunkContext::RustDoc(
-            RustDocContext::builder()
-                .item_name(ItemName::try_new("build_variant").unwrap())
-                .visibility(Visibility::Public)
-                .signature(Signature::try_new("pub fn build_variant()").unwrap())
-                .item_type(crate::knowledge::indexing::RustItemType::Function)
-                .build()
-        )
+        ChunkContext::RustDoc(RustDocContext::builder()
+            .item_name(ItemName::try_new("build_variant").unwrap())
+            .visibility(Visibility::Public)
+            .signature(Signature::try_new("pub fn build_variant()").unwrap())
+            .item_type(crate::knowledge::indexing::RustItemType::Function)
+            .build())
         ; "rustdoc context with signature"
     )]
     #[test_case(
-        ChunkContext::RustDoc(
-            RustDocContext::builder()
-                .item_name(ItemName::try_new("Config").unwrap())
-                .visibility(Visibility::Private)
-                .item_type(crate::knowledge::indexing::RustItemType::Struct)
-                .build()
-        )
+        ChunkContext::RustDoc(RustDocContext::builder()
+            .item_name(ItemName::try_new("Config").unwrap())
+            .visibility(Visibility::Private)
+            .item_type(crate::knowledge::indexing::RustItemType::Struct)
+            .build())
         ; "rustdoc context without signature"
     )]
     fn test_context_roundtrip(context: ChunkContext) {
         // Given A repository and a chunk with specific context
         let (_temp, mut repo) = setup_repo();
-        let content = "test content for context roundtrip";
-        let chunk_hash = ChunkHash::from_text(content);
-        let file_hash = FileHash::new([2u8; 32]);
-
-        let chunk = Chunk::builder()
-            .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
-            .source(
-                ChunkSource::builder()
-                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
-                    .repo_name(RepoName::try_new("test-repo").unwrap())
-                    .build(),
-            )
-            .content(
-                ChunkContent::builder()
-                    .text(content)
-                    .token_count(TokenCount::try_new(10).unwrap())
-                    .build(),
-            )
-            .context(context.clone())
-            .build();
-
-        let indexed_chunk = IndexedChunk::builder()
-            .chunk(chunk)
-            .embedding(Embedding::try_new(vec![0.1; EMBEDDING_DIM]).unwrap())
-            .indexed_at(Timestamp::now())
-            .build();
+        let indexed_chunk = build_chunk(
+            "test content for context roundtrip",
+            "test.md",
+            context.clone(),
+            default_embedding(),
+        );
 
         // When Saving and retrieving the chunk
         repo.save(&indexed_chunk).unwrap();
@@ -511,37 +515,12 @@ mod test {
                 .collect(),
         )
         .unwrap();
-
-        let content = "test content for embedding";
-        let chunk_hash = ChunkHash::from_text(content);
-        let file_hash = FileHash::new([3u8; 32]);
-
-        let chunk = Chunk::builder()
-            .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
-            .file_hash(file_hash)
-            .source(
-                ChunkSource::builder()
-                    .file_path(IndexRelativePath::try_new("test.md").unwrap())
-                    .repo_name(RepoName::try_new("test-repo").unwrap())
-                    .build(),
-            )
-            .content(
-                ChunkContent::builder()
-                    .text(content)
-                    .token_count(TokenCount::try_new(10).unwrap())
-                    .build(),
-            )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-            ))
-            .build();
-
-        let indexed_chunk = IndexedChunk::builder()
-            .chunk(chunk)
-            .embedding(embedding)
-            .indexed_at(Timestamp::now())
-            .build();
+        let indexed_chunk = build_chunk(
+            "test content for embedding",
+            "test.md",
+            default_context(),
+            embedding,
+        );
 
         // When Saving the chunk
         repo.save(&indexed_chunk).unwrap();

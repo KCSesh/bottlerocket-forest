@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod test {
-    use crate::knowledge::indexing::scanner::{FileScanner, IndexableFile};
     use crate::knowledge::domain::{FileType, IndexRelativePath, RepoName};
+    use crate::knowledge::indexing::scanner::{FileScanner, IndexableFile};
     use std::fs;
     use tempfile::TempDir;
 
@@ -28,7 +28,10 @@ mod test {
         setup_repo_with_files(
             temp_dir.path(),
             "twoliter",
-            &[("src/main.rs", "fn main() {}"), ("src/lib.rs", "pub fn test() {}")],
+            &[
+                ("src/main.rs", "fn main() {}"),
+                ("src/lib.rs", "pub fn test() {}"),
+            ],
         );
         let scanner = scanner_no_git(temp_dir.path());
         let files = scanner.scan().unwrap();
@@ -60,7 +63,10 @@ mod test {
         setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("README.md", "# Test")]);
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
-        assert_eq!(files[0].repo_name, RepoName::try_new("bottlerocket").unwrap());
+        assert_eq!(
+            files[0].repo_name,
+            RepoName::try_new("bottlerocket").unwrap()
+        );
     }
 
     #[test]
@@ -91,7 +97,11 @@ mod test {
         let repo = RepoName::try_new("bottlerocket").unwrap();
         let files = scanner.scan_repo(&repo).unwrap();
         assert_eq!(files.len(), 1);
-        assert!(files.iter().all(|f| f.repo_name == RepoName::try_new("bottlerocket").unwrap()));
+        assert!(
+            files
+                .iter()
+                .all(|f| f.repo_name == RepoName::try_new("bottlerocket").unwrap())
+        );
     }
 
     #[test]
@@ -100,7 +110,10 @@ mod test {
         setup_repo_with_files(
             temp_dir.path(),
             "bottlerocket",
-            &[("docs/README.md", "# Docs"), ("docs/architecture/boot.md", "# Boot")],
+            &[
+                ("docs/README.md", "# Docs"),
+                ("docs/architecture/boot.md", "# Boot"),
+            ],
         );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 2);
@@ -110,7 +123,11 @@ mod test {
     #[test]
     fn test_scan_preserves_relative_paths() {
         let temp_dir = TempDir::new().unwrap();
-        setup_repo_with_files(temp_dir.path(), "bottlerocket", &[("docs/guide.md", "# Guide")]);
+        setup_repo_with_files(
+            temp_dir.path(),
+            "bottlerocket",
+            &[("docs/guide.md", "# Guide")],
+        );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
         assert_eq!(
@@ -147,7 +164,15 @@ mod test {
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].relative_path.to_string().contains("internal.md"));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("link.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("external.md")));
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("link.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("external.md"))
+        );
     }
 }

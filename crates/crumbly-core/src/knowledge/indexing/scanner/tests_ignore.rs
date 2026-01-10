@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod test {
-    use crate::knowledge::indexing::scanner::FileScanner;
     use crate::knowledge::domain::ScanConfig;
+    use crate::knowledge::indexing::scanner::FileScanner;
     use std::fs;
     use tempfile::TempDir;
 
@@ -29,7 +29,11 @@ mod test {
         setup_repo_with_files(
             temp_dir.path(),
             "repo",
-            &[(".gitignore", "ignored.md\n"), ("included.md", "# Included"), ("ignored.md", "# Ignored")],
+            &[
+                (".gitignore", "ignored.md\n"),
+                ("included.md", "# Included"),
+                ("ignored.md", "# Ignored"),
+            ],
         );
         let config = ScanConfig::builder().respect_gitignore(false).build();
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
@@ -44,7 +48,10 @@ mod test {
         setup_repo_with_files(
             temp_dir.path(),
             "repo",
-            &[("excluded/doc.md", "# Excluded"), ("included/doc.md", "# Included")],
+            &[
+                ("excluded/doc.md", "# Excluded"),
+                ("included/doc.md", "# Included"),
+            ],
         );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
@@ -55,7 +62,11 @@ mod test {
     fn test_crumblyignore_can_be_disabled() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join(".crumblyignore"), "excluded/\n").unwrap();
-        setup_repo_with_files(temp_dir.path(), "repo", &[("excluded/doc.md", "# Excluded")]);
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("excluded/doc.md", "# Excluded")],
+        );
         let config = ScanConfig::builder().use_crumblyignore(false).build();
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();

@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod test {
-    use crate::knowledge::indexing::scanner::FileScanner;
     use crate::knowledge::domain::ScanConfig;
+    use crate::knowledge::indexing::scanner::FileScanner;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
@@ -45,9 +45,21 @@ mod test {
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("docs")));
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("skills")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("bottlerocket")));
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("docs"))
+        );
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("skills"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("bottlerocket"))
+        );
     }
 
     #[test]
@@ -101,9 +113,25 @@ mod test {
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("included.md")));
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("public.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("ignored.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("secret.md")));
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("included.md"))
+        );
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("public.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("ignored.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("secret.md"))
+        );
     }
 }

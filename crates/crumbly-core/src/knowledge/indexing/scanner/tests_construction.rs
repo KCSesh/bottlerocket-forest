@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod test {
-    use crate::knowledge::indexing::scanner::{FileScanner, ScanError};
     use crate::knowledge::domain::ScanConfig;
+    use crate::knowledge::indexing::scanner::{FileScanner, ScanError};
     use std::fs;
     use std::path::Path;
     use tempfile::TempDir;
@@ -23,7 +23,10 @@ mod test {
         let file_path = temp_dir.path().join("not_a_directory.txt");
         fs::write(&file_path, "content").unwrap();
         let result = FileScanner::new(&file_path);
-        assert!(matches!(result, Err(ScanError::IndexRootNotDirectory { .. })));
+        assert!(matches!(
+            result,
+            Err(ScanError::IndexRootNotDirectory { .. })
+        ));
     }
 
     #[test]
