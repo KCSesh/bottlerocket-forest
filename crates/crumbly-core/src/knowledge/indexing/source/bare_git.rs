@@ -18,7 +18,7 @@ use super::{ContentEntry, ContentSource};
 /// Git revision reference (branch, tag, or commit SHA).
 #[nutype(
     validate(not_empty),
-    derive(Debug, Clone, Display, PartialEq, Eq)
+    derive(Debug, Clone, Display, PartialEq, Eq, AsRef)
 )]
 pub struct GitRev(String);
 
@@ -145,9 +145,7 @@ impl ContentSource for BareGitSource {
         for (repo_name, git_dir) in repos {
             match self.list_files(&git_dir, &repo_name) {
                 Ok(entries) => all_entries.extend(entries),
-                Err(e) => {
-                    tracing::warn!(repo = %repo_name, error = %e, "Failed to list files");
-                }
+                Err(_) => continue,
             }
         }
 

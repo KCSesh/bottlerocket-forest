@@ -8,9 +8,12 @@
 //! * [`ContentSource`] - Trait for content backends to implement
 //! * [`ContentEntry`] - Metadata for discovered content items
 //! * [`FilesystemSource`] - Local filesystem backend wrapping FileScanner
+//! * [`BareGitSource`] - Bare git repository backend
 
+mod bare_git;
 mod filesystem;
 
+pub use bare_git::{BareGitSource, BareGitSourceError, GitBlobRef, GitRev};
 pub use filesystem::{FilesystemSource, FilesystemSourceError};
 
 use bon::Builder;

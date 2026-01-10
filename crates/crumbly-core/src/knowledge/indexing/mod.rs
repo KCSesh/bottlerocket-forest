@@ -43,7 +43,9 @@ pub use indexer::{BatchConfig, IndexResult, IndexStrategy, Indexer, IndexingErro
 pub use progress::{ProgressReporter, SilentReporter};
 pub use provider::{IndexDataError, IndexDataProvider};
 pub use scanner::{FileScanner, IndexableFile, ScanError};
-pub use source::{ContentEntry, ContentSource};
+pub use source::{
+    BareGitSource, BareGitSourceError, ContentEntry, ContentSource, GitBlobRef, GitRev,
+};
 
 // Re-export for indexer module
 pub(crate) use crate::knowledge::chunking::DispatchError;
