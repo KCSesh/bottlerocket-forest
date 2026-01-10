@@ -127,7 +127,8 @@ impl FileScanner {
     }
 }
 
-mod internals;
+mod entry;
 mod types;
+mod walk;
 
 pub use types::{IndexableFile, ScanError};
