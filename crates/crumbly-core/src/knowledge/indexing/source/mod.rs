@@ -7,6 +7,11 @@
 //!
 //! * [`ContentSource`] - Trait for content backends to implement
 //! * [`ContentEntry`] - Metadata for discovered content items
+//! * [`FilesystemSource`] - Local filesystem backend wrapping FileScanner
+
+mod filesystem;
+
+pub use filesystem::{FilesystemSource, FilesystemSourceError};
 
 use bon::Builder;
 
