@@ -163,13 +163,7 @@ pub enum IndexError {
     )]
     IndexDeletionFailed { source: std::io::Error },
 
-    #[snafu(display("No crumbly workspace found"))]
-    #[diagnostic(
-        code(crumbly::index::workspace_not_found),
-        help(
-            "Run `crumbly build` to create an index, or navigate to a directory within an existing workspace"
-        )
-    )]
+    #[snafu(transparent)]
     WorkspaceNotFound {
         source: crate::knowledge::context::DiscoveryError,
     },

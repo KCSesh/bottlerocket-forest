@@ -3,6 +3,7 @@
 //! Discovers the workspace root by walking up the directory tree
 //! looking for `.crumbly/knowledge.db`.
 
+use miette::Diagnostic;
 use snafu::Snafu;
 use std::path::{Path, PathBuf};
 
@@ -51,12 +52,18 @@ pub fn discover_workspace(cwd: &Path) -> Result<Workspace, DiscoveryError> {
 }
 
 /// Errors that can occur during workspace discovery.
-#[derive(Debug, Snafu)]
+#[derive(Debug, Snafu, Diagnostic)]
 #[snafu(module)]
 #[non_exhaustive]
 pub enum DiscoveryError {
     /// No workspace found in the directory tree.
     #[snafu(display("No crumbly workspace found"))]
+    #[diagnostic(
+        code(crumbly::workspace::not_found),
+        help(
+            "Run `crumbly build` to create an index, or navigate to a directory within an existing workspace"
+        )
+    )]
     WorkspaceNotFound,
 }
 

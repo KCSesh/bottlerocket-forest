@@ -133,9 +133,8 @@ impl KnowledgeIndex {
         config: EmbeddingModelConfig,
     ) -> Result<Self, IndexError> {
         use crate::knowledge::context::discover_workspace;
-        use types::index_error::*;
 
-        let workspace = discover_workspace(cwd.as_ref()).context(WorkspaceNotFoundSnafu)?;
+        let workspace = discover_workspace(cwd.as_ref())?;
         Self::open_with_config(workspace.root(), config)
     }
 

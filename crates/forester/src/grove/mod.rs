@@ -216,7 +216,7 @@ targets = [
             println!("Updating crumbly index...");
         }
         let _ = Command::new("crumbly")
-            .args(["update", "--context", &context_path.display().to_string()])
+            .args(["build", "--context", &context_path.display().to_string()])
             .current_dir(&self.root)
             .status();
 
@@ -372,7 +372,7 @@ targets = [
         }
         let context_path = format!("groves/{}", name);
         let _ = Command::new("crumbly")
-            .args(["update", "--context", &context_path])
+            .args(["build", "--context", &context_path])
             .current_dir(&self.root)
             .status();
 
