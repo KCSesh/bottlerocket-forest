@@ -36,7 +36,8 @@ impl<R: ChunkRepository> Indexer<R> {
                         continue;
                     }
 
-                    // Generate embeddings with reuse - skip chunks that already have embeddings
+                    let file_hash = chunks[0].file_hash.clone();
+
                     let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
                     let indexed_chunks = operations::index_chunks_with_reuse(
                         chunks,
@@ -45,22 +46,20 @@ impl<R: ChunkRepository> Indexer<R> {
                         progress_ref,
                     )?;
 
-                    if indexed_chunks.is_empty() {
-                        // All chunks were reused, but we still need to track the file
-                        // Get file_hash from the first chunk we processed
-                        continue;
-                    }
-
-                    chunks_affected += indexed_chunks.len();
-                    let first_chunk = &indexed_chunks[0];
                     self.repository
                         .track_indexed_file(
                             &file.relative_path,
-                            &first_chunk.chunk.file_hash,
+                            &file_hash,
                             Timestamp::from_secs(file.last_modified.as_secs()),
                             &self.context_id,
                         )
                         .context(StorageFailedSnafu)?;
+
+                    if indexed_chunks.is_empty() {
+                        continue;
+                    }
+
+                    chunks_affected += indexed_chunks.len();
 
                     for chunk in indexed_chunks {
                         batch_buffer.push(chunk);
