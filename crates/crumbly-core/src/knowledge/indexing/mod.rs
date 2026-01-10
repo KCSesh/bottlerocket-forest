@@ -35,6 +35,7 @@ pub mod indexer;
 pub mod progress;
 pub mod provider;
 pub mod scanner;
+pub mod source;
 
 pub use config::{CrumblyConfig, CrumblyConfigError, load_crumbly_config};
 pub use filter::{GoFilter, GoItemType, IndexingFilter, RustFilter, RustItemType};
@@ -42,6 +43,7 @@ pub use indexer::{BatchConfig, IndexResult, IndexStrategy, Indexer, IndexingErro
 pub use progress::{ProgressReporter, SilentReporter};
 pub use provider::{IndexDataError, IndexDataProvider};
 pub use scanner::{FileScanner, IndexableFile, ScanError};
+pub use source::{ContentEntry, ContentSource};
 
 // Re-export for indexer module
 pub(crate) use crate::knowledge::chunking::DispatchError;
