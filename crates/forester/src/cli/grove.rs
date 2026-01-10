@@ -24,6 +24,10 @@ pub enum GroveCommand {
     List,
     /// Remove a forest grove
     Remove(RemoveArgs),
+    /// Show current grove status
+    Status,
+    /// Print current grove name for scripts
+    Current,
 }
 
 #[derive(Args, Debug)]
@@ -49,7 +53,7 @@ pub struct RemoveArgs {
 #[instrument(skip_all, err)]
 pub fn run(cmd: GroveCommand) -> miette::Result<()> {
     let (forest_root, config) = ForestConfig::find()?;
-    let manager = ForestManager::new(forest_root, config);
+    let manager = ForestManager::new(forest_root.clone(), config);
 
     match cmd {
         GroveCommand::Create(args) => {
@@ -81,6 +85,23 @@ pub fn run(cmd: GroveCommand) -> miette::Result<()> {
             }
             manager.remove_grove(&args.name, args.force)?;
             println!("{} Removed grove '{}'", "✓".green(), args.name.cyan());
+        }
+        GroveCommand::Status => {
+            if let Some(ctx) = GroveContext::detect().ok().flatten() {
+                println!("Grove:       {}", ctx.name().cyan());
+                println!("Grove root:  {}", ctx.grove_root().display());
+                println!("Forest root: {}", ctx.forest_root().display());
+            } else {
+                println!("Not in a grove");
+                println!("Forest root: {}", forest_root.display());
+            }
+        }
+        GroveCommand::Current => {
+            if let Some(ctx) = GroveContext::detect().ok().flatten() {
+                println!("{}", ctx.name());
+            } else {
+                std::process::exit(1);
+            }
         }
     }
 
