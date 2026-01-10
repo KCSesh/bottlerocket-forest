@@ -1,5 +1,8 @@
 //! Forest grove management.
 
+mod context;
+pub use context::{GroveContext, GroveContextError};
+
 use crate::error::Error;
 use crate::forest::{ForestConfig, Member};
 use std::path::PathBuf;
