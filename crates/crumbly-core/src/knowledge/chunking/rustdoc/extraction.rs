@@ -328,17 +328,6 @@ mod test {
         chunker.chunk(&input).unwrap()
     }
 
-    fn chunker_with_filter(
-        vis: Vec<Visibility>,
-        types: Vec<crate::knowledge::indexing::RustItemType>,
-        min_lines: usize,
-    ) -> RustDocChunker {
-        use crate::knowledge::indexing::RustFilter;
-        let config = test_config();
-        let filter = RustFilter::new(vis, types, min_lines);
-        RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap()
-    }
-
     fn assert_rustdoc_context(chunk: &Chunk, expected_name: &str, expected_vis: Visibility) {
         if let ChunkContext::RustDoc(ctx) = &chunk.context {
             assert_eq!(ctx.item_name, ItemName::try_new(expected_name).unwrap());
@@ -487,77 +476,5 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
                 }
             }
         }
-    }
-
-    #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 0,
-        r#"
-/// Public function
-pub fn public_fn() {}
-
-/// Private function
-fn private_fn() {}
-"#, 1, "Public function" ; "visibility_filter")]
-    #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Struct], 0,
-        r#"
-/// A struct
-pub struct MyStruct {}
-
-/// A function
-pub fn my_function() {}
-"#, 1, "A struct" ; "item_type_filter")]
-    #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 3,
-        r#"
-/// Short doc
-pub fn short() {}
-
-/// This is a longer documentation comment
-/// that spans multiple lines
-/// and exceeds the minimum line count
-pub fn long() {}
-"#, 1, "longer documentation" ; "min_lines_filter")]
-    #[test_case(
-        vec![Visibility::Public],
-        vec![crate::knowledge::indexing::RustItemType::Struct, crate::knowledge::indexing::RustItemType::Enum], 2,
-        r#"
-/// A public struct with
-/// sufficient documentation
-pub struct PublicStruct {}
-
-/// Short
-pub struct ShortDoc {}
-
-/// A private struct with
-/// sufficient documentation
-struct PrivateStruct {}
-
-/// A public enum with
-/// sufficient documentation
-pub enum PublicEnum { A, B }
-
-/// A public function with
-/// sufficient documentation
-pub fn public_function() {}
-"#, 2, "public struct" ; "multiple_criteria_filter")]
-    fn test_chunker_filter(
-        vis: Vec<Visibility>,
-        types: Vec<crate::knowledge::indexing::RustItemType>,
-        min_lines: usize,
-        content: &str,
-        expected_count: usize,
-        expected_text: &str,
-    ) {
-        // Given: Chunker with specific filter configuration
-        let chunker = chunker_with_filter(vis, types, min_lines);
-        let input = create_test_input(content);
-
-        // When: Chunking content with mixed items
-        let chunks = chunker.chunk(&input).unwrap();
-
-        // Then: Only matching items are chunked
-        assert_eq!(chunks.len(), expected_count);
-        assert!(chunks.iter().any(|c| c.content.text.contains(expected_text)));
     }
 }

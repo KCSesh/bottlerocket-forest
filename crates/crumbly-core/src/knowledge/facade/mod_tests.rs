@@ -6,7 +6,7 @@ mod test {
     use crate::knowledge::KnowledgeIndex;
     use crate::knowledge::facade::test_helpers::test_helpers::*;
     use crate::knowledge::facade::types::IndexError;
-    use std::fs;
+
     use tempfile::TempDir;
 
     #[test]

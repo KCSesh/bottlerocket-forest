@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod test {
     use crate::knowledge::domain::{FileType, IndexRelativePath, RepoName};
-    use crate::knowledge::indexing::scanner::{FileScanner, IndexableFile};
+    use crate::knowledge::indexing::scanner::FileScanner;
     use std::fs;
     use tempfile::TempDir;
 
