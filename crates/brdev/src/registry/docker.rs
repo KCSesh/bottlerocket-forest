@@ -22,7 +22,7 @@
 //! ```
 //!
 
-use crate::registry::types::{ContainerName, ImageRef, RegistryPort, RegistryUrl, VolumeName};
+use crate::registry::port::{ContainerName, ImageRef, RegistryPort, RegistryUrl, VolumeName};
 use snafu::{ResultExt, Snafu};
 use std::marker::PhantomData;
 use std::process::Command;

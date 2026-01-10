@@ -8,7 +8,7 @@ use snafu::{ResultExt, Snafu};
 use std::fs;
 
 use crate::grove::GroveContext;
-use crate::registry::types::{
+use crate::registry::port::{
     ContainerName, ImageRef, RegistryPort, RegistryPortError, RegistryRuntimeConfig, VolumeName,
 };
 
@@ -68,12 +68,7 @@ impl GroveRegistryConfig {
             ContainerName::try_new(format!("brdev-registry-{}", self.grove_name)).unwrap();
         let volume_name =
             VolumeName::try_new(format!("brdev-registry-data-{}", self.grove_name)).unwrap();
-        RegistryRuntimeConfig {
-            port: self.port,
-            image: self.image,
-            container_name,
-            volume_name,
-        }
+        RegistryRuntimeConfig::new(self.port, self.image, container_name, volume_name)
     }
 }
 

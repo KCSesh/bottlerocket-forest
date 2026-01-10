@@ -1,7 +1,7 @@
-use crate::grove_old::{self as grove, GroveError};
-use crate::registry::types::{GroveRegistryConfig, RegistryRuntimeConfig};
+use crate::grove::{GroveContext, GroveContextError};
+use crate::grove::registry::{GroveRegistryConfig, GroveRegistryConfigError};
+use crate::registry::RegistryRuntimeConfig;
 use snafu::{ResultExt, Snafu};
-use std::fs;
 
 /// Load grove-aware registry configuration
 ///
@@ -10,22 +10,8 @@ use std::fs;
 pub fn load_grove_config() -> Result<RegistryRuntimeConfig, ConfigError> {
     use config_error::*;
 
-    let (grove_root, grove_name) = grove::find_grove_root().context(GroveSnafu)?;
-
-    let port_file = grove_root.join(".grove/registry-port");
-    let config = if port_file.exists() {
-        let port_str = fs::read_to_string(&port_file).context(PortFileReadSnafu {
-            path: port_file.clone(),
-        })?;
-        let port: u16 = port_str
-            .trim()
-            .parse()
-            .context(PortFileParseSnafu { path: port_file })?;
-        GroveRegistryConfig::with_port(grove_name, port).context(InvalidPortSnafu)?
-    } else {
-        GroveRegistryConfig::new(grove_name)
-    };
-
+    let grove = GroveContext::detect().context(GroveSnafu)?;
+    let config = GroveRegistryConfig::for_grove(&grove).context(RegistryConfigSnafu)?;
     Ok(config.into_runtime())
 }
 
@@ -33,22 +19,8 @@ pub fn load_grove_config() -> Result<RegistryRuntimeConfig, ConfigError> {
 #[snafu(module)]
 pub enum ConfigError {
     #[snafu(display("Not in a grove"))]
-    Grove { source: GroveError },
+    Grove { source: GroveContextError },
 
-    #[snafu(display("Failed to read port file: {}", path.display()))]
-    PortFileRead {
-        path: std::path::PathBuf,
-        source: std::io::Error,
-    },
-
-    #[snafu(display("Failed to parse port file: {}", path.display()))]
-    PortFileParse {
-        path: std::path::PathBuf,
-        source: std::num::ParseIntError,
-    },
-
-    #[snafu(display("Invalid port number"))]
-    InvalidPort {
-        source: crate::registry::types::RegistryPortError,
-    },
+    #[snafu(display("Failed to load registry configuration"))]
+    RegistryConfig { source: GroveRegistryConfigError },
 }

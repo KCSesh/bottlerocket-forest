@@ -1,4 +1,4 @@
-use crate::registry::types::RegistryUrl;
+use crate::registry::port::RegistryUrl;
 use snafu::{ResultExt, Snafu};
 use std::time::Duration;
 
