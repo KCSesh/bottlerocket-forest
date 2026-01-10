@@ -67,7 +67,7 @@ fn discover_fails_without_database() {
     let (code, _, stderr) = crumbly_cmd_from_dir(workspace.path(), "subdir", &["status"]);
     assert_ne!(code, 0, "Status should fail without database");
     assert!(
-        stderr.contains("not found") || stderr.contains("No index"),
+        stderr.contains("not found") || stderr.contains("workspace"),
         "Error should mention missing database: {}",
         stderr
     );

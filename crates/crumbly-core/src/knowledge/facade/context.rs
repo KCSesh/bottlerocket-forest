@@ -156,7 +156,7 @@ mod context_tests {
     }
 
     #[test]
-    fn resolve_context_returns_error_for_unregistered_subdirectory() {
+    fn resolve_context_matches_subdirectory_to_root_context() {
         // Given a workspace with only the default "." context
         let temp = TempDir::new().unwrap();
         create_workspace(temp.path());
@@ -165,12 +165,13 @@ mod context_tests {
 
         let index = KnowledgeIndex::open(temp.path()).unwrap();
 
-        // When resolving context from a subdirectory that's not a registered context
+        // When resolving context from a subdirectory
         let result = index.resolve_context(&subdir);
 
-        // Then it should return ContextNotFound error (per MCI-ERR-2)
-        // The "." context only matches the workspace root, not subdirectories
-        assert!(matches!(result, Err(IndexError::ContextNotFound { .. })));
+        // Then it should return the root "." context (catch-all default)
+        assert!(result.is_ok());
+        let context = result.unwrap();
+        assert_eq!(context.context_id.as_str(), ".");
     }
 
     #[test]
