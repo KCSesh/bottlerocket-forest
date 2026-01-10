@@ -5,11 +5,11 @@ pub use context::{GroveContext, GroveContextError};
 
 use crate::error::Error;
 use crate::forest::{ForestConfig, Member};
+use owo_colors::OwoColorize;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tracing::instrument;
 
-/// Manages forest operations including seeding and groves.
 #[derive(Debug)]
 pub struct ForestManager {
     root: PathBuf,
@@ -21,17 +21,14 @@ impl ForestManager {
         Self { root, config }
     }
 
-    /// Path to bare repos storage.
     fn bare_dir(&self) -> PathBuf {
         self.root.join(".forest").join("bare")
     }
 
-    /// Path to groves directory.
     fn groves_dir(&self) -> PathBuf {
         self.root.join("groves")
     }
 
-    /// Seed the forest - clone bare repos and build crumbly index.
     #[instrument(skip(self), err)]
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
@@ -40,15 +37,12 @@ impl ForestManager {
             source: e,
         })?;
 
-        // Clone all bare repos first
         for member in &self.config.forest.member {
             self.clone_bare(member, verbose)?;
         }
 
-        // Ensure crumbly.toml exists, generate if needed
         self.ensure_crumbly_config(verbose)?;
 
-        // Create hidden grove for indexing, then remove it
         let index_grove = self.root.join(".forest").join(".index-grove");
         self.create_grove_at(&index_grove, verbose)?;
         self.remove_grove_at(&index_grove);
@@ -56,7 +50,6 @@ impl ForestManager {
         Ok(())
     }
 
-    /// Clone a member repo as bare.
     #[instrument(skip(self), err)]
     fn clone_bare(&self, member: &Member, verbose: bool) -> Result<(), Error> {
         let bare_path = self.bare_dir().join(format!("{}.git", member.name));
@@ -65,28 +58,28 @@ impl ForestManager {
             if verbose {
                 println!("Cloning {} (bare)...", member.name);
             }
-            let status = Command::new("git")
-                .args(["clone", "--bare", &member.remote])
-                .arg(&bare_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to clone {}", member.remote),
-                })?;
+            let mut cmd = Command::new("git");
+            cmd.args(["clone", "--bare", &member.remote])
+                .arg(&bare_path);
+            if !verbose {
+                cmd.stdout(Stdio::null()).stderr(Stdio::null());
+            }
+            let status = cmd.status().map_err(|_| Error::Git {
+                message: format!("Failed to clone {}", member.remote),
+            })?;
             if !status.success() {
                 return Err(Error::Git {
                     message: format!("git clone failed for {}", member.name),
                 });
             }
         } else if verbose {
-            println!("✓ {} bare repo exists", member.name);
+            println!("{} {} bare repo exists", "\u{2713}".green(), member.name);
         }
 
         Ok(())
     }
-    /// Ensure crumbly.toml exists, generating it if needed or warning about missing members.
-    fn ensure_crumbly_config(&self, verbose: bool) -> Result<(), Error> {
-        use owo_colors::OwoColorize;
 
+    fn ensure_crumbly_config(&self, verbose: bool) -> Result<(), Error> {
         let crumbly_path = self.root.join("crumbly.toml");
         let member_paths: Vec<String> = self
             .config
@@ -97,7 +90,6 @@ impl ForestManager {
             .collect();
 
         if !crumbly_path.exists() {
-            // Generate initial crumbly.toml
             let config = Self::generate_crumbly_config(&member_paths);
             std::fs::write(&crumbly_path, config).map_err(|e| Error::CreateDir {
                 path: crumbly_path.clone(),
@@ -106,12 +98,11 @@ impl ForestManager {
             if verbose {
                 println!(
                     "{} Generated crumbly.toml with {} targets",
-                    "✓".green(),
+                    "\u{2713}".green(),
                     member_paths.len()
                 );
             }
         } else {
-            // Check for missing members - parse targets and check path prefixes
             let content = std::fs::read_to_string(&crumbly_path).unwrap_or_default();
             let targets: Vec<&str> = content
                 .lines()
@@ -142,7 +133,6 @@ impl ForestManager {
         Ok(())
     }
 
-    /// Generate a crumbly.toml config with member paths as targets.
     fn generate_crumbly_config(member_paths: &[String]) -> String {
         let targets: Vec<String> = member_paths
             .iter()
@@ -176,7 +166,6 @@ targets = [
         )
     }
 
-    /// Create grove at arbitrary path for internal use (e.g., indexing).
     fn create_grove_at(&self, path: &PathBuf, verbose: bool) -> Result<(), Error> {
         std::fs::create_dir_all(path).map_err(|e| Error::CreateDir {
             path: path.clone(),
@@ -195,15 +184,17 @@ targets = [
                     source: e,
                 })?;
             }
-            let status = Command::new("git")
-                .args(["worktree", "add"])
+            let mut cmd = Command::new("git");
+            cmd.args(["worktree", "add"])
                 .arg(&member_wt_path)
                 .arg(member.branch())
-                .current_dir(&bare_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to create worktree for {}", member.name),
-                })?;
+                .current_dir(&bare_path);
+            if !verbose {
+                cmd.stdout(Stdio::null()).stderr(Stdio::null());
+            }
+            let status = cmd.status().map_err(|_| Error::Git {
+                message: format!("Failed to create worktree for {}", member.name),
+            })?;
             if !status.success() {
                 return Err(Error::Git {
                     message: format!("git worktree add failed for {}", member.name),
@@ -215,15 +206,17 @@ targets = [
         if verbose {
             println!("Updating crumbly index...");
         }
-        let _ = Command::new("crumbly")
-            .args(["update", "--context", &context_path.display().to_string()])
-            .current_dir(&self.root)
-            .status();
+        let mut cmd = Command::new("crumbly");
+        cmd.args(["update", "--context", &context_path.display().to_string()])
+            .current_dir(&self.root);
+        if !verbose {
+            cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        }
+        let _ = cmd.status();
 
         Ok(())
     }
 
-    /// Create a new forest grove.
     #[instrument(skip(self), err)]
     pub fn create_grove(
         &self,
@@ -233,9 +226,7 @@ targets = [
     ) -> Result<(), Error> {
         let wt_dir = self.groves_dir().join(name);
         if wt_dir.exists() {
-            if verbose {
-                println!("✓ grove '{}' already exists", name);
-            }
+            println!("  {} grove '{}' already exists", "\u{2713}".green(), name);
             return Ok(());
         }
 
@@ -254,15 +245,11 @@ targets = [
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
             let member_wt_path = wt_dir.join(&member.path);
 
-            // Skip if worktree already exists (handles partial grove creation)
             if member_wt_path.exists() {
-                if verbose {
-                    println!("✓ {} worktree already exists", member.name);
-                }
+                println!("  {} {}", "\u{2713}".green(), member.name.cyan());
                 continue;
             }
 
-            // Ensure parent exists
             if let Some(parent) = member_wt_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| Error::CreateDir {
                     path: parent.to_path_buf(),
@@ -271,13 +258,10 @@ targets = [
             }
 
             if verbose {
-                println!("Creating grove for {} in {}...", member.name, name);
+                println!("Creating worktree for {} in {}...", member.name, name);
             }
 
-            // Determine branch: explicit > member default
             let target_branch = branch.unwrap_or_else(|| member.branch());
-
-            // For non-develop groves, create a unique branch to avoid conflicts
             let use_new_branch = name != "develop" && branch.is_none();
             let new_branch_name = if use_new_branch {
                 format!("{}/{}", name, member.name)
@@ -285,41 +269,43 @@ targets = [
                 target_branch.to_string()
             };
 
-            // Create worktree with appropriate branch strategy
             let status = if use_new_branch {
-                // Create new branch from default branch
-                Command::new("git")
-                    .args(["worktree", "add", "-b", &new_branch_name])
+                let mut cmd = Command::new("git");
+                cmd.args(["worktree", "add", "-b", &new_branch_name])
                     .arg(&member_wt_path)
                     .arg(member.branch())
-                    .current_dir(&bare_path)
-                    .status()
-                    .map_err(|_| Error::Git {
-                        message: format!("Failed to create worktree for {}", member.name),
-                    })?
+                    .current_dir(&bare_path);
+                if !verbose {
+                    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+                }
+                cmd.status().map_err(|_| Error::Git {
+                    message: format!("Failed to create worktree for {}", member.name),
+                })?
             } else {
-                // Try to checkout existing branch
-                let status = Command::new("git")
-                    .args(["worktree", "add"])
+                let mut cmd = Command::new("git");
+                cmd.args(["worktree", "add"])
                     .arg(&member_wt_path)
                     .arg(target_branch)
-                    .current_dir(&bare_path)
-                    .status()
-                    .map_err(|_| Error::Git {
-                        message: format!("Failed to create worktree for {}", member.name),
-                    })?;
+                    .current_dir(&bare_path);
+                if !verbose {
+                    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+                }
+                let status = cmd.status().map_err(|_| Error::Git {
+                    message: format!("Failed to create worktree for {}", member.name),
+                })?;
 
                 if !status.success() {
-                    // If branch doesn't exist, create it from default
-                    Command::new("git")
-                        .args(["worktree", "add", "-b", target_branch])
+                    let mut cmd = Command::new("git");
+                    cmd.args(["worktree", "add", "-b", target_branch])
                         .arg(&member_wt_path)
                         .arg(member.branch())
-                        .current_dir(&bare_path)
-                        .status()
-                        .map_err(|_| Error::Git {
-                            message: format!("Failed to create worktree for {}", member.name),
-                        })?
+                        .current_dir(&bare_path);
+                    if !verbose {
+                        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+                    }
+                    cmd.status().map_err(|_| Error::Git {
+                        message: format!("Failed to create worktree for {}", member.name),
+                    })?
                 } else {
                     status
                 }
@@ -331,16 +317,19 @@ targets = [
                 });
             }
 
-            Command::new("git")
-                .args(["remote", "remove", "origin"])
-                .current_dir(&member_wt_path)
-                .status()
-                .map_err(|_| Error::Git {
-                    message: format!("Failed to remove origin remote for {}", member.name),
-                })?;
+            println!("  {} {}", "\u{2713}".green(), member.name.cyan());
+
+            let mut cmd = Command::new("git");
+            cmd.args(["remote", "remove", "origin"])
+                .current_dir(&member_wt_path);
+            if !verbose {
+                cmd.stdout(Stdio::null()).stderr(Stdio::null());
+            }
+            cmd.status().map_err(|_| Error::Git {
+                message: format!("Failed to remove origin remote for {}", member.name),
+            })?;
         }
 
-        // Create configured symlinks
         if let Some(wt_config) = &self.config.grove {
             for symlink in &wt_config.symlink {
                 let source = self.root.join(&symlink.source);
@@ -366,20 +355,21 @@ targets = [
             }
         }
 
-        // Update shared crumbly index with this worktree's context
         if verbose {
             println!("Updating crumbly index for {}...", name);
         }
         let context_path = format!("groves/{}", name);
-        let _ = Command::new("crumbly")
-            .args(["update", "--context", &context_path])
-            .current_dir(&self.root)
-            .status();
+        let mut cmd = Command::new("crumbly");
+        cmd.args(["update", "--context", &context_path])
+            .current_dir(&self.root);
+        if !verbose {
+            cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        }
+        let _ = cmd.status();
 
         Ok(())
     }
 
-    /// List existing forest groves.
     #[instrument(skip(self), err)]
     pub fn list_groves(&self) -> Result<Vec<String>, Error> {
         let wt_dir = self.groves_dir();
@@ -404,9 +394,8 @@ targets = [
         Ok(groves)
     }
 
-    /// Remove a forest grove.
     #[instrument(skip(self), err)]
-    pub fn remove_grove(&self, name: &str, force: bool) -> Result<(), Error> {
+    pub fn remove_grove(&self, name: &str, _force: bool) -> Result<(), Error> {
         let wt_dir = self.groves_dir().join(name);
         if !wt_dir.exists() {
             return Err(Error::GroveNotFound {
@@ -417,7 +406,6 @@ targets = [
         Ok(())
     }
 
-    /// Remove worktrees at an arbitrary path.
     fn remove_grove_at(&self, path: &PathBuf) {
         for member in &self.config.forest.member {
             let bare_path = self.bare_dir().join(format!("{}.git", member.name));
@@ -426,6 +414,8 @@ targets = [
                 .args(["worktree", "remove", "--force"])
                 .arg(&member_wt_path)
                 .current_dir(&bare_path)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .status();
         }
         let _ = std::fs::remove_dir_all(path);
