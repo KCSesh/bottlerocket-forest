@@ -36,7 +36,7 @@ impl<R: ChunkRepository> Indexer<R> {
                         continue;
                     }
 
-                    let file_hash = chunks[0].file_hash.clone();
+                    let file_hash = chunks[0].file_hash;
 
                     let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
                     let indexed_chunks = operations::index_chunks_with_reuse(
