@@ -1,23 +1,7 @@
 use crate::grove_old::{self as grove, GroveError};
-use crate::registry::types::{GroveRegistryConfig, RegistryConfig, RegistryRuntimeConfig};
+use crate::registry::types::{GroveRegistryConfig, RegistryRuntimeConfig};
 use snafu::{ResultExt, Snafu};
 use std::fs;
-
-/// Load registry configuration from environment variables
-///
-/// Reads configuration from environment variables prefixed with `FORESTER_REGISTRY_`.
-/// Falls back to defaults if variables are not set.
-pub fn load_config() -> Result<RegistryRuntimeConfig, ConfigError> {
-    use config_error::*;
-
-    dotenvy::dotenv().ok();
-
-    let config: RegistryConfig = envy::prefixed("FORESTER_REGISTRY_")
-        .from_env()
-        .context(LoadFailedSnafu)?;
-
-    Ok(config.into_runtime())
-}
 
 /// Load grove-aware registry configuration
 ///
@@ -48,9 +32,6 @@ pub fn load_grove_config() -> Result<RegistryRuntimeConfig, ConfigError> {
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum ConfigError {
-    #[snafu(display("Failed to load configuration from environment"))]
-    LoadFailed { source: envy::Error },
-
     #[snafu(display("Not in a grove"))]
     Grove { source: GroveError },
 
