@@ -1,4 +1,4 @@
-# Bottlerocket Forest Root - Agent Steering Guide
+# Bottlerocket Forest - Agent Steering Guide
 
 The directory containing this document is the **forest root**, not a grove.
 If you want to work on Bottlerocket components, you should create or enter a grove first.
@@ -20,10 +20,6 @@ forester grove create my-feature
 
 When modifying content, identify which repository contains what you're changing.
 Forest-level changes (docs, skills, tooling) belong here; component changes belong in a grove.
-
----
-
-# Agent Workflow Guide
 
 ## Git Commits
 Use conventional commits for git commit messages.

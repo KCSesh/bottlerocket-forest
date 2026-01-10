@@ -14,7 +14,7 @@ The forest provides:
 
 ```
 bottlerocket-forest/
-├── crates/                    # Rust workspace
+├── crates/                    # Local rust tools
 │   ├── forester/              # Generic forest management CLI
 │   └── brdev/                 # Bottlerocket-specific dev tooling
 ├── groves/                    # Forest groves for doing work on bottlerocket
@@ -37,16 +37,13 @@ Usage:
 ```bash
 crumbly build --context ./groves/develop   # Build search index
 crumbly search "boot process"              # Search documentation
-crumbly status                             # Check index status
-crumbly update                             # Update index incrementally
-crumbly rebuild                            # Rebuild from scratch
 ```
 
-Crumbly is a standalone open-source tool that can be applied to any codebase.
+The crumbly index is stored in the forest root under `.crumbly`
 
 ## Forester
 
-Generic forest management tool. **Must run from forest root directory.**
+Generic forest management tool.
 
 ```bash
 brdev registry start    # Start local registry
@@ -79,9 +76,7 @@ make integ          # Run full test suite (fmt, clippy, deny, unit tests, integ 
 make release-build  # Build optimized binaries
 ```
 
-Binaries are output to `./target/release/forester` and `./target/release/brdev`.
-
-**⚠️ Always run `make integ` before committing changes to crates.**
+**Always run `make integ` before committing changes to crates.**
 
 ## Documentation Guidelines
 
