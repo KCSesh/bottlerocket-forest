@@ -6,7 +6,8 @@
 //! * Listing stored images
 //! * Cleaning registry data
 
-use crate::{config, registry};
+use crate::grove::{GroveContext, GroveRegistryConfig};
+use crate::registry;
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use snafu::{ResultExt, Snafu};
@@ -49,7 +50,10 @@ struct LogsArgs {
 pub fn run(cmd: RegistryCommand) -> Result<(), RegistryError> {
     use registry_error::*;
 
-    let config = config::load_grove_config().context(ConfigSnafu)?;
+    let grove = GroveContext::detect().context(GroveSnafu)?;
+    let config = GroveRegistryConfig::for_grove(&grove)
+        .context(RegistryConfigSnafu)?
+        .into_runtime();
 
     match cmd.subcommand {
         RegistrySubcommand::Start => start(&config),
@@ -280,15 +284,24 @@ fn print_image(
     println!("{}", theme::muted(digest_short));
 }
 
+use crate::grove::{GroveContextError, GroveRegistryConfigError};
+
 #[derive(Debug, Snafu, miette::Diagnostic)]
 #[snafu(module)]
 pub enum RegistryError {
-    #[snafu(display("Failed to load configuration"))]
+    #[snafu(display("Not in a grove"))]
     #[diagnostic(
-        code(forester::registry::config_failed),
-        help("Check that FORESTER_REGISTRY_XXX environment variables are correct")
+        code(brdev::registry::not_in_grove),
+        help("Run this command from within a grove directory")
     )]
-    Config { source: config::ConfigError },
+    Grove { source: GroveContextError },
+
+    #[snafu(display("Failed to load registry configuration"))]
+    #[diagnostic(
+        code(brdev::registry::config_failed),
+        help("Check grove registry configuration")
+    )]
+    RegistryConfig { source: GroveRegistryConfigError },
 
     #[snafu(display("Registry operation failed"))]
     #[diagnostic(
