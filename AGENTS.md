@@ -22,7 +22,28 @@ When modifying content, identify which repository contains what you're changing.
 Forest-level changes (docs, skills, tooling) belong here; component changes belong in a grove.
 
 ## Git Commits
-Use conventional commits for git commit messages.
+
+Use conventional commits following the 50/72 rule.
+
+Guidelines:
+- Shorten scope names when obvious (e.g., `crumbly` not `crumbly-core`)
+- Focus on impact/behavior, not implementation details
+- Use active voice describing what the commit does
+
+Examples:
+```
+# Good - describes impact
+feat(crumbly): adapt fs to ContentSource trait
+feat(crumbly): add bare git repository indexing
+fix(api): reject invalid revision formats
+
+# Bad - describes implementation
+feat(crumbly-core): add FilesystemSource content backend
+feat(crumbly-core): add BareGitSource for bare git repository indexing
+fix(api): add validation check to parse_revision function
+```
+
+The subject should answer "what does this change do?" not "what code did I write?"
 
 ## Important Reference Docs
 If you do not have these files in context, read them:
