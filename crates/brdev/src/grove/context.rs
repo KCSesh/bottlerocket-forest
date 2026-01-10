@@ -17,7 +17,7 @@ impl GroveContext {
     /// Detects the current grove by walking up from the current directory.
     pub fn detect() -> Result<Self, GroveContextError> {
         use grove_context_error::*;
-        
+
         let mut current = std::env::current_dir().context(CurrentDirSnafu)?;
         loop {
             if current.join(".grove").is_dir() {
@@ -26,7 +26,10 @@ impl GroveContext {
                     .and_then(|n| n.to_str())
                     .map(String::from)
                     .ok_or(GroveContextError::InvalidName)?;
-                return Ok(Self { root: current, name });
+                return Ok(Self {
+                    root: current,
+                    name,
+                });
             }
             if !current.pop() {
                 return Err(GroveContextError::NotInGrove);

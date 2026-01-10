@@ -5,11 +5,9 @@ pub(crate) mod port;
 
 pub use catalog::{CatalogError, ImageTag, RegistryImage, RepositoryName, list_images};
 use docker::{Container, ContainerDiscovered};
+pub use port::{RegistryRuntimeConfig, RegistryState, RegistryStatus, RegistryUrl};
 use snafu::{ResultExt, Snafu};
 use std::time::Duration;
-pub use port::{
-    RegistryRuntimeConfig, RegistryState, RegistryStatus, RegistryUrl,
-};
 
 const REGISTRY_STARTUP_TIMEOUT_SECS: u64 = 10;
 

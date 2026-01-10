@@ -1,6 +1,6 @@
 //! Integration tests for registry management.
 //!
-//! These tests use a dedicated test port (5555) and run serially with #[serial(registry)].
+//! These tests create a temporary grove structure and run brdev from within it.
 //! Each test cleans up at the start to ensure a fresh environment.
 //!
 //! These tests are marked with `#[ignore]` because they:
@@ -13,21 +13,35 @@
 
 use serial_test::serial;
 use std::process::Command;
+use tempfile::TempDir;
 
-const TEST_PORT: &str = "5555";
+const TEST_PORT: u16 = 5555;
+const TEST_GROVE_NAME: &str = "test-grove";
 
-/// Get path to forester binary (cargo test builds in debug mode)
-fn forester_bin() -> &'static std::path::Path {
-    assert_cmd::cargo::cargo_bin!("forester")
+/// Get path to brdev binary (cargo test builds in debug mode)
+fn brdev_bin() -> &'static std::path::Path {
+    assert_cmd::cargo::cargo_bin!("brdev")
 }
 
-/// Helper to run forester CLI with test port and capture output
-fn run_forester(args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(forester_bin())
-        .env("FORESTER_REGISTRY_PORT", TEST_PORT)
+/// Creates a temporary grove directory structure for testing
+fn create_test_grove() -> TempDir {
+    let temp = TempDir::new().expect("Failed to create temp dir");
+    let grove_dir = temp.path().join(TEST_GROVE_NAME);
+    let dot_grove = grove_dir.join(".grove");
+    std::fs::create_dir_all(&dot_grove).expect("Failed to create .grove dir");
+    std::fs::write(dot_grove.join("registry-port"), TEST_PORT.to_string())
+        .expect("Failed to write registry-port");
+    temp
+}
+
+/// Helper to run brdev CLI from within a grove and capture output
+fn run_brdev(grove_root: &std::path::Path, args: &[&str]) -> (i32, String, String) {
+    let grove_dir = grove_root.join(TEST_GROVE_NAME);
+    let output = Command::new(brdev_bin())
+        .current_dir(&grove_dir)
         .args(args)
         .output()
-        .expect("Failed to execute forester");
+        .expect("Failed to execute brdev");
 
     let exit_code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -42,8 +56,8 @@ fn docker_available() -> bool {
 }
 
 /// Clean up any existing test registry before starting a test
-fn clean_test_registry() {
-    let _ = run_forester(&["registry", "clean"]);
+fn clean_test_registry(grove_root: &std::path::Path) {
+    let _ = run_brdev(grove_root, &["registry", "clean"]);
 }
 
 #[test]
@@ -55,21 +69,18 @@ fn test_registry_start_idempotent() {
         return;
     }
 
-    // Given: Clean state
-    clean_test_registry();
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
 
-    // When: Start registry twice
-    let (code1, stdout1, _) = run_forester(&["registry", "start"]);
-    let (code2, stdout2, _) = run_forester(&["registry", "start"]);
+    let (code1, stdout1, _) = run_brdev(grove.path(), &["registry", "start"]);
+    let (code2, stdout2, _) = run_brdev(grove.path(), &["registry", "start"]);
 
-    // Then: Both succeed
     assert_eq!(code1, 0, "First start should succeed");
     assert_eq!(code2, 0, "Second start should succeed (idempotent)");
-    assert!(stdout1.contains("localhost:5555") || stdout1.contains("5555"));
-    assert!(stdout2.contains("localhost:5555") || stdout2.contains("5555"));
+    assert!(stdout1.contains(&TEST_PORT.to_string()));
+    assert!(stdout2.contains(&TEST_PORT.to_string()));
 
-    // Cleanup
-    clean_test_registry();
+    clean_test_registry(grove.path());
 }
 
 #[test]
@@ -81,13 +92,11 @@ fn test_registry_status_not_created() {
         return;
     }
 
-    // Given: Clean state
-    clean_test_registry();
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
 
-    // When: Check status
-    let (code, stdout, _) = run_forester(&["registry", "status"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "status"]);
 
-    // Then: Reports not created
     assert_eq!(code, 0, "Status should return 0 even when not running");
     assert!(
         stdout.contains("not created") || stdout.contains("not running") || stdout.contains("Not"),
@@ -104,20 +113,17 @@ fn test_registry_status_running() {
         return;
     }
 
-    // Given: Registry is running
-    clean_test_registry();
-    let _ = run_forester(&["registry", "start"]);
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
+    let _ = run_brdev(grove.path(), &["registry", "start"]);
 
-    // When: Check status
-    let (code, stdout, _) = run_forester(&["registry", "status"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "status"]);
 
-    // Then: Reports running with URL
     assert_eq!(code, 0, "Status should return 0 when running");
     assert!(stdout.contains("running") || stdout.contains("Running"));
-    assert!(stdout.contains("localhost:5555") || stdout.contains("5555"));
+    assert!(stdout.contains(&TEST_PORT.to_string()));
 
-    // Cleanup
-    clean_test_registry();
+    clean_test_registry(grove.path());
 }
 
 #[test]
@@ -129,18 +135,15 @@ fn test_registry_stop() {
         return;
     }
 
-    // Given: Registry is running
-    clean_test_registry();
-    let _ = run_forester(&["registry", "start"]);
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
+    let _ = run_brdev(grove.path(), &["registry", "start"]);
 
-    // When: Stop registry
-    let (code, _, _) = run_forester(&["registry", "stop"]);
+    let (code, _, _) = run_brdev(grove.path(), &["registry", "stop"]);
 
-    // Then: Stops successfully
     assert_eq!(code, 0, "Stop should succeed");
 
-    // And: Status shows stopped
-    let (status_code, _, _) = run_forester(&["registry", "status"]);
+    let (status_code, _, _) = run_brdev(grove.path(), &["registry", "status"]);
     assert_eq!(status_code, 0, "Status should return 0 even when stopped");
 }
 
@@ -153,13 +156,11 @@ fn test_registry_stop_idempotent() {
         return;
     }
 
-    // Given: Clean state
-    clean_test_registry();
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
 
-    // When: Stop when not running
-    let (code, _, _) = run_forester(&["registry", "stop"]);
+    let (code, _, _) = run_brdev(grove.path(), &["registry", "stop"]);
 
-    // Then: Succeeds (idempotent)
     assert_eq!(code, 0, "Stop should succeed even when not running");
 }
 
@@ -172,18 +173,15 @@ fn test_registry_clean() {
         return;
     }
 
-    // Given: Registry is running
-    clean_test_registry();
-    let _ = run_forester(&["registry", "start"]);
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
+    let _ = run_brdev(grove.path(), &["registry", "start"]);
 
-    // When: Clean registry
-    let (code, _, _) = run_forester(&["registry", "clean"]);
+    let (code, _, _) = run_brdev(grove.path(), &["registry", "clean"]);
 
-    // Then: Succeeds
     assert_eq!(code, 0, "Clean should succeed");
 
-    // And: Status shows not created
-    let (status_code, _, _) = run_forester(&["registry", "status"]);
+    let (status_code, _, _) = run_brdev(grove.path(), &["registry", "status"]);
     assert_eq!(status_code, 0, "Status should return 0 even after clean");
 }
 
@@ -196,50 +194,36 @@ fn test_registry_logs() {
         return;
     }
 
-    // Given: Registry is running
-    clean_test_registry();
-    let _ = run_forester(&["registry", "start"]);
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
+    let _ = run_brdev(grove.path(), &["registry", "start"]);
 
-    // When: Get logs
-    let (code, stdout, _) = run_forester(&["registry", "logs"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "logs"]);
 
-    // Then: Succeeds and shows logs
     assert_eq!(code, 0, "Logs should succeed");
     assert!(!stdout.is_empty(), "Should output logs");
 
-    // Cleanup
-    clean_test_registry();
+    clean_test_registry(grove.path());
 }
 
 #[test]
 #[ignore]
 #[serial(registry)]
-fn test_registry_custom_port() {
+fn test_registry_port_from_grove_file() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    // Given: Custom port via environment
-    let _ = Command::new(forester_bin())
-        .env("FORESTER_REGISTRY_PORT", "5001")
-        .args(["registry", "clean"])
-        .output();
+    let grove = create_test_grove();
+    clean_test_registry(grove.path());
 
-    let output = Command::new(forester_bin())
-        .env("FORESTER_REGISTRY_PORT", "5001")
-        .args(["registry", "start"])
-        .output()
-        .expect("Failed to execute forester");
+    let (_, stdout, _) = run_brdev(grove.path(), &["registry", "start"]);
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert!(
+        stdout.contains(&TEST_PORT.to_string()),
+        "Should use port from .grove/registry-port"
+    );
 
-    // Then: Uses custom port
-    assert!(stdout.contains("5001"), "Should use custom port 5001");
-
-    // Cleanup with custom port
-    let _ = Command::new(forester_bin())
-        .env("FORESTER_REGISTRY_PORT", "5001")
-        .args(["registry", "clean"])
-        .output();
+    clean_test_registry(grove.path());
 }

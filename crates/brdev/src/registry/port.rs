@@ -42,24 +42,15 @@ impl fmt::Display for RegistryUrl {
 }
 
 /// Name of the Docker container running the registry.
-#[nutype(
-    validate(not_empty),
-    derive(Debug, Clone, PartialEq, Eq, AsRef, Deref)
-)]
+#[nutype(validate(not_empty), derive(Debug, Clone, PartialEq, Eq, AsRef, Deref))]
 pub(crate) struct ContainerName(String);
 
 /// Name of the Docker volume for persistent registry storage.
-#[nutype(
-    validate(not_empty),
-    derive(Debug, Clone, PartialEq, Eq, AsRef, Deref)
-)]
+#[nutype(validate(not_empty), derive(Debug, Clone, PartialEq, Eq, AsRef, Deref))]
 pub(crate) struct VolumeName(String);
 
 /// OCI image reference for the registry container.
-#[nutype(
-    validate(not_empty),
-    derive(Debug, Clone, PartialEq, Eq, AsRef, Deref)
-)]
+#[nutype(validate(not_empty), derive(Debug, Clone, PartialEq, Eq, AsRef, Deref))]
 pub(crate) struct ImageRef(String);
 
 impl Default for ImageRef {
@@ -103,7 +94,12 @@ impl RegistryRuntimeConfig {
         container_name: ContainerName,
         volume_name: VolumeName,
     ) -> Self {
-        Self { port, image, container_name, volume_name }
+        Self {
+            port,
+            image,
+            container_name,
+            volume_name,
+        }
     }
 }
 
