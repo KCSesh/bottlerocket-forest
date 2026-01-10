@@ -376,10 +376,6 @@ targets = [
             .current_dir(&self.root)
             .status();
 
-        if verbose {
-            println!("✓ Created grove '{}'", name);
-        }
-
         Ok(())
     }
 
