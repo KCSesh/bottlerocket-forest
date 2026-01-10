@@ -127,7 +127,10 @@ mod test {
         let file_path = temp_dir.path().join("not_a_directory.txt");
         fs::write(&file_path, "content").unwrap();
         let result = FileScanner::new(&file_path);
-        assert!(matches!(result, Err(ScanError::IndexRootNotDirectory { .. })));
+        assert!(matches!(
+            result,
+            Err(ScanError::IndexRootNotDirectory { .. })
+        ));
     }
 
     #[test]
@@ -310,9 +313,21 @@ mod test {
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("docs")));
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("skills")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("bottlerocket")));
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("docs"))
+        );
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("skills"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("bottlerocket"))
+        );
     }
 
     #[test]
@@ -366,10 +381,26 @@ mod test {
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("included.md")));
-        assert!(files.iter().any(|f| f.relative_path.to_string().contains("public.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("ignored.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("secret.md")));
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("included.md"))
+        );
+        assert!(
+            files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("public.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("ignored.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("secret.md"))
+        );
     }
 
     #[test]
@@ -393,7 +424,11 @@ mod test {
     fn test_crumblyignore_can_be_disabled() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join(".crumblyignore"), "excluded/\n").unwrap();
-        setup_repo_with_files(temp_dir.path(), "repo", &[("excluded/doc.md", "# Excluded")]);
+        setup_repo_with_files(
+            temp_dir.path(),
+            "repo",
+            &[("excluded/doc.md", "# Excluded")],
+        );
         let config = ScanConfig::builder().use_crumblyignore(false).build();
         let scanner = FileScanner::with_config(temp_dir.path(), config).unwrap();
         let files = scanner.scan().unwrap();
@@ -446,7 +481,15 @@ mod test {
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].relative_path.to_string().contains("internal.md"));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("link.md")));
-        assert!(!files.iter().any(|f| f.relative_path.to_string().contains("external.md")));
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("link.md"))
+        );
+        assert!(
+            !files
+                .iter()
+                .any(|f| f.relative_path.to_string().contains("external.md"))
+        );
     }
 }

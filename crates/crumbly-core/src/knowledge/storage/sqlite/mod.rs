@@ -300,7 +300,11 @@ mod test {
         ChunkContext::Markdown(MarkdownContext::builder().heading_hierarchy(vec![]).build())
     }
 
-    fn build_indexed_chunk(content: &str, context: ChunkContext, file_hash_byte: u8) -> IndexedChunk {
+    fn build_indexed_chunk(
+        content: &str,
+        context: ChunkContext,
+        file_hash_byte: u8,
+    ) -> IndexedChunk {
         let chunk = Chunk::builder()
             .id(ChunkId::new(uuid::Uuid::new_v4()))
             .chunk_hash(ChunkHash::from_text(content))
@@ -358,7 +362,10 @@ mod test {
     }
 
     fn save_chunks(repo: &mut SqliteChunkRepository, paths: &[&str]) -> Vec<IndexedChunk> {
-        let chunks: Vec<_> = paths.iter().map(|p| create_test_chunk_at(p, "test-repo")).collect();
+        let chunks: Vec<_> = paths
+            .iter()
+            .map(|p| create_test_chunk_at(p, "test-repo"))
+            .collect();
         for chunk in &chunks {
             repo.save(chunk).unwrap();
         }
@@ -460,7 +467,8 @@ mod test {
     )]
     fn test_context_roundtrip(context: ChunkContext) {
         let (_temp, mut repo) = setup_repo();
-        let indexed_chunk = build_indexed_chunk("test content for context roundtrip", context.clone(), 2);
+        let indexed_chunk =
+            build_indexed_chunk("test content for context roundtrip", context.clone(), 2);
         repo.save(&indexed_chunk).unwrap();
         assert_eq!(repo.find_all().unwrap()[0].chunk.context, context);
     }

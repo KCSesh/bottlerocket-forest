@@ -152,3 +152,80 @@ impl KnowledgeIndex {
         Ok(filter)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::knowledge::domain::ContextId;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_default_db_path_returns_correct_path() {
+        let index_root = std::path::Path::new("/test/forest");
+
+        let db_path = KnowledgeIndex::default_db_path(index_root);
+
+        assert_eq!(db_path, index_root.join(".crumbly/knowledge.db"));
+    }
+
+    #[test]
+    fn test_load_scan_config_with_existing_crumbly_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = r#"
+targets = ["docs", "bottlerocket"]
+"#;
+        fs::write(temp_dir.path().join("crumbly.toml"), config_content).unwrap();
+
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+        let default_context = ContextId::from_path(".").unwrap();
+
+        let scan_config = index
+            .load_scan_config_for_context(&default_context)
+            .unwrap();
+
+        assert_eq!(scan_config.targets.len(), 2);
+        assert_eq!(scan_config.targets[0], std::path::PathBuf::from("docs"));
+        assert_eq!(
+            scan_config.targets[1],
+            std::path::PathBuf::from("bottlerocket")
+        );
+    }
+
+    #[test]
+    fn test_load_scan_config_without_crumbly_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+        let default_context = ContextId::from_path(".").unwrap();
+
+        let scan_config = index
+            .load_scan_config_for_context(&default_context)
+            .unwrap();
+
+        assert!(scan_config.targets.is_empty());
+    }
+
+    #[test]
+    fn test_load_scan_config_prefixes_targets_for_non_default_context() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = r#"
+targets = [".", "docs"]
+"#;
+        fs::write(temp_dir.path().join("crumbly.toml"), config_content).unwrap();
+
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+        let context_id = ContextId::from_path("worktree/feature-a").unwrap();
+
+        let scan_config = index.load_scan_config_for_context(&context_id).unwrap();
+
+        assert_eq!(scan_config.targets.len(), 2);
+        assert_eq!(
+            scan_config.targets[0],
+            std::path::PathBuf::from("worktree/feature-a")
+        );
+        assert_eq!(
+            scan_config.targets[1],
+            std::path::PathBuf::from("worktree/feature-a/docs")
+        );
+    }
+}
