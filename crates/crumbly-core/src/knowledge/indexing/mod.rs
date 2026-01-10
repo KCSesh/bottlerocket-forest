@@ -29,6 +29,7 @@
 //! [`SilentReporter`] for no-op progress or implement custom reporters
 //! for different UIs.
 
+pub mod cacher;
 pub mod config;
 pub mod filter;
 pub mod indexer;
@@ -46,6 +47,7 @@ pub use scanner::{FileScanner, IndexableFile, ScanError};
 pub use source::{
     BareGitSource, BareGitSourceError, ContentEntry, ContentSource, GitBlobRef, GitRev,
 };
+pub use cacher::{CacheError, CacheResult, ChunkCacher};
 
 // Re-export for indexer module
 pub(crate) use crate::knowledge::chunking::DispatchError;
