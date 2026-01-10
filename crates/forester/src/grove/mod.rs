@@ -119,7 +119,11 @@ impl ForestManager {
                 .collect();
             let missing: Vec<_> = member_paths
                 .iter()
-                .filter(|p| !targets.iter().any(|t| p.as_str() == *t || p.starts_with(&format!("{}/", t))))
+                .filter(|p| {
+                    !targets
+                        .iter()
+                        .any(|t| p.as_str() == *t || p.starts_with(&format!("{}/", t)))
+                })
                 .collect();
             if !missing.is_empty() {
                 println!(
