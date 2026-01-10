@@ -45,10 +45,10 @@ fn error_missing_database_suggests_build() {
     // Then: Command fails with non-zero exit code
     assert_ne!(code, 0, "Search should fail when no database exists");
 
-    // And: Error message suggests how to create an index
+    // And: Error message indicates no workspace found
     assert!(
-        stderr.contains("build") || stderr.contains("crumbly build"),
-        "Error should suggest 'build' or 'crumbly build': {}",
+        stderr.contains("workspace") || stderr.contains("build"),
+        "Error should mention workspace or suggest build: {}",
         stderr
     );
 }
