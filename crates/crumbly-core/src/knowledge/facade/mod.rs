@@ -38,7 +38,7 @@ use snafu::ResultExt;
 use std::path::{Path, PathBuf};
 
 use crate::knowledge::constants::SEMBLY_DIR;
-use crate::knowledge::domain::{Context, ContextId, EmbeddingModelConfig, SearchResults};
+use crate::knowledge::domain::{Context, ContextId, EmbeddingModelConfig, QueryText, ResultLimit, SearchResults};
 use crate::knowledge::storage::ChunkRepository;
 use crate::knowledge::storage::StorageError;
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
@@ -134,13 +134,12 @@ impl KnowledgeIndex {
 
     /// Search the index
     ///
-    /// Executes a semantic search query using embeddings. The limit parameter
-    /// controls the maximum number of results returned (1-100).
+    /// Executes a semantic search query using embeddings.
     /// Searches within the default context.
     pub fn search(
         &self,
-        query: impl AsRef<str>,
-        limit: usize,
+        query: QueryText,
+        limit: ResultLimit,
     ) -> Result<SearchResults, IndexError> {
         inner::search(self, query, limit)
     }
@@ -150,8 +149,8 @@ impl KnowledgeIndex {
     /// Executes a semantic search query scoped to the specified context.
     pub fn search_in_context(
         &self,
-        query: impl AsRef<str>,
-        limit: usize,
+        query: QueryText,
+        limit: ResultLimit,
         context_id: ContextId,
     ) -> Result<SearchResults, IndexError> {
         inner::search_in_context(self, query, limit, context_id)
@@ -239,6 +238,7 @@ mod update;
 mod test {
     use super::*;
     use crate::knowledge::EmbeddingModelConfig;
+    use crate::knowledge::domain::{QueryText, ResultLimit};
     use crate::knowledge::facade::test_helpers::test_helpers::*;
     use tempfile::TempDir;
 
@@ -345,7 +345,9 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
-        let result = index.search("boot", 10);
+        let query = QueryText::try_new("boot").unwrap();
+        let limit = ResultLimit::try_new(10).unwrap();
+        let result = index.search(query, limit);
 
         assert!(result.is_ok());
         let search_results = result.unwrap();
@@ -365,39 +367,11 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
-        let result = index.search("test", 2).unwrap();
+        let query = QueryText::try_new("test").unwrap();
+        let limit = ResultLimit::try_new(2).unwrap();
+        let result = index.search(query, limit).unwrap();
 
         assert!(result.results.len() <= 2);
-    }
-
-    #[test]
-    fn test_search_validates_limit_minimum() {
-        let temp_dir = TempDir::new().unwrap();
-        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
-
-        let result = index.search("test", 0);
-
-        assert!(matches!(result, Err(IndexError::InvalidResultLimit { .. })));
-    }
-
-    #[test]
-    fn test_search_validates_limit_maximum() {
-        let temp_dir = TempDir::new().unwrap();
-        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
-
-        let result = index.search("test", 101);
-
-        assert!(matches!(result, Err(IndexError::InvalidResultLimit { .. })));
-    }
-
-    #[test]
-    fn test_search_validates_empty_query() {
-        let temp_dir = TempDir::new().unwrap();
-        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
-
-        let result = index.search("", 10);
-
-        assert!(matches!(result, Err(IndexError::InvalidQuery { .. })));
     }
 
     #[test]

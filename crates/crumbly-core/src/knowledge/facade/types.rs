@@ -12,7 +12,7 @@ use bon::Builder;
 use snafu::Snafu;
 use std::time::SystemTime;
 
-use crate::knowledge::domain::{ContextId, EmbeddingModelConfig, QueryTextError, ResultLimitError};
+use crate::knowledge::domain::{ContextId, EmbeddingModelConfig};
 
 /// Statistics from a garbage collection operation
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
@@ -93,20 +93,6 @@ pub enum IndexError {
     SearchFailed {
         source: crate::knowledge::search::SearchError,
     },
-
-    #[snafu(display("Invalid search query"))]
-    #[diagnostic(
-        code(crumbly::index::invalid_query),
-        help("Provide a non-empty query string with valid characters")
-    )]
-    InvalidQuery { source: QueryTextError },
-
-    #[snafu(display("Invalid result limit"))]
-    #[diagnostic(
-        code(crumbly::index::invalid_result_limit),
-        help("Adjust the --limit parameter to be within the valid range")
-    )]
-    InvalidResultLimit { source: ResultLimitError },
 
     #[snafu(display("Failed to read database file metadata"))]
     #[diagnostic(
