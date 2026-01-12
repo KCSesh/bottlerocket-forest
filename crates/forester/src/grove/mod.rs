@@ -225,22 +225,20 @@ targets = [
             "build"
         };
 
-        if verbose {
-            println!(
-                "{} crumbly index...",
-                if subcommand == "build" {
-                    "Building"
-                } else {
-                    "Updating"
-                }
-            );
-        }
+        println!(
+            "{} crumbly index...",
+            if subcommand == "build" {
+                "Building"
+            } else {
+                "Updating"
+            }
+        );
 
         let mut cmd = Command::new("crumbly");
         cmd.args([subcommand, "--context", &context_path.display().to_string()])
             .current_dir(&self.root);
         if !verbose {
-            cmd.stdout(Stdio::null()).stderr(Stdio::null());
+            cmd.stderr(Stdio::null());
         }
 
         let status = cmd.status().map_err(|_| Error::Git {
