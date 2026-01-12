@@ -12,7 +12,9 @@
 //! [`IndexDataProvider`], and [`ChunkRepository`] to transform raw documentation
 //! files into searchable indexed chunks.
 
+mod batch;
 mod operations;
+mod strategies;
 mod types;
 
 pub use types::{BatchConfig, IndexResult, IndexingError};
@@ -96,6 +98,3 @@ impl<R: ChunkRepository> Indexer<R> {
         }
     }
 }
-
-mod batch;
-mod strategies;

@@ -6,6 +6,10 @@
 //! Submodules:
 //! * [`progress`] - Progress reporting for indexing operations
 
+mod errors;
+mod formatting;
+mod handlers;
+
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -97,10 +101,6 @@ pub struct StatusArgs {
     #[arg(long)]
     index_root: Option<PathBuf>,
 }
-
-mod errors;
-mod formatting;
-mod handlers;
 
 pub use handlers::{
     handle_build, handle_clear, handle_rebuild, handle_search, handle_status, handle_update,

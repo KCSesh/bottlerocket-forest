@@ -329,7 +329,7 @@ impl ChunkingStrategy for GoDocChunker {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
@@ -353,7 +353,11 @@ mod tests {
 
     #[test]
     fn test_supports_go_files() {
+        // Given a chunker configured for Go files
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
+
+        // When checking file extension support
+        // Then .go files are supported and others are not
         assert!(chunker.supports(Path::new("main.go")));
         assert!(chunker.supports(Path::new("pkg/util.go")));
         assert!(!chunker.supports(Path::new("main.rs")));
@@ -362,6 +366,7 @@ mod tests {
 
     #[test]
     fn test_extracts_function_doc() {
+        // Given Go source with a documented exported function
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
         let input = make_input(
             r#"
@@ -374,7 +379,11 @@ func Hello(name string) {
 }
 "#,
         );
+
+        // When chunking the source
         let chunks = chunker.chunk(&input).unwrap();
+
+        // Then the function doc is extracted with correct metadata
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
             ChunkContext::GoDoc(ctx) => ctx,
@@ -387,6 +396,7 @@ func Hello(name string) {
 
     #[test]
     fn test_extracts_unexported_function() {
+        // Given Go source with a documented unexported function
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
         let input = make_input(
             r#"
@@ -396,7 +406,11 @@ package main
 func helper() {}
 "#,
         );
+
+        // When chunking the source
         let chunks = chunker.chunk(&input).unwrap();
+
+        // Then the function is marked as unexported
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
             ChunkContext::GoDoc(ctx) => ctx,
@@ -408,6 +422,7 @@ func helper() {}
 
     #[test]
     fn test_extracts_struct_doc() {
+        // Given Go source with a documented struct type
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
         let input = make_input(
             r#"
@@ -419,7 +434,11 @@ type Config struct {
 }
 "#,
         );
+
+        // When chunking the source
         let chunks = chunker.chunk(&input).unwrap();
+
+        // Then the struct doc is extracted with correct type
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
             ChunkContext::GoDoc(ctx) => ctx,
@@ -431,6 +450,7 @@ type Config struct {
 
     #[test]
     fn test_skips_undocumented() {
+        // Given Go source with an undocumented function
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
         let input = make_input(
             r#"
@@ -439,12 +459,17 @@ package main
 func NoDoc() {}
 "#,
         );
+
+        // When chunking the source
         let chunks = chunker.chunk(&input).unwrap();
+
+        // Then no chunks are produced
         assert!(chunks.is_empty());
     }
 
     #[test]
     fn test_extracts_package_name() {
+        // Given Go source with a named package
         let chunker = GoDocChunker::from_config(&test_config()).unwrap();
         let input = make_input(
             r#"
@@ -454,7 +479,11 @@ package mypackage
 func Foo() {}
 "#,
         );
+
+        // When chunking the source
         let chunks = chunker.chunk(&input).unwrap();
+
+        // Then the package name is captured in chunk context
         assert!(!chunks.is_empty());
         let ctx = match &chunks[0].context {
             ChunkContext::GoDoc(ctx) => ctx,

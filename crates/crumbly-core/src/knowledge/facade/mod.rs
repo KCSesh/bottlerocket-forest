@@ -32,8 +32,11 @@
 //! # }
 //! ```
 
+mod build;
 mod inner;
+mod test_helpers;
 mod types;
+mod update;
 
 pub use types::{GcStats, IndexError, IndexStatus};
 
@@ -234,10 +237,6 @@ impl KnowledgeIndex {
         &self.config
     }
 }
-
-mod build;
-mod test_helpers;
-mod update;
 
 #[cfg(test)]
 mod test {

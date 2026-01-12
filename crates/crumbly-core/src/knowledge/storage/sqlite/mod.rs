@@ -29,7 +29,7 @@ use rusqlite::Connection;
 use snafu::ResultExt;
 use std::path::Path;
 
-use super::repository::{ChunkRepository, StorageError, storage_error::*};
+use super::repository::{ChunkRepository, StorageError};
 use super::schema;
 use crate::knowledge::domain::{
     ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
@@ -50,6 +50,8 @@ impl SqliteChunkRepository {
         path: impl AsRef<Path>,
         config: &EmbeddingModelConfig,
     ) -> Result<Self, StorageError> {
+        use super::repository::storage_error::*;
+
         // SAFETY: This call satisfies the safety requirements for sqlite3_auto_extension:
         // 1. We are not calling this from within an auto-extension handler (would cause recursion)
         // 2. We will not close any database connection from within the auto-extension
@@ -105,6 +107,8 @@ impl SqliteChunkRepository {
         path: impl AsRef<Path>,
         expected_config: &EmbeddingModelConfig,
     ) -> Result<Self, StorageError> {
+        use super::repository::storage_error::*;
+
         let repo = Self::open(path, expected_config)?;
         let metadata = repo.get_metadata()?;
 
@@ -187,7 +191,6 @@ impl ChunkRepository for SqliteChunkRepository {
         chunk_hashes: &[ChunkHash],
     ) -> Result<std::collections::HashSet<ChunkHash>, StorageError> {
         use super::repository::storage_error::*;
-
         if chunk_hashes.is_empty() {
             return Ok(std::collections::HashSet::new());
         }
@@ -227,6 +230,8 @@ impl ChunkRepository for SqliteChunkRepository {
         mtime: Timestamp,
         context_id: &ContextId,
     ) -> Result<(), StorageError> {
+        use super::repository::storage_error::*;
+
         self.conn
             .execute(
                 "INSERT OR REPLACE INTO indexed_files (context_id, file_path, file_hash, mtime_ns) VALUES (?, ?, ?, ?)",

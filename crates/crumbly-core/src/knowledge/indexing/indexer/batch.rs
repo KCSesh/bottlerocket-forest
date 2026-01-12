@@ -1,4 +1,7 @@
+//! Batch processing for chunk indexing and storage.
+
 use super::operations;
+
 use super::*;
 use crate::knowledge::domain::{IndexRelativePath, Timestamp};
 use crate::knowledge::indexing::IndexableFile;

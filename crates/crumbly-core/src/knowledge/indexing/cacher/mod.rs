@@ -24,6 +24,7 @@ use crate::knowledge::storage::{ChunkRepository, StorageError};
 /// Caches chunks and embeddings without context association.
 #[derive(Builder)]
 #[builder(on(_, into))]
+#[non_exhaustive]
 pub struct ChunkCacher<S: ContentSource, R: ChunkRepository> {
     source: S,
     dispatcher: ChunkingDispatcher,

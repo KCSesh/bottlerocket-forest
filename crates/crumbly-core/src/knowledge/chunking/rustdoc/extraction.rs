@@ -1,5 +1,6 @@
 //! Extracts doc comments from Rust syntax tree items and creates searchable chunks.
 
+use snafu::ResultExt;
 use syn::{Attribute, Item, ItemImpl};
 use text_splitter::TextSplitter;
 use tokenizers::Tokenizer;
@@ -9,6 +10,7 @@ use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, DocLineCount, ItemName, RustDocContext,
     Signature, TokenCount, Visibility,
 };
+use crate::knowledge::indexing::RustItemType;
 
 pub(crate) struct DocExtractor<'a> {
     pub(super) splitter: &'a TextSplitter<Tokenizer>,
@@ -53,7 +55,6 @@ impl<'a> DocExtractor<'a> {
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         use crate::knowledge::chunking::strategy::chunking_error::*;
-        use snafu::ResultExt;
 
         let doc_text = Self::extract_doc_text(attrs);
         if doc_text.trim().is_empty() {
@@ -79,7 +80,7 @@ impl<'a> DocExtractor<'a> {
 
     /// Extracts doc comments from a syntax tree item and creates chunks.
     ///
-    /// Handles functions, structs, enums, traits, modules, and impl blocks.
+    /// Processes functions, structs, enums, traits, modules, and impl blocks.
     /// Recursively processes nested items in modules.
     #[expect(clippy::excessive_nesting)]
     pub(super) fn extract_item_doc_chunks(
@@ -87,8 +88,7 @@ impl<'a> DocExtractor<'a> {
         item: &Item,
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
-        use crate::knowledge::indexing::RustItemType;
-        use snafu::ResultExt;
+        use crate::knowledge::chunking::strategy::chunking_error::*;
 
         let mut chunks = Vec::new();
 
@@ -97,11 +97,9 @@ impl<'a> DocExtractor<'a> {
                 let sig = &item_fn.sig;
                 let signature = Signature::try_new(quote::quote!(#sig).to_string())
                     .map_err(crate::knowledge::error::box_err)
-                    .context(
-                        crate::knowledge::chunking::strategy::chunking_error::ParseSnafu {
-                            file_path: input.source.file_path.to_string(),
-                        },
-                    )?;
+                    .context(ParseSnafu {
+                        file_path: input.source.file_path.to_string(),
+                    })?;
                 chunks.extend(self.process_item(
                     &item_fn.attrs,
                     &item_fn.sig.ident,
@@ -188,8 +186,6 @@ impl<'a> DocExtractor<'a> {
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         use crate::knowledge::chunking::strategy::chunking_error::*;
-        use crate::knowledge::indexing::RustItemType;
-        use snafu::ResultExt;
 
         let file_path = input.source.file_path.to_string();
         let mut chunks = Vec::new();
@@ -243,7 +239,6 @@ impl<'a> DocExtractor<'a> {
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         use crate::knowledge::chunking::strategy::chunking_error::*;
-        use snafu::ResultExt;
 
         if let Some(filter) = &self.filter
             && !filter.should_index(

@@ -29,6 +29,7 @@ impl Default for BatchConfig {
 
 /// Statistics and metadata from a completed indexing operation
 #[derive(Debug, Clone, PartialEq, Builder)]
+#[builder(on(Duration, into))]
 #[non_exhaustive]
 pub struct IndexResult {
     /// Number of files processed (files_added + files_updated)

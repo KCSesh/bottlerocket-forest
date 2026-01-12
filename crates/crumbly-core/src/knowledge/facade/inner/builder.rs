@@ -155,6 +155,7 @@ mod test {
 
     #[test]
     fn test_build_indexes_files_in_forest() {
+        // Given a forest with a markdown file
         let temp_dir = TempDir::new().unwrap();
         create_test_file(
             temp_dir.path(),
@@ -163,9 +164,11 @@ mod test {
             "# Test\n\nContent here",
         );
 
+        // When building the index
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         let result = index.build().call();
 
+        // Then files and chunks are indexed
         assert!(result.is_ok());
         let index_result = result.unwrap();
         assert!(index_result.files_processed > 0);
@@ -174,17 +177,21 @@ mod test {
 
     #[test]
     fn test_build_handles_empty_forest() {
+        // Given an empty forest
         let temp_dir = TempDir::new().unwrap();
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
 
+        // When building the index
         let result = index.build().call().unwrap();
 
+        // Then no files or chunks are processed
         assert_eq!(result.files_processed, 0);
         assert_eq!(result.chunks_affected, 0);
     }
 
     #[test]
     fn test_build_uses_configured_targets() {
+        // Given a forest with configured targets excluding some directories
         let temp_dir = TempDir::new().unwrap();
         fs::create_dir(temp_dir.path().join(".git")).unwrap();
         create_test_file(
@@ -211,9 +218,11 @@ targets = ["docs", "bottlerocket"]
 "#;
         fs::write(temp_dir.path().join("crumbly.toml"), config_content).unwrap();
 
+        // When building the index
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         let result = index.build().call().unwrap();
 
+        // Then only files in configured targets are indexed
         assert_eq!(result.files_processed, 2);
         let status = index.status().unwrap();
         assert_eq!(status.file_count, 2);
@@ -221,29 +230,36 @@ targets = ["docs", "bottlerocket"]
 
     #[test]
     fn test_rebuild_clears_existing_chunks() {
+        // Given a forest with an existing index
         let temp_dir = TempDir::new().unwrap();
         let _index = test_index_with_content(&temp_dir);
 
+        // When rebuilding the index
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         let result = index.rebuild().call();
 
+        // Then rebuild succeeds
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_rebuild_reindexes_all_files() {
+        // Given a forest with a markdown file
         let temp_dir = TempDir::new().unwrap();
         create_test_file(temp_dir.path(), "test-repo", "test.md", "# Test\n\nContent");
 
+        // When rebuilding the index
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         let result = index.rebuild().call().unwrap();
 
+        // Then files and chunks are reindexed
         assert!(result.files_processed > 0);
         assert!(result.chunks_affected > 0);
     }
 
     #[test]
     fn test_rebuild_uses_configured_targets() {
+        // Given a forest with configured targets
         let temp_dir = TempDir::new().unwrap();
         fs::create_dir(temp_dir.path().join(".git")).unwrap();
         create_test_file(
@@ -264,9 +280,11 @@ targets = ["docs"]
 "#;
         fs::write(temp_dir.path().join("crumbly.toml"), config_content).unwrap();
 
+        // When rebuilding the index
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         let result = index.rebuild().call().unwrap();
 
+        // Then only files in configured targets are indexed
         assert_eq!(result.files_processed, 1);
     }
 }

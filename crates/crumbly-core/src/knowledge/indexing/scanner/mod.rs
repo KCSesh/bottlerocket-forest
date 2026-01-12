@@ -5,6 +5,10 @@
 //! .crumblyignore patterns, and can be configured to scan specific target
 //! directories or the entire forest.
 
+mod entry;
+mod types;
+mod walk;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -126,9 +130,5 @@ impl FileScanner {
         result
     }
 }
-
-mod entry;
-mod types;
-mod walk;
 
 pub use types::{IndexableFile, ScanError};

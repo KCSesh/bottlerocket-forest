@@ -30,7 +30,7 @@ pub trait ChunkRepository {
 
     /// Retrieves file paths and their most recent indexing timestamps
     ///
-    /// More efficient than `find_all()` for incremental update comparisons.
+    /// Avoids loading chunk content, returning only paths and timestamps for incremental update comparisons.
     fn get_indexed_files(
         &self,
         context_id: &ContextId,
@@ -100,7 +100,7 @@ pub trait ChunkRepository {
 
 /// Abstract interface for context storage operations
 ///
-/// Manages the lifecycle of contexts and their file mappings in multi-context indexing.
+/// Stores and retrieves contexts and their file mappings for multi-context indexing.
 /// Contexts represent registered working directories that share a common embedding database.
 #[cfg_attr(test, mockall::automock)]
 pub trait ContextRepository {
