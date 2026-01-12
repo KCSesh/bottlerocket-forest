@@ -32,8 +32,9 @@ bon = "3"
 nutype = { version = "0.5", features = ["serde"] }
 
 # Embeddings and ML
-fastembed = "4"
-tokenizers = { version = "0.22", features = ["http"] }
+fastembed = { version = "4", default-features = false, features = ["hf-hub-rustls-tls", "ort-download-binaries"] }
+hf-hub = { version = "0.4", default-features = false, features = ["tokio", "rustls-tls"] }
+tokenizers = { version = "0.22", features = ["http", "rustls-tls"] }
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled", "functions"] }
@@ -60,7 +61,7 @@ dirs = "5"
 rayon = "1"
 
 # HTTP
-reqwest = "0.12"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 
 # Time and dates
 chrono = { version = "0.4", features = ["serde"] }

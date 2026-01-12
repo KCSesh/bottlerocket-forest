@@ -15,7 +15,7 @@ allow = [
     "ISC",
     "MIT",
     "MPL-2.0",
-    # "OpenSSL",
+    "OpenSSL",
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
@@ -29,6 +29,11 @@ exceptions = [
 # Deny multiple versions or wildcard dependencies.
 multiple-versions = "deny"
 wildcards = "deny"
+deny = [
+    { name = "openssl", wrappers = [] },
+    { name = "openssl-sys", wrappers = [] },
+    { name = "native-tls", wrappers = [] },
+]
 
 skip-tree = [
     # fastembed has many dependencies that clash with other dependencies of itself
@@ -36,8 +41,17 @@ skip-tree = [
 ]
 
 skip = [
-    # Add entries here if needed for version conflicts
-    { name = "supports-color", reason = "owo-colors depends on two different versions of supports-color" }
+    { name = "supports-color", reason = "owo-colors depends on two different versions of supports-color" },
+    { name = "hashbrown", reason = "rusqlite and toml use different versions" },
+    { name = "windows-sys", reason = "jni and dirs-sys use different versions" },
+    { name = "windows-targets", reason = "transitive from windows-sys" },
+    { name = "windows_aarch64_gnullvm", reason = "transitive from windows-sys" },
+    { name = "windows_aarch64_msvc", reason = "transitive from windows-sys" },
+    { name = "windows_i686_gnu", reason = "transitive from windows-sys" },
+    { name = "windows_i686_msvc", reason = "transitive from windows-sys" },
+    { name = "windows_x86_64_gnu", reason = "transitive from windows-sys" },
+    { name = "windows_x86_64_gnullvm", reason = "transitive from windows-sys" },
+    { name = "windows_x86_64_msvc", reason = "transitive from windows-sys" },
 ]
 
 [bans.workspace-dependencies]
