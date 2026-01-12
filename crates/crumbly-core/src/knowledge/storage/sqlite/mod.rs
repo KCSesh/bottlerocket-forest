@@ -33,7 +33,7 @@ use super::repository::{ChunkRepository, StorageError, storage_error::*};
 use super::schema;
 use crate::knowledge::domain::{
     ChunkHash, ChunkId, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
-    IndexRelativePath, IndexedChunk, Timestamp,
+    IndexRelativePath, IndexedChunk, RelevanceScore, ResultLimit, Timestamp,
 };
 
 /// SQLite-backed implementation of chunk repository with vector search
@@ -171,9 +171,9 @@ impl ChunkRepository for SqliteChunkRepository {
     fn search_semantic(
         &self,
         query_embedding: &[f32],
-        limit: usize,
+        limit: ResultLimit,
         context_id: ContextId,
-    ) -> Result<Vec<(IndexedChunk, f32)>, StorageError> {
+    ) -> Result<Vec<(IndexedChunk, RelevanceScore)>, StorageError> {
         search::search_semantic(&self.conn, query_embedding, limit, context_id)
     }
 

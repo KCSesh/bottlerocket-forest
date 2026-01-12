@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use crate::knowledge::domain::{
     ChunkHash, ChunkId, Context, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
-    IndexRelativePath, IndexedChunk, Timestamp,
+    IndexRelativePath, IndexedChunk, RelevanceScore, ResultLimit, Timestamp,
 };
 
 /// Abstract interface for chunk storage operations
@@ -54,9 +54,9 @@ pub trait ChunkRepository {
     fn search_semantic(
         &self,
         query_embedding: &[f32],
-        limit: usize,
+        limit: ResultLimit,
         context_id: ContextId,
-    ) -> Result<Vec<(IndexedChunk, f32)>, StorageError>;
+    ) -> Result<Vec<(IndexedChunk, RelevanceScore)>, StorageError>;
 
     /// Checks if an embedding exists for the given chunk hash
     fn has_embedding(&self, chunk_hash: &ChunkHash) -> Result<bool, StorageError>;

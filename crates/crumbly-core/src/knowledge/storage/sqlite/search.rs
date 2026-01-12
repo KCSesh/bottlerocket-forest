@@ -20,7 +20,7 @@ use rusqlite::Connection;
 use snafu::ResultExt;
 
 use super::serialization::{indexed_chunk_from_row, serialize_embedding};
-use crate::knowledge::domain::{ContextId, IndexedChunk};
+use crate::knowledge::domain::{ContextId, IndexedChunk, RelevanceScore, ResultLimit};
 use crate::knowledge::storage::repository::StorageError;
 
 /// Performs k-nearest-neighbor search using cosine distance
@@ -34,9 +34,9 @@ use crate::knowledge::storage::repository::StorageError;
 pub fn search_semantic(
     conn: &Connection,
     query_embedding: &[f32],
-    limit: usize,
+    limit: ResultLimit,
     context_id: ContextId,
-) -> Result<Vec<(IndexedChunk, f32)>, StorageError> {
+) -> Result<Vec<(IndexedChunk, RelevanceScore)>, StorageError> {
     use crate::knowledge::storage::repository::storage_error::*;
 
     let embedding_bytes = serialize_embedding(query_embedding);
@@ -72,7 +72,7 @@ pub fn search_semantic(
         .query_map(
             [
                 &embedding_bytes as &dyn rusqlite::ToSql,
-                &(limit as i64),
+                &(limit.into_inner() as i64),
                 &context_id.as_str(),
             ],
             |row| {
@@ -94,10 +94,12 @@ pub fn search_semantic(
         if let Some(file_path) = file_paths.get(&chunk.chunk.file_hash) {
             // Update the chunk's file_path from indexed_files
             chunk.chunk.source.file_path = file_path.clone();
-            let similarity = 1.0 - distance;
-            results.push((chunk, similarity));
+            let similarity = (1.0 - distance).clamp(0.0, 1.0);
+            let score = RelevanceScore::try_new(similarity)
+                .unwrap_or_else(|_| RelevanceScore::try_new(0.0).unwrap());
+            results.push((chunk, score));
 
-            if results.len() >= limit {
+            if results.len() >= limit.into_inner() {
                 break;
             }
         }
@@ -153,7 +155,7 @@ mod test {
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding,
         EmbeddingModelConfig, FileHash, IndexRelativePath, IndexedFile, MarkdownContext, RepoName,
-        Timestamp, TokenCount,
+        ResultLimit, Timestamp, TokenCount,
     };
     use crate::knowledge::storage::schema;
     use crate::knowledge::storage::sqlite::files::insert_indexed_file;
@@ -270,7 +272,8 @@ mod test {
 
         // When searching with context_id = Some(context_a)
         let query = vec![0.75; EMBEDDING_DIM];
-        let results = search_semantic(&conn, &query, 10, context_a).unwrap();
+        let results =
+            search_semantic(&conn, &query, ResultLimit::try_new(10).unwrap(), context_a).unwrap();
 
         // Then only chunks from context_a should be returned
         assert_eq!(results.len(), 1);
@@ -303,7 +306,13 @@ mod test {
 
         // When searching the empty context
         let query = vec![0.8; EMBEDDING_DIM];
-        let results = search_semantic(&conn, &query, 10, empty_context).unwrap();
+        let results = search_semantic(
+            &conn,
+            &query,
+            ResultLimit::try_new(10).unwrap(),
+            empty_context,
+        )
+        .unwrap();
 
         // Then no results should be returned
         assert!(results.is_empty());
@@ -374,7 +383,8 @@ mod test {
         // When: searching context_a with limit=2 and query close to context_b's embeddings
         // A naive k=2 query would return only context_b results, then filter to 0
         let query = vec![0.99; EMBEDDING_DIM];
-        let results = search_semantic(&conn, &query, 2, context_a).unwrap();
+        let results =
+            search_semantic(&conn, &query, ResultLimit::try_new(2).unwrap(), context_a).unwrap();
 
         // Then: should still find context_a's chunk despite context_b having closer matches
         assert_eq!(
@@ -412,7 +422,8 @@ mod test {
 
         // When searching context_b (which has no files)
         let query = vec![0.9; EMBEDDING_DIM];
-        let results = search_semantic(&conn, &query, 10, context_b).unwrap();
+        let results =
+            search_semantic(&conn, &query, ResultLimit::try_new(10).unwrap(), context_b).unwrap();
 
         // Then results from context_a should NOT appear (MCI-15)
         assert!(
@@ -474,7 +485,8 @@ mod test {
         .unwrap();
 
         let query = vec![0.99; EMBEDDING_DIM];
-        let results = search_semantic(&conn, &query, 5, context_b).unwrap();
+        let results =
+            search_semantic(&conn, &query, ResultLimit::try_new(5).unwrap(), context_b).unwrap();
 
         assert_eq!(
             results.len(),
