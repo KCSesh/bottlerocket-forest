@@ -37,8 +37,11 @@ pub use types::{GcStats, IndexError, IndexStatus};
 use snafu::ResultExt;
 use std::path::{Path, PathBuf};
 
+use crate::knowledge::constants::SEMBLY_DIR;
 use crate::knowledge::domain::{Context, ContextId, EmbeddingModelConfig, SearchResults};
 use crate::knowledge::storage::ChunkRepository;
+use crate::knowledge::storage::StorageError;
+use crate::knowledge::storage::sqlite::SqliteChunkRepository;
 
 /// High-level interface for the knowledge index
 ///
@@ -66,9 +69,6 @@ impl KnowledgeIndex {
         index_root: impl AsRef<Path>,
         config: EmbeddingModelConfig,
     ) -> Result<Self, IndexError> {
-        use crate::knowledge::constants::SEMBLY_DIR;
-        use crate::knowledge::storage::StorageError;
-        use crate::knowledge::storage::sqlite::SqliteChunkRepository;
         use types::index_error::*;
 
         let index_root = index_root.as_ref();
