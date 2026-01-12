@@ -5,7 +5,7 @@ use std::sync::Arc;
 use snafu::ResultExt;
 
 use super::KnowledgeIndex;
-use crate::knowledge::domain::{Context, ContextId};
+use crate::knowledge::domain::{BatchSize, Context, ContextId};
 use crate::knowledge::facade::types::IndexError;
 use crate::knowledge::facade::types::index_error::*;
 use crate::knowledge::indexing::{
@@ -16,7 +16,7 @@ use crate::knowledge::storage::ContextRepository;
 pub(in crate::knowledge::facade) fn update(
     index: &KnowledgeIndex,
     progress: Option<Arc<dyn ProgressReporter>>,
-    batch_size: usize,
+    batch_size: BatchSize,
     context_id: ContextId,
 ) -> Result<IndexResult, IndexError> {
     snafu::ensure!(

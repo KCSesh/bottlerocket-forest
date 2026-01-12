@@ -5,8 +5,12 @@ use super::inner;
 use super::types::IndexError;
 use std::sync::Arc;
 
-use crate::knowledge::domain::ContextId;
+use crate::knowledge::domain::{BatchSize, ContextId};
 use crate::knowledge::indexing::{IndexResult, ProgressReporter};
+
+fn default_batch_size() -> BatchSize {
+    BatchSize::try_new(100).expect("100 is valid batch size")
+}
 
 #[bon::bon]
 impl KnowledgeIndex {
@@ -14,7 +18,7 @@ impl KnowledgeIndex {
     pub fn build(
         &self,
         progress: Option<Arc<dyn ProgressReporter>>,
-        #[builder(default = 100)] batch_size: usize,
+        #[builder(default = default_batch_size())] batch_size: BatchSize,
         #[builder(default)] context_id: ContextId,
     ) -> Result<IndexResult, IndexError> {
         inner::build(self, progress, batch_size, context_id)
@@ -27,7 +31,7 @@ impl KnowledgeIndex {
     pub fn rebuild(
         &self,
         progress: Option<Arc<dyn ProgressReporter>>,
-        #[builder(default = 100)] batch_size: usize,
+        #[builder(default = default_batch_size())] batch_size: BatchSize,
         #[builder(default)] context_id: ContextId,
     ) -> Result<IndexResult, IndexError> {
         inner::rebuild(self, progress, batch_size, context_id)

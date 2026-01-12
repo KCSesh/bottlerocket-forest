@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use snafu::ResultExt;
 
-use crate::knowledge::domain::{Context, ContextId, IndexMetadata};
+use crate::knowledge::domain::{BatchSize, Context, ContextId, IndexMetadata};
 use crate::knowledge::facade::KnowledgeIndex;
 use crate::knowledge::facade::types::IndexError;
 use crate::knowledge::indexing::{
@@ -16,7 +16,7 @@ use crate::knowledge::storage::{ChunkRepository, ContextRepository};
 pub(in crate::knowledge::facade) fn build(
     index: &KnowledgeIndex,
     progress: Option<Arc<dyn ProgressReporter>>,
-    batch_size: usize,
+    batch_size: BatchSize,
     context_id: ContextId,
 ) -> Result<IndexResult, IndexError> {
     use crate::knowledge::facade::types::index_error::*;
@@ -79,7 +79,7 @@ pub(in crate::knowledge::facade) fn build(
 pub(in crate::knowledge::facade) fn rebuild(
     index: &KnowledgeIndex,
     progress: Option<Arc<dyn ProgressReporter>>,
-    batch_size: usize,
+    batch_size: BatchSize,
     context_id: ContextId,
 ) -> Result<IndexResult, IndexError> {
     use crate::knowledge::facade::types::index_error::*;

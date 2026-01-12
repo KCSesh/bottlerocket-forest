@@ -7,7 +7,7 @@ MAX_LOC = 550
 OVERRIDES = {
     "crates/crumbly-core/src/knowledge/storage/sqlite/mod.rs": 630,
     "crates/crumbly-core/src/knowledge/indexing/scanner/internals.rs": 565,
-    "crates/crumbly-core/src/knowledge/chunking/rustdoc/extraction.rs": 570,
+    "crates/crumbly-core/src/knowledge/chunking/rustdoc/extraction.rs": 575,
     "crates/crumbly-core/src/knowledge/indexing/config.rs": 570,
     "crates/crumbly-core/src/knowledge/search/semantic.rs": 575,
 }

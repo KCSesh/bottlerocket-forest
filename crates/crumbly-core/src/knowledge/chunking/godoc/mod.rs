@@ -24,8 +24,8 @@ use self::extraction::{
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, GoDocContext, GoItemType, GoVisibility, ItemName,
-    PackageName, Signature, TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, GoDocContext, GoItemType,
+    GoVisibility, ItemName, PackageName, Signature, TokenCount,
 };
 use crate::knowledge::indexing::GoFilter;
 
@@ -102,7 +102,11 @@ impl GoDocChunker {
         };
         let (_, visibility) = get_visibility(name);
         let filter_type = to_filter_type(item_type);
-        filter.should_index(&visibility, &filter_type, doc.lines().count())
+        filter.should_index(
+            &visibility,
+            &filter_type,
+            DocLineCount::new(doc.lines().count()),
+        )
     }
 
     fn process_declaration(

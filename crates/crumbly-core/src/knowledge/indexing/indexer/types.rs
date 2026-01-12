@@ -7,6 +7,7 @@ use bon::Builder;
 use snafu::Snafu;
 use std::time::Duration;
 
+use crate::knowledge::domain::BatchSize;
 use crate::knowledge::storage::StorageError;
 
 use super::super::{DispatchError, IndexDataError, ScanError};
@@ -15,12 +16,14 @@ use super::super::{DispatchError, IndexDataError, ScanError};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchConfig {
     /// Number of chunks to accumulate before writing to storage
-    pub batch_size: usize,
+    pub batch_size: BatchSize,
 }
 
 impl Default for BatchConfig {
     fn default() -> Self {
-        Self { batch_size: 100 }
+        Self {
+            batch_size: BatchSize::try_new(100).expect("100 is valid batch size"),
+        }
     }
 }
 

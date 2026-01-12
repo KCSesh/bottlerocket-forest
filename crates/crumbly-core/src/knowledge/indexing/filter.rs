@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::knowledge::domain::Visibility;
+use crate::knowledge::domain::{DocLineCount, Visibility};
 
 /// Categories of Rust language items that can be filtered during indexing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,7 +60,7 @@ pub enum GoItemType {
 pub struct RustFilter {
     visibility: Vec<Visibility>,
     items: Vec<RustItemType>,
-    min_doc_lines: usize,
+    min_doc_lines: DocLineCount,
 }
 
 impl RustFilter {
@@ -68,7 +68,7 @@ impl RustFilter {
     pub fn new(
         visibility: Vec<Visibility>,
         items: Vec<RustItemType>,
-        min_doc_lines: usize,
+        min_doc_lines: DocLineCount,
     ) -> Self {
         Self {
             visibility,
@@ -82,7 +82,7 @@ impl RustFilter {
         &self,
         visibility: &Visibility,
         item_type: &RustItemType,
-        doc_lines: usize,
+        doc_lines: DocLineCount,
     ) -> bool {
         doc_lines >= self.min_doc_lines
             && self.visibility.contains(visibility)
@@ -95,12 +95,16 @@ impl RustFilter {
 pub struct GoFilter {
     visibility: Vec<Visibility>,
     items: Vec<GoItemType>,
-    min_doc_lines: usize,
+    min_doc_lines: DocLineCount,
 }
 
 impl GoFilter {
     /// Create a filter with visibility, item types, and minimum documentation length
-    pub fn new(visibility: Vec<Visibility>, items: Vec<GoItemType>, min_doc_lines: usize) -> Self {
+    pub fn new(
+        visibility: Vec<Visibility>,
+        items: Vec<GoItemType>,
+        min_doc_lines: DocLineCount,
+    ) -> Self {
         Self {
             visibility,
             items,
@@ -113,7 +117,7 @@ impl GoFilter {
         &self,
         visibility: &Visibility,
         item_type: &GoItemType,
-        doc_lines: usize,
+        doc_lines: DocLineCount,
     ) -> bool {
         doc_lines >= self.min_doc_lines
             && self.visibility.contains(visibility)
@@ -177,7 +181,7 @@ impl Default for IndexingFilter {
                     RustItemType::TypeAlias,
                     RustItemType::Constant,
                 ],
-                0,
+                DocLineCount::new(0),
             )),
             go_filter: Some(GoFilter::new(
                 vec![Visibility::Public, Visibility::Private],
@@ -190,7 +194,7 @@ impl Default for IndexingFilter {
                     GoItemType::Const,
                     GoItemType::Var,
                 ],
-                0,
+                DocLineCount::new(0),
             )),
         }
     }
@@ -203,11 +207,23 @@ mod test {
     #[test]
     fn test_rust_filter_should_index_checks_doc_lines() {
         // Given A filter with minimum doc lines
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Function], 3);
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Function],
+            DocLineCount::new(3),
+        );
 
         // When Checking items with different doc line counts
-        let short_doc = filter.should_index(&Visibility::Public, &RustItemType::Function, 2);
-        let long_doc = filter.should_index(&Visibility::Public, &RustItemType::Function, 5);
+        let short_doc = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(2),
+        );
+        let long_doc = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(5),
+        );
 
         // Then Only long docs should pass
         assert!(!short_doc);
@@ -217,11 +233,23 @@ mod test {
     #[test]
     fn test_rust_filter_should_index_checks_visibility() {
         // Given A filter for public items only
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Function], 0);
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Function],
+            DocLineCount::new(0),
+        );
 
         // When Checking items with different visibility
-        let public = filter.should_index(&Visibility::Public, &RustItemType::Function, 100);
-        let private = filter.should_index(&Visibility::Private, &RustItemType::Function, 100);
+        let public = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
+        let private = filter.should_index(
+            &Visibility::Private,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
 
         // Then Only public items should pass
         assert!(public);
@@ -231,11 +259,23 @@ mod test {
     #[test]
     fn test_rust_filter_should_index_checks_item_type() {
         // Given A filter for structs only
-        let filter = RustFilter::new(vec![Visibility::Public], vec![RustItemType::Struct], 0);
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Struct],
+            DocLineCount::new(0),
+        );
 
         // When Checking different item types
-        let struct_item = filter.should_index(&Visibility::Public, &RustItemType::Struct, 100);
-        let function_item = filter.should_index(&Visibility::Public, &RustItemType::Function, 100);
+        let struct_item = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Struct,
+            DocLineCount::new(100),
+        );
+        let function_item = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
 
         // Then Only structs should pass
         assert!(struct_item);
@@ -260,7 +300,7 @@ mod test {
     #[test]
     fn test_indexing_filter_rust_filter_returns_reference() {
         // Given A filter with Rust filter configured
-        let rust_filter = RustFilter::new(vec![Visibility::Public], vec![], 0);
+        let rust_filter = RustFilter::new(vec![Visibility::Public], vec![], DocLineCount::new(0));
         let filter = IndexingFilter::new(vec![], Some(rust_filter), None);
 
         // When Getting the Rust filter
@@ -274,11 +314,23 @@ mod test {
 #[test]
 fn test_go_filter_should_index_checks_doc_lines() {
     // Given a filter requiring minimum 3 doc lines
-    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 3);
+    let filter = GoFilter::new(
+        vec![Visibility::Public],
+        vec![GoItemType::Function],
+        DocLineCount::new(3),
+    );
 
     // When checking items with different doc line counts
-    let short_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 2);
-    let long_doc = filter.should_index(&Visibility::Public, &GoItemType::Function, 5);
+    let short_doc = filter.should_index(
+        &Visibility::Public,
+        &GoItemType::Function,
+        DocLineCount::new(2),
+    );
+    let long_doc = filter.should_index(
+        &Visibility::Public,
+        &GoItemType::Function,
+        DocLineCount::new(5),
+    );
 
     // Then only items meeting the threshold should be indexed
     assert!(!short_doc);
@@ -288,11 +340,23 @@ fn test_go_filter_should_index_checks_doc_lines() {
 #[test]
 fn test_go_filter_should_index_checks_visibility() {
     // Given a filter accepting only public items
-    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Function], 0);
+    let filter = GoFilter::new(
+        vec![Visibility::Public],
+        vec![GoItemType::Function],
+        DocLineCount::new(0),
+    );
 
     // When checking items with different visibilities
-    let public = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
-    let private = filter.should_index(&Visibility::Private, &GoItemType::Function, 100);
+    let public = filter.should_index(
+        &Visibility::Public,
+        &GoItemType::Function,
+        DocLineCount::new(100),
+    );
+    let private = filter.should_index(
+        &Visibility::Private,
+        &GoItemType::Function,
+        DocLineCount::new(100),
+    );
 
     // Then only public items should be indexed
     assert!(public);
@@ -302,11 +366,23 @@ fn test_go_filter_should_index_checks_visibility() {
 #[test]
 fn test_go_filter_should_index_checks_item_type() {
     // Given a filter accepting only struct items
-    let filter = GoFilter::new(vec![Visibility::Public], vec![GoItemType::Struct], 0);
+    let filter = GoFilter::new(
+        vec![Visibility::Public],
+        vec![GoItemType::Struct],
+        DocLineCount::new(0),
+    );
 
     // When checking items with different types
-    let struct_item = filter.should_index(&Visibility::Public, &GoItemType::Struct, 100);
-    let function_item = filter.should_index(&Visibility::Public, &GoItemType::Function, 100);
+    let struct_item = filter.should_index(
+        &Visibility::Public,
+        &GoItemType::Struct,
+        DocLineCount::new(100),
+    );
+    let function_item = filter.should_index(
+        &Visibility::Public,
+        &GoItemType::Function,
+        DocLineCount::new(100),
+    );
 
     // Then only struct items should be indexed
     assert!(struct_item);

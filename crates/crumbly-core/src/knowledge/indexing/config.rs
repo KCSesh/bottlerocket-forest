@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use super::filter::{GoFilter, GoItemType, IndexingFilter, RustFilter, RustItemType};
 use crate::knowledge::constants::SEMBLY_CONFIG;
-use crate::knowledge::domain::{FileType, Visibility};
+use crate::knowledge::domain::{DocLineCount, FileType, Visibility};
 use crate::knowledge::scoring::BoostRule;
 
 /// Configuration loaded from `crumbly.toml` in the forest root
@@ -136,7 +136,7 @@ impl RustConfig {
         Ok(RustFilter::new(
             self.visibility.clone(),
             self.items.clone(),
-            self.min_doc_lines,
+            DocLineCount::new(self.min_doc_lines),
         ))
     }
 }
@@ -174,7 +174,7 @@ impl GoConfig {
         Ok(GoFilter::new(
             self.visibility.clone(),
             self.items.clone(),
-            self.min_doc_lines,
+            DocLineCount::new(self.min_doc_lines),
         ))
     }
 }

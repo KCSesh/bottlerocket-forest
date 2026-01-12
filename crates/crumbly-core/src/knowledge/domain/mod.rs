@@ -117,6 +117,28 @@ pub struct AbsolutePath(String);
 )]
 pub struct TokenCount(usize);
 
+/// Batch size for indexing operations, must be positive
+#[nutype(
+    validate(greater = 0),
+    derive(Debug, Clone, Copy, Display, Serialize, Deserialize, PartialEq, Eq)
+)]
+pub struct BatchSize(usize);
+
+/// Documentation line count for filtering
+#[nutype(derive(
+    Debug,
+    Clone,
+    Copy,
+    Display,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord
+))]
+pub struct DocLineCount(usize);
+
 /// Maximum search results to return, bounded 1-100
 #[nutype(
     validate(greater = 0, less_or_equal = 100),
@@ -264,6 +286,36 @@ mod test {
         // When Creating the newtype
         // Then It should fail validation
         assert!(zero.is_err());
+    }
+
+    #[test]
+    fn test_batch_size_rejects_zero() {
+        // Given A zero value
+        let zero = BatchSize::try_new(0);
+
+        // When Creating the newtype
+        // Then It should fail validation
+        assert!(zero.is_err());
+    }
+
+    #[test]
+    fn test_batch_size_accepts_positive() {
+        // Given A positive value
+        let valid = BatchSize::try_new(100);
+
+        // When Creating the newtype
+        // Then It should succeed
+        assert!(valid.is_ok());
+    }
+
+    #[test]
+    fn test_doc_line_count_accepts_zero() {
+        // Given A zero value (no minimum doc lines)
+        let zero = DocLineCount::new(0);
+
+        // When Creating the newtype
+        // Then It should succeed
+        assert_eq!(zero.into_inner(), 0);
     }
 
     #[test]

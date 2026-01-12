@@ -56,7 +56,7 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
         let mut chunks_created: usize = 0;
         let mut chunks_skipped: usize = 0;
         let mut embeddings_generated: usize = 0;
-        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size);
+        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size.into_inner());
 
         for entry in &entries {
             let content = self.source.fetch(entry).context(FetchFailedSnafu)?;
@@ -119,7 +119,7 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
                 chunks_created += 1;
             }
 
-            if batch_buffer.len() >= self.batch_config.batch_size {
+            if batch_buffer.len() >= self.batch_config.batch_size.into_inner() {
                 self.flush_batch(&mut batch_buffer)?;
             }
         }

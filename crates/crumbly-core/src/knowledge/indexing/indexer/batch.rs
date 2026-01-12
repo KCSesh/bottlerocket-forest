@@ -20,7 +20,7 @@ impl<R: ChunkRepository> Indexer<R> {
         let mut files_added = 0;
         let mut files_skipped = 0;
         let mut chunks_affected = 0;
-        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size);
+        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size.into_inner());
 
         for (file, result) in results {
             match result {
@@ -63,7 +63,7 @@ impl<R: ChunkRepository> Indexer<R> {
 
                     for chunk in indexed_chunks {
                         batch_buffer.push(chunk);
-                        if batch_buffer.len() >= self.batch_config.batch_size {
+                        if batch_buffer.len() >= self.batch_config.batch_size.into_inner() {
                             self.repository
                                 .save_batch(&batch_buffer)
                                 .context(StorageFailedSnafu)?;

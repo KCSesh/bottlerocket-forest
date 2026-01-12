@@ -6,8 +6,8 @@ use tokenizers::Tokenizer;
 
 use crate::knowledge::chunking::{ChunkingError, ChunkingInput};
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ItemName, RustDocContext, Signature,
-    TokenCount, Visibility,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, DocLineCount, ItemName, RustDocContext,
+    Signature, TokenCount, Visibility,
 };
 
 pub(crate) struct DocExtractor<'a> {
@@ -246,7 +246,11 @@ impl<'a> DocExtractor<'a> {
         use snafu::ResultExt;
 
         if let Some(filter) = &self.filter
-            && !filter.should_index(&visibility, &item_type, doc_text.lines().count())
+            && !filter.should_index(
+                &visibility,
+                &item_type,
+                DocLineCount::new(doc_text.lines().count()),
+            )
         {
             return Ok(vec![]);
         }
@@ -301,8 +305,8 @@ mod test {
     use crate::knowledge::chunking::{ChunkingStrategy, RustDocChunker};
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
-        ChunkContext, ChunkSource, ChunkableContent, FileHash, IndexRelativePath, ItemName,
-        RepoName, Visibility,
+        ChunkContext, ChunkSource, ChunkableContent, DocLineCount, FileHash, IndexRelativePath,
+        ItemName, RepoName, Visibility,
     };
     use test_case::test_case;
 
@@ -335,7 +339,7 @@ mod test {
     ) -> RustDocChunker {
         use crate::knowledge::indexing::RustFilter;
         let config = test_config();
-        let filter = RustFilter::new(vis, types, min_lines);
+        let filter = RustFilter::new(vis, types, DocLineCount::new(min_lines));
         RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap()
     }
 
