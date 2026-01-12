@@ -11,12 +11,19 @@
 //!
 //! Run with: `cargo test --test registry_integration -- --ignored`
 
-use serial_test::serial;
 use std::process::Command;
+use std::sync::atomic::{AtomicU16, Ordering};
 use tempfile::TempDir;
 
-const TEST_PORT: u16 = 5555;
-const TEST_GROVE_NAME: &str = "test-grove";
+static PORT_COUNTER: AtomicU16 = AtomicU16::new(7000);
+
+fn random_port() -> u16 {
+    PORT_COUNTER.fetch_add(1, Ordering::SeqCst) % 2000 + 7000
+}
+
+fn grove_name(port: u16) -> String {
+    format!("test-grove-{}", port)
+}
 
 /// Get path to brdev binary (cargo test builds in debug mode)
 fn brdev_bin() -> &'static std::path::Path {
@@ -24,19 +31,21 @@ fn brdev_bin() -> &'static std::path::Path {
 }
 
 /// Creates a temporary grove directory structure for testing
-fn create_test_grove() -> TempDir {
+fn create_test_grove() -> (TempDir, u16, String) {
     let temp = TempDir::new().expect("Failed to create temp dir");
-    let grove_dir = temp.path().join(TEST_GROVE_NAME);
+    let port = random_port();
+    let name = grove_name(port);
+    let grove_dir = temp.path().join(&name);
     let dot_grove = grove_dir.join(".grove");
     std::fs::create_dir_all(&dot_grove).expect("Failed to create .grove dir");
-    std::fs::write(dot_grove.join("registry-port"), TEST_PORT.to_string())
+    std::fs::write(dot_grove.join("registry-port"), port.to_string())
         .expect("Failed to write registry-port");
-    temp
+    (temp, port, name)
 }
 
 /// Helper to run brdev CLI from within a grove and capture output
-fn run_brdev(grove_root: &std::path::Path, args: &[&str]) -> (i32, String, String) {
-    let grove_dir = grove_root.join(TEST_GROVE_NAME);
+fn run_brdev(grove_root: &std::path::Path, name: &str, args: &[&str]) -> (i32, String, String) {
+    let grove_dir = grove_root.join(name);
     let output = Command::new(brdev_bin())
         .current_dir(&grove_dir)
         .args(args)
@@ -56,46 +65,44 @@ fn docker_available() -> bool {
 }
 
 /// Clean up any existing test registry before starting a test
-fn clean_test_registry(grove_root: &std::path::Path) {
-    let _ = run_brdev(grove_root, &["registry", "clean"]);
+fn clean_test_registry(grove_root: &std::path::Path, name: &str) {
+    let _ = run_brdev(grove_root, name, &["registry", "clean"]);
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_start_idempotent() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
+    let (grove, port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
 
-    let (code1, stdout1, _) = run_brdev(grove.path(), &["registry", "start"]);
-    let (code2, stdout2, _) = run_brdev(grove.path(), &["registry", "start"]);
+    let (code1, stdout1, _) = run_brdev(grove.path(), &name, &["registry", "start"]);
+    let (code2, stdout2, _) = run_brdev(grove.path(), &name, &["registry", "start"]);
 
     assert_eq!(code1, 0, "First start should succeed");
     assert_eq!(code2, 0, "Second start should succeed (idempotent)");
-    assert!(stdout1.contains(&TEST_PORT.to_string()));
-    assert!(stdout2.contains(&TEST_PORT.to_string()));
+    assert!(stdout1.contains(&port.to_string()));
+    assert!(stdout2.contains(&port.to_string()));
 
-    clean_test_registry(grove.path());
+    clean_test_registry(grove.path(), &name);
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_status_not_created() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
+    let (grove, _port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
 
-    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "status"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &name, &["registry", "status"]);
 
     assert_eq!(code, 0, "Status should return 0 even when not running");
     assert!(
@@ -106,124 +113,118 @@ fn test_registry_status_not_created() {
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_status_running() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
-    let _ = run_brdev(grove.path(), &["registry", "start"]);
+    let (grove, port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
+    let _ = run_brdev(grove.path(), &name, &["registry", "start"]);
 
-    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "status"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &name, &["registry", "status"]);
 
     assert_eq!(code, 0, "Status should return 0 when running");
     assert!(stdout.contains("running") || stdout.contains("Running"));
-    assert!(stdout.contains(&TEST_PORT.to_string()));
+    assert!(stdout.contains(&port.to_string()));
 
-    clean_test_registry(grove.path());
+    clean_test_registry(grove.path(), &name);
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_stop() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
-    let _ = run_brdev(grove.path(), &["registry", "start"]);
+    let (grove, _port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
+    let _ = run_brdev(grove.path(), &name, &["registry", "start"]);
 
-    let (code, _, _) = run_brdev(grove.path(), &["registry", "stop"]);
+    let (code, _, _) = run_brdev(grove.path(), &name, &["registry", "stop"]);
 
     assert_eq!(code, 0, "Stop should succeed");
 
-    let (status_code, _, _) = run_brdev(grove.path(), &["registry", "status"]);
+    let (status_code, _, _) = run_brdev(grove.path(), &name, &["registry", "status"]);
     assert_eq!(status_code, 0, "Status should return 0 even when stopped");
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_stop_idempotent() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
+    let (grove, _port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
 
-    let (code, _, _) = run_brdev(grove.path(), &["registry", "stop"]);
+    let (code, _, _) = run_brdev(grove.path(), &name, &["registry", "stop"]);
 
     assert_eq!(code, 0, "Stop should succeed even when not running");
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_clean() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
-    let _ = run_brdev(grove.path(), &["registry", "start"]);
+    let (grove, _port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
+    let _ = run_brdev(grove.path(), &name, &["registry", "start"]);
 
-    let (code, _, _) = run_brdev(grove.path(), &["registry", "clean"]);
+    let (code, _, _) = run_brdev(grove.path(), &name, &["registry", "clean"]);
 
     assert_eq!(code, 0, "Clean should succeed");
 
-    let (status_code, _, _) = run_brdev(grove.path(), &["registry", "status"]);
+    let (status_code, _, _) = run_brdev(grove.path(), &name, &["registry", "status"]);
     assert_eq!(status_code, 0, "Status should return 0 even after clean");
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_logs() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
-    let _ = run_brdev(grove.path(), &["registry", "start"]);
+    let (grove, _port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
+    let _ = run_brdev(grove.path(), &name, &["registry", "start"]);
 
-    let (code, stdout, _) = run_brdev(grove.path(), &["registry", "logs"]);
+    let (code, stdout, _) = run_brdev(grove.path(), &name, &["registry", "logs"]);
 
     assert_eq!(code, 0, "Logs should succeed");
     assert!(!stdout.is_empty(), "Should output logs");
 
-    clean_test_registry(grove.path());
+    clean_test_registry(grove.path(), &name);
 }
 
 #[test]
 #[ignore]
-#[serial(registry)]
 fn test_registry_port_from_grove_file() {
     if !docker_available() {
         eprintln!("Skipping test: Docker not available");
         return;
     }
 
-    let grove = create_test_grove();
-    clean_test_registry(grove.path());
+    let (grove, port, name) = create_test_grove();
+    clean_test_registry(grove.path(), &name);
 
-    let (_, stdout, _) = run_brdev(grove.path(), &["registry", "start"]);
+    let (_, stdout, _) = run_brdev(grove.path(), &name, &["registry", "start"]);
 
     assert!(
-        stdout.contains(&TEST_PORT.to_string()),
+        stdout.contains(&port.to_string()),
         "Should use port from .grove/registry-port"
     );
 
-    clean_test_registry(grove.path());
+    clean_test_registry(grove.path(), &name);
 }
