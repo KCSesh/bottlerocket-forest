@@ -202,17 +202,56 @@ targets = [
             }
         }
 
-        let context_path = path.strip_prefix(&self.root).unwrap_or(path);
-        if verbose {
-            println!("Updating crumbly index...");
+        self.run_crumbly_index(path, verbose)?;
+
+        Ok(())
+    }
+
+    fn run_crumbly_index(&self, path: &std::path::Path, verbose: bool) -> Result<(), Error> {
+        let which_status = Command::new("which")
+            .arg("crumbly")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        if !matches!(which_status, Ok(s) if s.success()) {
+            return Ok(());
         }
+
+        let context_path = path.strip_prefix(&self.root).unwrap_or(path);
+        let crumbly_dir = self.root.join(".crumbly");
+        let subcommand = if crumbly_dir.exists() {
+            "update"
+        } else {
+            "build"
+        };
+
+        if verbose {
+            println!(
+                "{} crumbly index...",
+                if subcommand == "build" {
+                    "Building"
+                } else {
+                    "Updating"
+                }
+            );
+        }
+
         let mut cmd = Command::new("crumbly");
-        cmd.args(["update", "--context", &context_path.display().to_string()])
+        cmd.args([subcommand, "--context", &context_path.display().to_string()])
             .current_dir(&self.root);
         if !verbose {
             cmd.stdout(Stdio::null()).stderr(Stdio::null());
         }
-        let _ = cmd.status();
+
+        let status = cmd.status().map_err(|_| Error::Git {
+            message: "Failed to run crumbly".to_string(),
+        })?;
+
+        if !status.success() {
+            return Err(Error::Git {
+                message: format!("crumbly {} failed", subcommand),
+            });
+        }
 
         Ok(())
     }
