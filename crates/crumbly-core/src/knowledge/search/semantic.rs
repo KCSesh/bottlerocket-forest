@@ -57,7 +57,7 @@ impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
             .repository
             .search_semantic(
                 query_embedding.as_ref(),
-                query.limit.into_inner(),
+                query.limit,
                 query.context_id.clone(),
             )
             .context(StorageSnafu)?;
@@ -68,22 +68,15 @@ impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
         let mut search_results: Vec<_> = results
             .into_iter()
             .map(|(indexed_chunk, score)| {
-                use crate::knowledge::domain::{RelevanceScore, SearchResult};
-                // Normalize cosine similarity from [-1, 1] to [0, 1]
-                let normalized_score = (score + 1.0) / 2.0;
-                let relevance_score = RelevanceScore::try_new(normalized_score)
-                    .map_err(crate::knowledge::error::box_err)
-                    .context(InvalidScoreSnafu {
-                        score: normalized_score,
-                    })?;
+                use crate::knowledge::domain::SearchResult;
 
                 // Apply score boosting based on file characteristics
                 let boosted_score = self
                     .score_booster
-                    .apply_boost(relevance_score, &indexed_chunk.chunk)
+                    .apply_boost(score, &indexed_chunk.chunk)
                     .map_err(crate::knowledge::error::box_err)
                     .context(InvalidScoreSnafu {
-                        score: relevance_score.into_inner(),
+                        score: score.into_inner(),
                     })?;
 
                 Ok(SearchResult::builder()
@@ -110,8 +103,8 @@ mod test {
     use super::*;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-        IndexRelativePath, IndexedChunk, MarkdownContext, QueryText, RepoName, ResultLimit,
-        Timestamp, TokenCount,
+        IndexRelativePath, IndexedChunk, MarkdownContext, QueryText, RelevanceScore, RepoName,
+        ResultLimit, Timestamp, TokenCount,
     };
     use crate::knowledge::search::embeddings::model::MockEmbeddingProvider;
     use crate::knowledge::storage::repository::MockChunkRepository;
@@ -223,7 +216,12 @@ mod test {
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
             .expect_search_semantic()
-            .returning(move |_, _, _| Ok(vec![(chunk2.clone(), 0.95), (chunk1.clone(), 0.75)]));
+            .returning(move |_, _, _| {
+                Ok(vec![
+                    (chunk2.clone(), RelevanceScore::try_new(0.95).unwrap()),
+                    (chunk1.clone(), RelevanceScore::try_new(0.75).unwrap()),
+                ])
+            });
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -264,11 +262,11 @@ mod test {
             .expect_search_semantic()
             .returning(move |_, limit, _| {
                 let all_results = vec![
-                    (chunk1.clone(), 0.9),
-                    (chunk2.clone(), 0.8),
-                    (chunk3.clone(), 0.7),
+                    (chunk1.clone(), RelevanceScore::try_new(0.9).unwrap()),
+                    (chunk2.clone(), RelevanceScore::try_new(0.8).unwrap()),
+                    (chunk3.clone(), RelevanceScore::try_new(0.7).unwrap()),
                 ];
-                Ok(all_results.into_iter().take(limit).collect())
+                Ok(all_results.into_iter().take(limit.into_inner()).collect())
             });
 
         let mut mock_provider = MockEmbeddingProvider::new();
@@ -303,7 +301,6 @@ mod test {
                 },
             )
         });
-
         let engine =
             SemanticSearchEngine::new(mock_repo, Box::new(mock_provider), ScoreBooster::default());
         let query = SearchQuery::builder()
@@ -311,12 +308,9 @@ mod test {
             .limit(ResultLimit::try_new(10).unwrap())
             .context_id(Default::default())
             .build();
-
         // When Searching
         let result = engine.search(&query);
-
         // Then Embedding error should be propagated
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             SearchError::EmbeddingFailed { .. }
@@ -332,12 +326,10 @@ mod test {
                 message: "test error".to_string(),
             })
         });
-
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
             .expect_embed()
             .returning(|_| Ok(create_test_embedding(vec![0.1; 384])));
-
         let engine =
             SemanticSearchEngine::new(mock_repo, Box::new(mock_provider), ScoreBooster::default());
         let query = SearchQuery::builder()
@@ -345,12 +337,9 @@ mod test {
             .limit(ResultLimit::try_new(10).unwrap())
             .context_id(Default::default())
             .build();
-
         // When Searching
         let result = engine.search(&query);
-
         // Then Storage error should be propagated
-        assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), SearchError::Storage { .. }));
     }
 
@@ -396,7 +385,9 @@ mod test {
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
             .expect_search_semantic()
-            .returning(move |_, _, _| Ok(vec![(chunk.clone(), 0.8)]));
+            .returning(move |_, _, _| {
+                Ok(vec![(chunk.clone(), RelevanceScore::try_new(0.8).unwrap())])
+            });
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -426,7 +417,12 @@ mod test {
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
             .expect_search_semantic()
-            .returning(move |_, _, _| Ok(vec![(chunk.clone(), 0.85)]));
+            .returning(move |_, _, _| {
+                Ok(vec![(
+                    chunk.clone(),
+                    RelevanceScore::try_new(0.85).unwrap(),
+                )])
+            });
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -512,7 +508,10 @@ mod test {
             .expect_search_semantic()
             .returning(move |_, _, _| {
                 // Repository returns in raw score order (chunk1 first)
-                Ok(vec![(chunk1.clone(), 0.9), (chunk2.clone(), 0.7)])
+                Ok(vec![
+                    (chunk1.clone(), RelevanceScore::try_new(0.9).unwrap()),
+                    (chunk2.clone(), RelevanceScore::try_new(0.7).unwrap()),
+                ])
             });
 
         let mut mock_provider = MockEmbeddingProvider::new();
@@ -565,6 +564,6 @@ mod test {
                 .ends_with(".rs")
         );
         assert_eq!(results.results[0].score.into_inner(), 1.0);
-        assert_eq!(results.results[1].score.into_inner(), 0.95);
+        assert_eq!(results.results[1].score.into_inner(), 0.9);
     }
 }
