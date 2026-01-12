@@ -60,6 +60,7 @@ mod test {
 
     #[test]
     fn test_search_executes_query() {
+        // Given an indexed document containing "boot"
         let temp_dir = TempDir::new().unwrap();
         create_test_file(
             temp_dir.path(),
@@ -71,10 +72,12 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
+        // When searching for "boot"
         let query = QueryText::try_new("boot").unwrap();
         let limit = ResultLimit::try_new(10).unwrap();
         let result = index.search(query, limit);
 
+        // Then results are returned
         assert!(result.is_ok());
         let search_results = result.unwrap();
         assert!(!search_results.results.is_empty());
@@ -82,6 +85,7 @@ mod test {
 
     #[test]
     fn test_search_respects_limit() {
+        // Given an indexed document with multiple matches
         let temp_dir = TempDir::new().unwrap();
         create_test_file(
             temp_dir.path(),
@@ -93,10 +97,12 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
+        // When searching with a limit of 2
         let query = QueryText::try_new("test").unwrap();
         let limit = ResultLimit::try_new(2).unwrap();
         let result = index.search(query, limit).unwrap();
 
+        // Then at most 2 results are returned
         assert!(result.results.len() <= 2);
     }
 }

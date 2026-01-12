@@ -19,7 +19,7 @@
 //!
 //! // Search
 //! let query = QueryText::try_new("how does boot work")?;
-//! let limit = ResultLimit::try_new(10)?;
+//! let limit = ResultLimit::try_new(20).unwrap();
 //! let results = index.search(query, limit)?;
 //! for result in results.results {
 //!     println!("Score: {}, File: {}", result.score, result.chunk.source.file_path);
@@ -249,58 +249,74 @@ mod test {
 
     #[test]
     fn test_open_creates_crumbly_directory() {
+        // Given a temporary directory
         let temp_dir = TempDir::new().unwrap();
         let index_root = temp_dir.path();
 
+        // When opening a knowledge index
         let result = KnowledgeIndex::open(index_root);
 
+        // Then it succeeds and creates the .crumbly directory
         assert!(result.is_ok());
         assert!(index_root.join(".crumbly").exists());
     }
 
     #[test]
     fn test_open_does_not_create_database_file() {
+        // Given a temporary directory
         let temp_dir = TempDir::new().unwrap();
         let index_root = temp_dir.path();
 
+        // When opening a knowledge index
         let result = KnowledgeIndex::open(index_root);
 
+        // Then it succeeds but does not create the database file
         assert!(result.is_ok());
         assert!(!index_root.join(".crumbly/knowledge.db").exists());
     }
 
     #[test]
     fn test_open_with_nonexistent_index_root_fails() {
+        // Given a nonexistent path
         let nonexistent = std::path::Path::new("/nonexistent/forest");
 
+        // When opening a knowledge index
         let result = KnowledgeIndex::open(nonexistent);
 
+        // Then it fails with IndexRootNotFound
         assert!(matches!(result, Err(IndexError::IndexRootNotFound { .. })));
     }
 
     #[test]
     fn test_open_returns_index_with_correct_paths() {
+        // Given a temporary directory
         let temp_dir = TempDir::new().unwrap();
         let index_root = temp_dir.path();
 
+        // When opening a knowledge index
         let index = KnowledgeIndex::open(index_root).unwrap();
 
+        // Then the index has correct paths
         assert_eq!(index.index_root(), index_root);
         assert_eq!(index.db_path(), index_root.join(".crumbly/knowledge.db"));
     }
 
     #[test]
     fn test_open_with_existing_index_same_mode_succeeds() {
+        // Given an already opened index
         let temp_dir = TempDir::new().unwrap();
         let _index = KnowledgeIndex::open(temp_dir.path()).unwrap();
 
+        // When opening the same index again
         let result = KnowledgeIndex::open(temp_dir.path());
 
+        // Then it succeeds
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_open_with_config_uses_custom_config() {
+        // Given a custom embedding config
         let temp_dir = TempDir::new().unwrap();
         let custom_config = EmbeddingModelConfig::builder()
             .model_name("custom-model")
@@ -309,20 +325,24 @@ mod test {
             .overlap_tokens(50)
             .build();
 
+        // When opening with that config
         let index =
             KnowledgeIndex::open_with_config(temp_dir.path(), custom_config.clone()).unwrap();
 
+        // Then the index uses the custom config
         assert_eq!(index.config(), &custom_config);
     }
 
     #[test]
     fn test_open_with_config_validates_existing_config() {
+        // Given an index built with default config
         let temp_dir = TempDir::new().unwrap();
         create_test_file(temp_dir.path(), "test-repo", "test.md", "# Test");
 
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
+        // When opening with a different config
         let different_config = EmbeddingModelConfig::builder()
             .model_name("different-model")
             .embedding_dim(512)
@@ -331,6 +351,7 @@ mod test {
             .build();
         let result = KnowledgeIndex::open_with_config(temp_dir.path(), different_config);
 
+        // Then it fails with DatabaseAccessFailed
         assert!(matches!(
             result,
             Err(IndexError::DatabaseAccessFailed { .. })
@@ -339,6 +360,7 @@ mod test {
 
     #[test]
     fn test_search_executes_query() {
+        // Given an index with boot-related content
         let temp_dir = TempDir::new().unwrap();
         create_test_file(
             temp_dir.path(),
@@ -350,10 +372,12 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
+        // When searching for "boot"
         let query = QueryText::try_new("boot").unwrap();
         let limit = ResultLimit::try_new(10).unwrap();
         let result = index.search(query, limit);
 
+        // Then it returns matching results
         assert!(result.is_ok());
         let search_results = result.unwrap();
         assert!(!search_results.results.is_empty());
@@ -361,6 +385,7 @@ mod test {
 
     #[test]
     fn test_search_respects_limit() {
+        // Given an index with multiple test chunks
         let temp_dir = TempDir::new().unwrap();
         create_test_file(
             temp_dir.path(),
@@ -372,20 +397,25 @@ mod test {
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
         index.build().call().unwrap();
 
+        // When searching with a limit of 2
         let query = QueryText::try_new("test").unwrap();
         let limit = ResultLimit::try_new(2).unwrap();
         let result = index.search(query, limit).unwrap();
 
+        // Then at most 2 results are returned
         assert!(result.results.len() <= 2);
     }
 
     #[test]
     fn test_status_returns_index_metadata() {
+        // Given an index with content
         let temp_dir = TempDir::new().unwrap();
         let index = test_index_with_content(&temp_dir);
 
+        // When getting status
         let result = index.status();
 
+        // Then it returns valid metadata
         assert!(result.is_ok());
         let status = result.unwrap();
         assert!(status.exists);
@@ -396,11 +426,14 @@ mod test {
 
     #[test]
     fn test_status_on_empty_index() {
+        // Given an empty index (no build)
         let temp_dir = TempDir::new().unwrap();
         let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
 
+        // When getting status
         let status = index.status().unwrap();
 
+        // Then counts are zero
         assert!(status.exists);
         assert_eq!(status.chunk_count, 0);
         assert_eq!(status.file_count, 0);
@@ -408,39 +441,49 @@ mod test {
 
     #[test]
     fn test_status_includes_disk_size() {
+        // Given an index with content
         let temp_dir = TempDir::new().unwrap();
         let index = test_index_with_content(&temp_dir);
 
+        // When getting status
         let status = index.status().unwrap();
 
+        // Then disk size is reported
         assert!(status.size_bytes.is_some());
         assert!(status.size_bytes.unwrap() > 0);
     }
 
     #[test]
     fn test_index_root_returns_correct_path() {
+        // Given an opened index
         let temp_dir = TempDir::new().unwrap();
         let index_root = temp_dir.path();
         let index = KnowledgeIndex::open(index_root).unwrap();
 
+        // When getting index_root
         let root = index.index_root();
 
+        // Then it matches the original path
         assert_eq!(root, index_root);
     }
 
     #[test]
     fn test_db_path_returns_correct_path() {
+        // Given an opened index
         let temp_dir = TempDir::new().unwrap();
         let index_root = temp_dir.path();
         let index = KnowledgeIndex::open(index_root).unwrap();
 
+        // When getting db_path
         let db_path = index.db_path();
 
+        // Then it points to the expected location
         assert_eq!(db_path, index_root.join(".crumbly/knowledge.db"));
     }
 
     #[test]
     fn test_config_returns_embedding_config() {
+        // Given an index opened with custom config
         let temp_dir = TempDir::new().unwrap();
         let custom_config = EmbeddingModelConfig::builder()
             .model_name("test-model")
@@ -452,8 +495,10 @@ mod test {
         let index =
             KnowledgeIndex::open_with_config(temp_dir.path(), custom_config.clone()).unwrap();
 
+        // When getting config
         let config = index.config();
 
+        // Then it matches the custom config
         assert_eq!(config, &custom_config);
     }
 }

@@ -29,7 +29,9 @@ pub use context::{Context, ContextId, ContextIdError};
 pub use file_type::FileType;
 pub use hash::{ChunkHash, FileHash};
 pub use indexed_file::IndexedFile;
-pub use search::{FileSearchResult, SearchQuery, SearchResult, SearchResults};
+pub use search::{
+    DEFAULT_RESULT_LIMIT, FileSearchResult, SearchQuery, SearchResult, SearchResults,
+};
 
 /// Controls which files are scanned during indexing
 #[derive(Debug, Clone, Builder)]
@@ -153,6 +155,14 @@ pub struct ResultLimit(usize);
 )]
 pub struct RelevanceScore(f32);
 
+impl RelevanceScore {
+    /// Returns a zero relevance score.
+    pub fn zero() -> Self {
+        // SAFETY: 0.0 is within valid range [0.0, 1.0], so try_new cannot fail
+        Self::try_new(0.0).expect("0.0 is valid")
+    }
+}
+
 impl Eq for RelevanceScore {}
 
 impl PartialOrd for RelevanceScore {
@@ -197,9 +207,9 @@ pub struct ChunkableContent(String);
 ///
 /// Changes to these parameters require rebuilding the entire index.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
+#[builder(on(String, into))]
 #[non_exhaustive]
 pub struct EmbeddingModelConfig {
-    #[builder(into)]
     pub model_name: String,
     pub embedding_dim: usize,
     pub max_tokens: usize,
@@ -219,6 +229,7 @@ impl Default for EmbeddingModelConfig {
 
 /// Domain chunk with embedding and indexing timestamp
 #[derive(Debug, Clone, Builder)]
+#[builder(on(_, into))]
 #[non_exhaustive]
 pub struct IndexedChunk {
     pub chunk: Chunk,
@@ -256,6 +267,7 @@ impl Timestamp {
 
 /// Statistics and configuration snapshot of the index
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
+#[builder(on(EmbeddingModelConfig, into))]
 #[non_exhaustive]
 pub struct IndexMetadata {
     pub last_build: std::time::SystemTime,

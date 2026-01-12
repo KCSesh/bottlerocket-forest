@@ -14,13 +14,16 @@ use super::{
     Chunk, ContextId, IndexRelativePath, QueryText, RelevanceScore, RepoName, ResultLimit,
 };
 
+/// Default number of chunks to return from search
+pub const DEFAULT_RESULT_LIMIT: usize = 20;
+
 /// Search parameters combining query text and result limit
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
+#[builder(on(QueryText, into))]
 #[non_exhaustive]
 pub struct SearchQuery {
-    #[builder(into)]
     pub text: QueryText,
-    #[builder(into)]
+    #[builder(default = ResultLimit::try_new(DEFAULT_RESULT_LIMIT).unwrap())]
     pub limit: ResultLimit,
     #[serde(default)]
     pub context_id: ContextId,

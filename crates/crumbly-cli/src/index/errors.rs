@@ -64,4 +64,11 @@ pub enum IndexError {
         help("The search results may contain invalid data")
     )]
     JsonSerializationFailed { source: serde_json::Error },
+
+    #[snafu(display("Failed to get current directory"))]
+    #[diagnostic(
+        code(crumbly::cli::get_current_dir_failed),
+        help("Check that the current directory exists and is accessible")
+    )]
+    GetCurrentDir { source: std::io::Error },
 }

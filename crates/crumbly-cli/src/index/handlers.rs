@@ -1,4 +1,7 @@
+//! Command handlers for knowledge index CLI operations.
+
 use crate::index::errors::IndexError;
+
 use crate::index::formatting::{
     OutputFormat, format_build_result, format_file_results_human, format_file_results_json,
     format_status, format_update_result, group_results_by_file, parse_output_format,
@@ -10,7 +13,7 @@ use snafu::ResultExt;
 
 use crate::index::progress::CliProgressReporter;
 use crate::theme;
-use crumbly_core::knowledge::domain::{ContextId, QueryText, ResultLimit};
+use crumbly_core::knowledge::domain::{ContextId, DEFAULT_RESULT_LIMIT, QueryText, ResultLimit};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -44,13 +47,19 @@ fn parse_context_arg(
     Ok(Some(context_id))
 }
 
+fn get_cwd() -> Result<PathBuf, IndexError> {
+    use super::errors::index_error::*;
+    std::env::current_dir().context(GetCurrentDirSnafu)
+}
+
 /// Builds the knowledge index, processing all files in the forest.
 pub fn handle_build(args: BuildArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let index_root = args
-        .index_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index_root = match args.index_root {
+        Some(root) => root,
+        None => get_cwd()?,
+    };
 
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
@@ -73,9 +82,10 @@ pub fn handle_build(args: BuildArgs) -> Result<(), IndexError> {
 pub fn handle_rebuild(args: RebuildArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let index_root = args
-        .index_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index_root = match args.index_root {
+        Some(root) => root,
+        None => get_cwd()?,
+    };
 
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
@@ -100,10 +110,7 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
 
     let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
-        None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
-            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
-        }
+        None => KnowledgeIndex::discover(&get_cwd()?).context(KnowledgeIndexSnafu)?,
     };
 
     let context_id = parse_context_arg(index.index_root(), args.context)?;
@@ -127,18 +134,14 @@ pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
 
     let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
-        None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
-            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
-        }
+        None => KnowledgeIndex::discover(&get_cwd()?).context(KnowledgeIndexSnafu)?,
     };
 
     let context_id = match parse_context_arg(index.index_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
             index
-                .resolve_context(&cwd)
+                .resolve_context(&get_cwd()?)
                 .context(KnowledgeIndexSnafu)?
                 .context_id
         }
@@ -171,19 +174,16 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
     let query = QueryText::try_new(&args.query).context(InvalidQuerySnafu)?;
-    let limit = ResultLimit::try_new(args.limit.unwrap_or(10)).context(InvalidResultLimitSnafu)?;
+    let limit = ResultLimit::try_new(args.limit.unwrap_or(DEFAULT_RESULT_LIMIT))
+        .context(InvalidResultLimitSnafu)?;
 
     let format = parse_output_format(args.format.as_deref())?;
 
     let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
-        None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
-            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
-        }
+        None => KnowledgeIndex::discover(&get_cwd()?).context(KnowledgeIndexSnafu)?,
     };
 
-    // Check if database exists before trying to resolve context (MCI-ERR-1)
     if !index.db_path().exists() {
         return Err(crumbly_core::knowledge::facade::IndexError::IndexNotFound {
             path: index.db_path().display().to_string(),
@@ -194,8 +194,9 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     let context_id = match parse_context_arg(index.index_root(), args.context)? {
         Some(ctx) => ctx,
         None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
-            let context = index.resolve_context(&cwd).context(KnowledgeIndexSnafu)?;
+            let context = index
+                .resolve_context(&get_cwd()?)
+                .context(KnowledgeIndexSnafu)?;
             context.context_id
         }
     };
@@ -206,7 +207,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 
     let file_results = group_results_by_file(&results);
 
-    let cwd = std::env::current_dir().expect("Failed to get current directory");
+    let cwd = get_cwd()?;
 
     match format {
         OutputFormat::Human => {
@@ -224,10 +225,7 @@ pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
 
     let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,
-        None => {
-            let cwd = std::env::current_dir().expect("Failed to get current directory");
-            KnowledgeIndex::discover(&cwd).context(KnowledgeIndexSnafu)?
-        }
+        None => KnowledgeIndex::discover(&get_cwd()?).context(KnowledgeIndexSnafu)?,
     };
 
     let status = index.status().context(KnowledgeIndexSnafu)?;
@@ -520,10 +518,12 @@ mod test {
     }
 
     fn create_test_query() -> SearchQuery {
-        use crumbly_core::knowledge::domain::{ContextId, QueryText, ResultLimit};
+        use crumbly_core::knowledge::domain::{
+            ContextId, DEFAULT_RESULT_LIMIT, QueryText, ResultLimit,
+        };
         SearchQuery::builder()
             .text(QueryText::try_new("test query").unwrap())
-            .limit(ResultLimit::try_new(10).unwrap())
+            .limit(ResultLimit::try_new(DEFAULT_RESULT_LIMIT).unwrap())
             .context_id(ContextId::default())
             .build()
     }

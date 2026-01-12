@@ -31,7 +31,7 @@
 //! let index = KnowledgeIndex::open("/path/to/forest")?;
 //! let result = index.build().call()?;
 //! let query = QueryText::try_new("boot process")?;
-//! let limit = ResultLimit::try_new(10)?;
+//! let limit = ResultLimit::try_new(20).unwrap();
 //! let results = index.search(query, limit)?;
 //! # Ok(())
 //! # }
