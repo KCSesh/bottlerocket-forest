@@ -9,6 +9,24 @@ pub enum IndexError {
         source: crumbly_core::knowledge::IndexError,
     },
 
+    #[snafu(display("Invalid search query"))]
+    #[diagnostic(
+        code(crumbly::cli::invalid_query),
+        help("Provide a non-empty query string")
+    )]
+    InvalidQuery {
+        source: crumbly_core::knowledge::domain::QueryTextError,
+    },
+
+    #[snafu(display("Invalid result limit"))]
+    #[diagnostic(
+        code(crumbly::cli::invalid_result_limit),
+        help("Limit must be between 1 and 100")
+    )]
+    InvalidResultLimit {
+        source: crumbly_core::knowledge::domain::ResultLimitError,
+    },
+
     #[snafu(display("Invalid context path: {path}"))]
     #[diagnostic(
         code(crumbly::cli::invalid_context_path),

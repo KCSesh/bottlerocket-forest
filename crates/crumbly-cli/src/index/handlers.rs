@@ -10,7 +10,7 @@ use snafu::ResultExt;
 
 use crate::index::progress::CliProgressReporter;
 use crate::theme;
-use crumbly_core::knowledge::domain::ContextId;
+use crumbly_core::knowledge::domain::{ContextId, QueryText, ResultLimit};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -170,7 +170,8 @@ pub fn handle_clear(args: ClearArgs) -> Result<(), IndexError> {
 pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     use super::errors::index_error::*;
 
-    let limit = args.limit.unwrap_or(10);
+    let query = QueryText::try_new(&args.query).context(InvalidQuerySnafu)?;
+    let limit = ResultLimit::try_new(args.limit.unwrap_or(10)).context(InvalidResultLimitSnafu)?;
 
     let format = parse_output_format(args.format.as_deref())?;
 
@@ -200,7 +201,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     };
 
     let results = index
-        .search_in_context(&args.query, limit, context_id)
+        .search_in_context(query, limit, context_id)
         .context(KnowledgeIndexSnafu)?;
 
     let file_results = group_results_by_file(&results);
