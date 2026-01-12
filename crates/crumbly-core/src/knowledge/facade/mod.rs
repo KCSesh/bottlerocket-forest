@@ -7,6 +7,7 @@
 //!
 //! ```no_run
 //! use crumbly_core::knowledge::KnowledgeIndex;
+//! use crumbly_core::knowledge::domain::{QueryText, ResultLimit};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Open an index handle
@@ -17,7 +18,9 @@
 //! println!("Indexed {} files", result.files_processed);
 //!
 //! // Search
-//! let results = index.search("how does boot work", 10)?;
+//! let query = QueryText::try_new("how does boot work")?;
+//! let limit = ResultLimit::try_new(10)?;
+//! let results = index.search(query, limit)?;
 //! for result in results.results {
 //!     println!("Score: {}, File: {}", result.score, result.chunk.source.file_path);
 //! }
@@ -38,7 +41,9 @@ use snafu::ResultExt;
 use std::path::{Path, PathBuf};
 
 use crate::knowledge::constants::SEMBLY_DIR;
-use crate::knowledge::domain::{Context, ContextId, EmbeddingModelConfig, QueryText, ResultLimit, SearchResults};
+use crate::knowledge::domain::{
+    Context, ContextId, EmbeddingModelConfig, QueryText, ResultLimit, SearchResults,
+};
 use crate::knowledge::storage::ChunkRepository;
 use crate::knowledge::storage::StorageError;
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;

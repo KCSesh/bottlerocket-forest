@@ -25,11 +25,14 @@
 //!
 //! ```no_run
 //! use crumbly_core::knowledge::KnowledgeIndex;
+//! use crumbly_core::knowledge::domain::{QueryText, ResultLimit};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let index = KnowledgeIndex::open("/path/to/forest")?;
 //! let result = index.build().call()?;
-//! let results = index.search("boot process", 10)?;
+//! let query = QueryText::try_new("boot process")?;
+//! let limit = ResultLimit::try_new(10)?;
+//! let results = index.search(query, limit)?;
 //! # Ok(())
 //! # }
 //! ```
