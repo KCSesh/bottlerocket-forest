@@ -45,14 +45,10 @@ fn main() -> ExitCode {
 
     let violations = lint_crates(Path::new("crates"));
     for v in &violations {
-        eprint!(
-            "{}:{}: {}",
-            v.file.cyan(),
-            v.line.bold(),
-            v.message.yellow()
-        );
+        eprintln!("{}: {}", "warning".yellow().bold(), v.message.bold());
+        eprint!("  {} {}:{}", "-->".blue().bold(), v.file, v.line);
         if let Some(url) = v.doc_url {
-            eprint!(" {}", format!("See: {url}").dimmed());
+            eprint!(" {}", format!("({})", url).dimmed());
         }
         eprintln!();
     }
