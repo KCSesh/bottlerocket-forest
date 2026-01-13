@@ -1,3 +1,5 @@
+//! Forester CLI binary.
+
 use forester::cli;
 
 fn main() -> miette::Result<()> {

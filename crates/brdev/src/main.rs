@@ -1,3 +1,5 @@
+//! brdev CLI binary.
+
 use brdev::cli;
 
 fn main() -> miette::Result<()> {

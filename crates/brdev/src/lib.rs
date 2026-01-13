@@ -5,4 +5,5 @@
 
 pub mod cli;
 pub mod grove;
+/// Local OCI registry lifecycle and catalog operations.
 pub mod registry;

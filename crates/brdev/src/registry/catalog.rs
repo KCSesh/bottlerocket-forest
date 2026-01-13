@@ -64,10 +64,15 @@ struct ImageManifest {
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
 #[non_exhaustive]
 pub struct RegistryImage {
+    /// Repository name within the registry.
     pub repository: RepositoryName,
+    /// Image tag.
     pub tag: ImageTag,
+    /// Total image size in bytes.
     pub size_bytes: u64,
+    /// Content-addressable digest.
     pub digest: String,
+    /// Timestamp when the image was created.
     pub created: Option<DateTime<Utc>>,
 }
 
@@ -302,21 +307,42 @@ struct ConfigBlob {
     created: Option<DateTime<Utc>>,
 }
 
+/// Errors from catalog operations.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum CatalogError {
+    /// HTTP request to registry API failed.
     #[snafu(display("Failed to query registry API"))]
-    ApiRequest { source: reqwest::Error },
+    ApiRequest {
+        /// Underlying HTTP error.
+        source: reqwest::Error,
+    },
 
+    /// Failed to parse JSON response from registry.
     #[snafu(display("Failed to parse registry response"))]
-    ResponseParse { source: reqwest::Error },
+    ResponseParse {
+        /// Underlying parse error.
+        source: reqwest::Error,
+    },
 
+    /// Registry returned non-success HTTP status.
     #[snafu(display("Registry returned unexpected status: {status}"))]
-    UnexpectedResponse { status: u16 },
+    UnexpectedResponse {
+        /// HTTP status code.
+        status: u16,
+    },
 
+    /// Repository name does not match OCI naming rules.
     #[snafu(display("Invalid repository name: {name}"))]
-    InvalidRepositoryName { name: String },
+    InvalidRepositoryName {
+        /// The invalid name.
+        name: String,
+    },
 
+    /// Tag does not match OCI tag format.
     #[snafu(display("Invalid tag: {tag}"))]
-    InvalidTag { tag: String },
+    InvalidTag {
+        /// The invalid tag.
+        tag: String,
+    },
 }

@@ -30,6 +30,7 @@ pub struct RegistryUrl {
 }
 
 impl RegistryUrl {
+    /// Returns the port number.
     #[must_use]
     pub fn port(&self) -> u16 {
         self.port.into_inner()
@@ -64,9 +65,15 @@ impl Default for ImageRef {
 /// Current lifecycle state of the registry container.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryState {
+    /// Container does not exist.
     NotCreated,
+    /// Container exists but is not running.
     Stopped,
-    Running { url: RegistryUrl },
+    /// Container is running and accessible.
+    Running {
+        /// URL where the registry is accessible.
+        url: RegistryUrl,
+    },
 }
 
 /// Complete status information for the registry.
@@ -74,7 +81,9 @@ pub enum RegistryState {
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct RegistryStatus {
+    /// Current container lifecycle state.
     pub state: RegistryState,
+    /// Whether the persistent volume exists.
     pub volume_exists: bool,
 }
 
@@ -82,6 +91,7 @@ pub struct RegistryStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct RegistryRuntimeConfig {
+    /// Port the registry listens on.
     pub port: RegistryPort,
     pub(crate) image: ImageRef,
     pub(crate) container_name: ContainerName,

@@ -150,15 +150,25 @@ pub fn logs(config: &RegistryRuntimeConfig, follow: bool) -> Result<(), Registry
     Ok(())
 }
 
+/// Errors from registry operations.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum RegistryError {
+    /// Docker command failed.
     #[snafu(display("Docker operation failed"))]
-    Docker { source: docker::DockerError },
+    Docker {
+        /// Underlying Docker error.
+        source: docker::DockerError,
+    },
 
+    /// Registry health check failed.
     #[snafu(display("Health check failed"))]
-    HealthCheck { source: health::HealthError },
+    HealthCheck {
+        /// Underlying health check error.
+        source: health::HealthError,
+    },
 
+    /// Registry container is not running.
     #[snafu(display("Container is not running"))]
     ContainerNotRunning,
 }

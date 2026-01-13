@@ -84,21 +84,32 @@ fn derive_port(grove_name: &str) -> RegistryPort {
     RegistryPort::try_new(port).unwrap()
 }
 
+/// Errors that can occur when loading grove registry configuration.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum GroveRegistryConfigError {
+    /// Failed to read the port file.
     #[snafu(display("Failed to read port file: {}", path.display()))]
     PortFileRead {
+        /// Path to the port file.
         path: std::path::PathBuf,
+        /// Underlying I/O error.
         source: std::io::Error,
     },
 
+    /// Failed to parse port number from file.
     #[snafu(display("Failed to parse port file: {}", path.display()))]
     PortFileParse {
+        /// Path to the port file.
         path: std::path::PathBuf,
+        /// Underlying parse error.
         source: std::num::ParseIntError,
     },
 
+    /// Port number is outside valid range.
     #[snafu(display("Invalid port number"))]
-    InvalidPort { source: RegistryPortError },
+    InvalidPort {
+        /// Underlying port validation error.
+        source: RegistryPortError,
+    },
 }

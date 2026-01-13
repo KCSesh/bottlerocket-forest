@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct ForestConfig {
+    /// Core forest metadata.
     pub forest: ForestMeta,
+    /// Optional grove-specific configuration.
     #[serde(default)]
     pub grove: Option<GroveConfig>,
 }
@@ -43,9 +45,13 @@ pub struct SymlinkEntry {
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct Member {
+    /// Identifier for this member repository.
     pub name: String,
+    /// Git remote URL.
     pub remote: String,
+    /// Relative path within the grove.
     pub path: PathBuf,
+    /// Branch to check out by default.
     #[serde(default)]
     pub default_branch: Option<String>,
 }

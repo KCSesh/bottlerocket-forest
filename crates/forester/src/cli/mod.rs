@@ -7,14 +7,19 @@ mod seed;
 use clap::{Parser, Subcommand, ValueEnum};
 use std::io::IsTerminal;
 
+/// Controls terminal color output behavior.
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 pub enum ColorChoice {
+    /// Detect terminal capability automatically.
     #[default]
     Auto,
+    /// Always emit color codes.
     Always,
+    /// Never emit color codes.
     Never,
 }
 
+/// Command-line interface for forester.
 #[derive(Parser)]
 #[command(name = "forester")]
 #[command(about = "Generic forest management for multi-repo projects")]
@@ -38,6 +43,7 @@ enum Command {
     Grove(grove::GroveCommand),
 }
 
+/// Parses CLI arguments and executes the requested command.
 pub fn run() -> miette::Result<()> {
     let cli = Cli::parse();
 

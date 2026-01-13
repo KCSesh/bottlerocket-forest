@@ -43,6 +43,7 @@ enum Command {
     Twoliter(twoliter::TwoliterCommand),
 }
 
+/// Parses CLI arguments and executes the requested command.
 pub fn run() -> Result<(), CliError> {
     use cli_error::*;
 
@@ -66,20 +67,29 @@ pub fn run() -> Result<(), CliError> {
     Ok(())
 }
 
+/// Errors from CLI command execution.
 #[derive(Debug, Snafu, miette::Diagnostic)]
 #[snafu(module)]
 pub enum CliError {
+    /// Registry subcommand failed.
     #[snafu(display("Registry command failed"))]
     #[diagnostic(
         code(forester::cli::registry_command_failed),
         help("Check the error details above for specific guidance")
     )]
-    Registry { source: registry::RegistryError },
+    Registry {
+        /// Underlying registry error.
+        source: registry::RegistryError,
+    },
 
+    /// Twoliter subcommand failed.
     #[snafu(display("Twoliter command failed"))]
     #[diagnostic(
         code(brdev::cli::twoliter_command_failed),
         help("Check the error details above for specific guidance")
     )]
-    Twoliter { source: twoliter::TwoliterError },
+    Twoliter {
+        /// Underlying twoliter error.
+        source: twoliter::TwoliterError,
+    },
 }

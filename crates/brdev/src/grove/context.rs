@@ -48,15 +48,22 @@ impl GroveContext {
     }
 }
 
+/// Errors that can occur when resolving grove context.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum GroveContextError {
+    /// Current directory is not within a grove.
     #[snafu(display("Not in a grove (no .grove/ directory found)"))]
     NotInGrove,
 
+    /// Failed to determine current working directory.
     #[snafu(display("Failed to get current directory"))]
-    CurrentDir { source: std::io::Error },
+    CurrentDir {
+        /// Underlying I/O error.
+        source: std::io::Error,
+    },
 
+    /// Grove directory name is not valid UTF-8.
     #[snafu(display("Grove directory has invalid name"))]
     InvalidName,
 }

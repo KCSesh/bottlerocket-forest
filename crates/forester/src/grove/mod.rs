@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use tracing::instrument;
 
+/// Coordinates grove lifecycle operations across member repositories.
 #[derive(Debug)]
 pub struct ForestManager {
     root: PathBuf,
@@ -17,6 +18,7 @@ pub struct ForestManager {
 }
 
 impl ForestManager {
+    /// Creates a new forest manager for the given root directory.
     pub fn new(root: PathBuf, config: ForestConfig) -> Self {
         Self { root, config }
     }
@@ -29,6 +31,7 @@ impl ForestManager {
         self.root.join("groves")
     }
 
+    /// Clones all member repositories as bare repos and prepares the forest.
     #[instrument(skip(self), err)]
     pub fn seed(&self, verbose: bool) -> Result<(), Error> {
         let bare_dir = self.bare_dir();
@@ -255,6 +258,7 @@ targets = [
     }
 
     #[instrument(skip(self), err)]
+    /// Creates a new grove with worktrees for all member repositories.
     pub fn create_grove(
         &self,
         name: &str,
@@ -408,6 +412,7 @@ targets = [
     }
 
     #[instrument(skip(self), err)]
+    /// Returns the names of all existing groves.
     pub fn list_groves(&self) -> Result<Vec<String>, Error> {
         let wt_dir = self.groves_dir();
         if !wt_dir.exists() {
@@ -432,6 +437,7 @@ targets = [
     }
 
     #[instrument(skip(self), err)]
+    /// Removes a grove and its associated worktrees.
     pub fn remove_grove(&self, name: &str, _force: bool) -> Result<(), Error> {
         let wt_dir = self.groves_dir().join(name);
         if !wt_dir.exists() {

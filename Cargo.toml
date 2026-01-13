@@ -89,3 +89,6 @@ test-case = "3"
 all = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
+
+[workspace.lints.rust]
+missing_docs = "deny"
