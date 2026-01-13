@@ -13,20 +13,28 @@ use crate::knowledge::domain::{DocLineCount, Visibility};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RustItemType {
+    /// Module declarations.
     #[serde(rename = "modules")]
     Module,
+    /// Function definitions.
     #[serde(rename = "functions")]
     Function,
+    /// Struct definitions.
     #[serde(rename = "structs")]
     Struct,
+    /// Enum definitions.
     #[serde(rename = "enums")]
     Enum,
+    /// Trait definitions.
     #[serde(rename = "traits")]
     Trait,
+    /// Impl blocks.
     #[serde(rename = "impls")]
     Impl,
+    /// Type alias definitions.
     #[serde(rename = "type-aliases")]
     TypeAlias,
+    /// Constant definitions.
     #[serde(rename = "constants")]
     Constant,
 }
@@ -38,19 +46,27 @@ pub enum RustItemType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GoItemType {
+    /// All item types.
     All,
+    /// Function definitions.
     #[serde(rename = "functions")]
     Function,
+    /// Method definitions.
     #[serde(rename = "methods")]
     Method,
+    /// Struct definitions.
     #[serde(rename = "structs")]
     Struct,
+    /// Interface definitions.
     #[serde(rename = "interfaces")]
     Interface,
+    /// Type definitions.
     #[serde(rename = "types")]
     Type,
+    /// Constant definitions.
     #[serde(rename = "constants")]
     Const,
+    /// Variable definitions.
     #[serde(rename = "variables")]
     Var,
 }

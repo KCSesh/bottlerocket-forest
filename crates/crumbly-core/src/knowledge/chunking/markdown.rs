@@ -42,6 +42,7 @@ impl MarkdownChunker {
             .context(TokenizerInitSnafu)?;
 
         let splitter = MarkdownSplitter::new(
+            #[expect(clippy::expect_used)]
             ChunkConfig::new(config.max_tokens)
                 .with_sizer(tokenizer)
                 .with_overlap(config.overlap_tokens)
@@ -159,11 +160,10 @@ impl ChunkingStrategy for MarkdownChunker {
                     .content(
                         ChunkContent::builder()
                             .text(trimmed)
-                            .token_count(
-                                // SAFETY: token_count is encoding.len().max(1), always >= 1.
-                                // TokenCount validates > 0, so try_new cannot fail.
-                                TokenCount::try_new(token_count).expect("token_count >= 1"),
-                            )
+                            .token_count({
+                                #[expect(clippy::expect_used)]
+                                TokenCount::try_new(token_count).expect("token_count >= 1")
+                            })
                             .build(),
                     )
                     .context(ChunkContext::Markdown(

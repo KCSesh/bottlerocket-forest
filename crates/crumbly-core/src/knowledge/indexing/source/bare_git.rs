@@ -25,18 +25,24 @@ pub struct GitRev(String);
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct GitBlobRef {
+    /// Name of the repository.
     repo_name: RepoName,
+    /// Git revision (branch, tag, or SHA).
     rev: GitRev,
+    /// Path to the file within the repository.
     path: IndexRelativePath,
 }
 
 impl GitBlobRef {
+    /// Returns the repository name.
     pub fn repo_name(&self) -> &RepoName {
         &self.repo_name
     }
+    /// Returns the git revision.
     pub fn rev(&self) -> &GitRev {
         &self.rev
     }
+    /// Returns the file path within the repository.
     pub fn path(&self) -> &IndexRelativePath {
         &self.path
     }
@@ -51,6 +57,7 @@ pub struct BareGitSource {
 }
 
 impl BareGitSource {
+    /// Creates a new bare git source.
     pub fn new(bare_repos_dir: impl Into<PathBuf>, rev: GitRev, filter: IndexingFilter) -> Self {
         Self {
             bare_repos_dir: bare_repos_dir.into(),
@@ -181,18 +188,30 @@ impl ContentSource for BareGitSource {
     }
 }
 
+/// Errors from bare git repository operations.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum BareGitSourceError {
+    /// Failed to read a directory.
     #[snafu(display("Failed to read directory '{}'", path.display()))]
     ReadDir {
+        /// Directory path.
         path: PathBuf,
+        /// Underlying I/O error.
         source: std::io::Error,
     },
 
+    /// Failed to execute a git command.
     #[snafu(display("Failed to execute git command"))]
-    GitCommand { source: std::io::Error },
+    GitCommand {
+        /// Underlying I/O error.
+        source: std::io::Error,
+    },
 
+    /// Git command returned non-zero exit status.
     #[snafu(display("Git command failed: {stderr}"))]
-    GitFailed { stderr: String },
+    GitFailed {
+        /// Error output from git.
+        stderr: String,
+    },
 }

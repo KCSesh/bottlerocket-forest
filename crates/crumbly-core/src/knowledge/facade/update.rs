@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::knowledge::domain::{BatchSize, ContextId};
 use crate::knowledge::indexing::{IndexResult, ProgressReporter};
 
+#[expect(clippy::expect_used)]
 fn default_batch_size() -> BatchSize {
     BatchSize::try_new(100).expect("100 is valid batch size")
 }

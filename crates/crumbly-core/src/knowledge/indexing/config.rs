@@ -281,26 +281,28 @@ pub fn load_crumbly_config(
     Ok(Some(config))
 }
 
-/// Errors that can occur when loading crumbly configuration
+/// Errors that can occur when loading crumbly configuration.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
+#[allow(missing_docs)]
 #[non_exhaustive]
 pub enum CrumblyConfigError {
+    /// Failed to read the configuration file.
     #[snafu(display("Failed to read config file: {path}"))]
     IoError {
         path: String,
         source: std::io::Error,
     },
-
+    /// Configuration file contains invalid TOML.
     #[snafu(display("Failed to parse TOML config"))]
     ParseError { source: toml::de::Error },
-
+    /// Target path is invalid (e.g., absolute path).
     #[snafu(display("Invalid target path: {path}"))]
     InvalidPath { path: String },
-
+    /// Target path would escape the forest root directory.
     #[snafu(display("Target path escapes forest root: {path}"))]
     PathEscapesRoot { path: String },
-
+    /// Unrecognized item type in configuration.
     #[snafu(display("Invalid item type in configuration"))]
     InvalidItemType,
 }

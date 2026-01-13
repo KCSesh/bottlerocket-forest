@@ -14,49 +14,49 @@ impl Rule for SnafuDisplayNoSource {
     }
 
     fn check(&self, path: &Path, file: &File) -> Vec<Violation> {
-        let mut violations = Vec::new();
-        for item in &file.items {
-            if let syn::Item::Enum(e) = item {
-                for variant in &e.variants {
-                    if let Some(line) = has_source_in_display(&variant.attrs) {
-                        violations.push(Violation {
-                            file: path.display().to_string(),
-                            line,
-                            message: format!(
-                                "variant `{}::{}` has {{source}} in snafu display message",
-                                e.ident, variant.ident
-                            ),
-                            doc_url: Some("docs/style/rust-design.md#key-snafu-rules"),
-                        });
-                    }
-                }
-            }
-        }
-        violations
+        file.items
+            .iter()
+            .filter_map(|item| match item {
+                syn::Item::Enum(e) => Some(e),
+                _ => None,
+            })
+            .flat_map(|e| {
+                e.variants.iter().filter_map(|v| {
+                    has_source_in_display(&v.attrs).map(|line| Violation {
+                        file: path.display().to_string(),
+                        line,
+                        message: format!(
+                            "variant `{}::{}` has {{source}} in snafu display message",
+                            e.ident, v.ident
+                        ),
+                        doc_url: Some("docs/style/rust-design.md#key-snafu-rules"),
+                    })
+                })
+            })
+            .collect()
     }
 }
 
 fn has_source_in_display(attrs: &[syn::Attribute]) -> Option<usize> {
-    for attr in attrs {
-        if !attr.path().is_ident("snafu") {
-            continue;
-        }
-        let mut found_line = None;
-        let _ = attr.parse_nested_meta(|m| {
-            if m.path.is_ident("display") {
-                let content;
-                syn::parenthesized!(content in m.input);
-                if let Ok(lit) = content.parse::<syn::LitStr>() {
-                    if lit.value().contains("{source}") {
-                        found_line = Some(lit.span().start().line);
-                    }
-                }
+    attrs
+        .iter()
+        .filter(|a| a.path().is_ident("snafu"))
+        .find_map(check_snafu_attr)
+}
+
+fn check_snafu_attr(attr: &syn::Attribute) -> Option<usize> {
+    let mut found_line = None;
+    let _ = attr.parse_nested_meta(|m| {
+        if m.path.is_ident("display") {
+            let content;
+            syn::parenthesized!(content in m.input);
+            if let Ok(lit) = content.parse::<syn::LitStr>()
+                && lit.value().contains("{source}")
+            {
+                found_line = Some(lit.span().start().line);
             }
-            Ok(())
-        });
-        if found_line.is_some() {
-            return found_line;
         }
-    }
-    None
+        Ok(())
+    });
+    found_line
 }

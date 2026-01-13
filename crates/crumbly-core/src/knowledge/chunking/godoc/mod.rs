@@ -83,6 +83,7 @@ impl GoDocChunker {
         let tokenizer_for_counting = tokenizer.clone();
 
         let splitter = TextSplitter::new(
+            #[expect(clippy::expect_used)]
             ChunkConfig::new(config.max_tokens)
                 .with_sizer(tokenizer)
                 .with_overlap(config.overlap_tokens)
@@ -109,6 +110,7 @@ impl GoDocChunker {
         )
     }
 
+    #[expect(clippy::too_many_arguments)]
     fn process_declaration(
         &self,
         node: tree_sitter::Node,

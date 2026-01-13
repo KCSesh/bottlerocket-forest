@@ -58,14 +58,17 @@ impl Default for ScoreBooster {
     }
 }
 
-/// Errors that can occur when applying score boosts
+/// Errors that can occur when applying score boosts.
 #[derive(Debug, snafu::Snafu)]
 #[snafu(module)]
 #[non_exhaustive]
 pub enum RelevanceScoreError {
+    /// Boosted score could not be converted to a valid relevance score.
     #[snafu(display("Invalid relevance score: {score}"))]
     InvalidScore {
+        /// The invalid score value.
         score: f32,
+        /// Underlying validation error.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 }

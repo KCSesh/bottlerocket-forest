@@ -22,10 +22,14 @@ use crate::knowledge::domain::{FileType, IndexRelativePath, RepoName};
 
 /// Provides content for indexing from various backends.
 pub trait ContentSource: Send + Sync {
+    /// Error type for this source.
     type Error: std::error::Error + Send + Sync + 'static;
+    /// Identifier type for content entries.
     type EntryId: Clone + Send + Sync + std::fmt::Debug;
 
+    /// Discover all indexable content entries.
     fn scan(&self) -> Result<Vec<ContentEntry<Self::EntryId>>, Self::Error>;
+    /// Fetch the content of a specific entry.
     fn fetch(&self, entry: &ContentEntry<Self::EntryId>) -> Result<String, Self::Error>;
 }
 
@@ -34,8 +38,12 @@ pub trait ContentSource: Send + Sync {
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct ContentEntry<Id> {
+    /// Source-specific identifier for fetching content.
     pub id: Id,
+    /// Path relative to the index root.
     pub relative_path: IndexRelativePath,
+    /// Name of the repository containing this content.
     pub repo_name: RepoName,
+    /// Detected file type.
     pub file_type: FileType,
 }

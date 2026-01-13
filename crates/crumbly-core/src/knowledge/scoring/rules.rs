@@ -31,8 +31,8 @@ use crate::knowledge::domain::{Chunk, IndexRelativePath};
 pub struct BoostMultiplier(f32);
 
 impl Default for BoostMultiplier {
+    #[expect(clippy::expect_used)]
     fn default() -> Self {
-        // SAFETY: 1.0 is within valid range [0.1, 10.0]
         Self::try_new(1.0).expect("1.0 in valid range")
     }
 }
@@ -89,11 +89,9 @@ impl BoostPattern {
         })
     }
 
-    /// Get or lazily compile the glob matcher
+    #[expect(clippy::expect_used)]
     fn get_matcher(&self) -> GlobMatcher {
         self.matcher.clone().unwrap_or_else(|| {
-            // SAFETY: Pattern was validated in BoostPattern::new() or deserialized from
-            // a previously valid pattern. Invalid patterns fail at construction time.
             Glob::new(&self.pattern)
                 .expect("pattern validated at construction")
                 .compile_matcher()
@@ -118,9 +116,8 @@ impl Eq for BoostPattern {}
 /// Default boost rules prioritizing documentation over source code
 ///
 /// Rules are evaluated in order, with the first match being applied.
+#[expect(clippy::expect_used)]
 pub fn default_boost_rules() -> Vec<BoostRule> {
-    // SAFETY: All patterns and multipliers below are hardcoded valid values.
-    // Patterns are valid glob syntax, multipliers are in range [0.1, 10.0].
     vec![
         BoostRule::builder()
             .description("README files (highest priority documentation)")

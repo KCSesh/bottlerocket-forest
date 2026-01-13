@@ -5,18 +5,23 @@
 
 use std::path::Path;
 
-/// File classification determining indexing strategy
+/// File classification determining indexing strategy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FileType {
+    /// Markdown documentation files.
     Markdown,
+    /// Rust source files.
     Rust,
+    /// Go source files.
     Go,
+    /// Files that cannot be indexed.
     #[serde(skip)]
     Unsupported,
 }
 
 impl FileType {
+    /// Classifies a file by its extension.
     pub fn from_path(path: &Path) -> Self {
         match path.extension().and_then(|s| s.to_str()) {
             Some("md") => Self::Markdown,
@@ -26,6 +31,7 @@ impl FileType {
         }
     }
 
+    /// Returns true if this file type can be indexed.
     pub fn is_indexable(&self) -> bool {
         matches!(self, Self::Markdown | Self::Rust | Self::Go)
     }

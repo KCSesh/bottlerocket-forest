@@ -42,8 +42,8 @@ pub(super) fn group_results_by_file(results: &SearchResults) -> Vec<FileSearchRe
             let best_score = chunks
                 .iter()
                 .map(|r| r.score)
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
-                .unwrap_or_else(|| RelevanceScore::try_new(0.0).unwrap());
+                .max_by(|a, b| a.cmp(b))
+                .unwrap_or_else(RelevanceScore::zero);
 
             FileSearchResult::builder()
                 .file_path(path)
@@ -57,8 +57,7 @@ pub(super) fn group_results_by_file(results: &SearchResults) -> Vec<FileSearchRe
 
     file_results.sort_by(|a, b| {
         b.best_score
-            .partial_cmp(&a.best_score)
-            .unwrap()
+            .cmp(&a.best_score)
             .then_with(|| b.match_count.cmp(&a.match_count))
     });
 

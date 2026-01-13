@@ -26,12 +26,18 @@ use crate::knowledge::storage::{ChunkRepository, StorageError};
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct ChunkCacher<S: ContentSource, R: ChunkRepository> {
+    /// Content source to read from.
     source: S,
+    /// Dispatcher for chunking content by file type.
     dispatcher: ChunkingDispatcher,
+    /// Repository for storing indexed chunks.
     repository: R,
+    /// Provider for generating embeddings.
     provider: Box<dyn IndexDataProvider>,
+    /// Configuration for batch operations.
     #[builder(default)]
     batch_config: BatchConfig,
+    /// Optional progress reporter.
     progress: Option<Arc<dyn ProgressReporter>>,
 }
 
@@ -136,28 +142,57 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
     }
 }
 
+/// Errors that can occur during chunk caching.
 #[derive(Debug, Snafu)]
-#[snafu(module, visibility(pub))]
+#[snafu(module, visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum CacheError<E: std::error::Error + 'static> {
+    /// Failed to scan the content source for entries.
     #[snafu(display("Failed to scan content source"))]
-    ScanFailed { source: E },
+    ScanFailed {
+        /// Underlying source error.
+        source: E,
+    },
 
+    /// Failed to fetch content from an entry.
     #[snafu(display("Failed to fetch content"))]
-    FetchFailed { source: E },
+    FetchFailed {
+        /// Underlying source error.
+        source: E,
+    },
 
+    /// Failed to chunk content into segments.
     #[snafu(display("Failed to chunk content"))]
-    ChunkingFailed { source: DispatchError },
+    ChunkingFailed {
+        /// Underlying chunking error.
+        source: DispatchError,
+    },
 
+    /// Failed to generate embeddings for chunks.
     #[snafu(display("Failed to generate embeddings"))]
-    EmbeddingFailed { source: IndexDataError },
+    EmbeddingFailed {
+        /// Underlying embedding error.
+        source: IndexDataError,
+    },
 
+    /// Failed to save chunks to storage.
     #[snafu(display("Failed to save to storage"))]
-    StorageFailed { source: StorageError },
+    StorageFailed {
+        /// Underlying storage error.
+        source: StorageError,
+    },
 
+    /// Failed to compute file content hash.
     #[snafu(display("Failed to compute file hash"))]
-    HashCompute { source: std::io::Error },
+    HashCompute {
+        /// Underlying I/O error.
+        source: std::io::Error,
+    },
 
+    /// Failed to initialize the chunking dispatcher.
     #[snafu(display("Failed to initialize dispatcher"))]
-    DispatcherInit { source: DispatchError },
+    DispatcherInit {
+        /// Underlying dispatch error.
+        source: DispatchError,
+    },
 }

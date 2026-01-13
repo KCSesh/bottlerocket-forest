@@ -120,88 +120,130 @@ pub trait ContextRepository {
     fn remove_context(&self, context_id: &ContextId) -> Result<(), ContextRepositoryError>;
 }
 
+/// Errors that can occur during context storage operations.
 #[derive(Debug, Snafu, miette::Diagnostic)]
-#[snafu(module, visibility(pub))]
+#[doc(hidden)]
+#[snafu(module(context_repository_error), visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum ContextRepositoryError {
+    /// Database query or transaction failed.
     #[snafu(display("Database operation failed"))]
     #[diagnostic(
         code(crumbly::context::database_error),
         help("The database may be locked, corrupted, or out of disk space")
     )]
-    DatabaseError { source: rusqlite::Error },
+    DatabaseError {
+        /// Underlying database error.
+        source: rusqlite::Error,
+    },
 
+    /// Requested context does not exist.
     #[snafu(display("Context not found: {context_id}"))]
     #[diagnostic(
         code(crumbly::context::not_found),
         help("Use `crumbly context list` to see available contexts")
     )]
-    NotFound { context_id: String },
+    NotFound {
+        /// ID of the missing context.
+        context_id: String,
+    },
 
+    /// Context with this ID already registered.
     #[snafu(display("Context already exists: {context_id}"))]
     #[diagnostic(
         code(crumbly::context::already_exists),
         help("Use a different path or remove the existing context first")
     )]
-    AlreadyExists { context_id: String },
+    AlreadyExists {
+        /// ID of the existing context.
+        context_id: String,
+    },
 }
 
+/// Errors that can occur during chunk storage operations.
 #[derive(Debug, Snafu, miette::Diagnostic)]
-#[snafu(module, visibility(pub))]
+#[doc(hidden)]
+#[snafu(module(storage_error), visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum StorageError {
+    /// Database query or transaction failed.
     #[snafu(display("Database operation failed"))]
     #[diagnostic(
         code(crumbly::storage::database_error),
         help("The database may be locked, corrupted, or out of disk space")
     )]
-    DatabaseError { source: rusqlite::Error },
+    DatabaseError {
+        /// Underlying database error.
+        source: rusqlite::Error,
+    },
 
+    /// JSON serialization of chunk data failed.
     #[snafu(display("Failed to serialize chunk data to JSON"))]
     #[diagnostic(
         code(crumbly::storage::serialization_error),
         help("The chunk may contain invalid UTF-8 or unsupported characters")
     )]
-    SerializationError { source: serde_json::Error },
+    SerializationError {
+        /// Underlying serialization error.
+        source: serde_json::Error,
+    },
 
+    /// Database contains malformed or unexpected data.
     #[snafu(display("Invalid data in database: {message}"))]
     #[diagnostic(
         code(crumbly::storage::invalid_data),
         help("The database may be corrupted. Try running `crumbly rebuild`")
     )]
-    InvalidData { message: String },
+    InvalidData {
+        /// Description of the invalid data.
+        message: String,
+    },
 
+    /// Database field contains an invalid value.
     #[snafu(display("Invalid value in database field '{field}'"))]
     #[diagnostic(
         code(crumbly::storage::invalid_field),
         help("The database schema may be incompatible with this version")
     )]
     InvalidField {
+        /// Name of the invalid field.
         field: String,
+        /// Underlying parse or conversion error.
         source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 
+    /// Requested chunk does not exist in the index.
     #[snafu(display("Chunk not found in index: {id:?}"))]
     #[diagnostic(
         code(crumbly::storage::not_found),
         help("The chunk may have been deleted or the index may be out of sync")
     )]
-    NotFound { id: ChunkId },
+    NotFound {
+        /// ID of the missing chunk.
+        id: ChunkId,
+    },
 
+    /// Operation requires a different index mode.
     #[snafu(display("Operation not supported in current index mode: {operation}"))]
     #[diagnostic(
         code(crumbly::storage::unsupported_operation),
         help("This operation requires a different index mode")
     )]
-    UnsupportedOperation { operation: String },
+    UnsupportedOperation {
+        /// Name of the unsupported operation.
+        operation: String,
+    },
 
+    /// Index was built with different embedding configuration.
     #[snafu(display("Index configuration mismatch\nExpected: {expected:?}\nFound: {actual:?}"))]
     #[diagnostic(
         code(crumbly::storage::config_mismatch),
         help("Run `crumbly rebuild` to recreate the index with the current configuration")
     )]
     ConfigMismatch {
+        /// Configuration expected by the application.
         expected: EmbeddingModelConfig,
+        /// Configuration found in the index.
         actual: EmbeddingModelConfig,
     },
 }

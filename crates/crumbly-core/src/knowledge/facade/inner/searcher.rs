@@ -14,6 +14,7 @@ pub(in crate::knowledge::facade) fn search(
 ) -> Result<SearchResults, IndexError> {
     use crate::knowledge::facade::types::index_error::*;
 
+    #[expect(clippy::expect_used)]
     let context_id = ContextId::from_path(".").expect("'.' is valid context id");
 
     let search_query = SearchQuery::builder()

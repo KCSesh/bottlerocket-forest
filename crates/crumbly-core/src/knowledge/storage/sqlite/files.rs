@@ -10,16 +10,23 @@ use crate::knowledge::domain::{ContextId, FileHash, IndexRelativePath, IndexedFi
 
 /// Errors that can occur during indexed file storage operations.
 #[derive(Debug, Snafu)]
-#[snafu(module, visibility(pub))]
+#[doc(hidden)]
+#[snafu(module(indexed_file_error), visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum IndexedFileError {
-    /// Database operation failed.
+    /// Database query or transaction failed.
     #[snafu(display("Database operation failed"))]
-    Database { source: rusqlite::Error },
+    Database {
+        /// Underlying database error.
+        source: rusqlite::Error,
+    },
 
-    /// Invalid data retrieved from database.
+    /// Database contains malformed or unexpected data.
     #[snafu(display("Invalid data in database: {message}"))]
-    InvalidData { message: String },
+    InvalidData {
+        /// Description of the invalid data.
+        message: String,
+    },
 }
 
 /// Inserts or updates an indexed file record.

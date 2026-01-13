@@ -60,6 +60,7 @@ impl RustDocChunker {
             .context(TokenizerInitSnafu)?;
 
         let splitter = TextSplitter::new(
+            #[expect(clippy::expect_used)]
             ChunkConfig::new(config.max_tokens)
                 .with_sizer(tokenizer)
                 .with_overlap(config.overlap_tokens)

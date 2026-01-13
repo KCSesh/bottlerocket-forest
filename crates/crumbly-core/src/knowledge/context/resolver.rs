@@ -67,6 +67,7 @@ pub fn resolve_context<R: ContextRepository>(
 
     // Sort by path length descending to get the most specific (longest) matching context first
     matching.sort_by_key(|ctx| std::cmp::Reverse(ctx.context_id.as_str().len()));
+    #[expect(clippy::unwrap_used)]
     Ok(matching.into_iter().next().unwrap())
 }
 
@@ -77,15 +78,22 @@ pub fn resolve_context<R: ContextRepository>(
 pub enum ResolutionError {
     /// The current directory is outside the workspace.
     #[snafu(display("Path is outside workspace: {path}"))]
-    PathOutsideWorkspace { path: String },
+    PathOutsideWorkspace {
+        /// Path that is outside the workspace.
+        path: String,
+    },
 
     /// No registered context matches the current directory.
     #[snafu(display("No matching context for current directory"))]
-    NoMatchingContext { available_contexts: Vec<ContextId> },
+    NoMatchingContext {
+        /// List of contexts that are registered.
+        available_contexts: Vec<ContextId>,
+    },
 
     /// Failed to query the context repository.
     #[snafu(display("Failed to query contexts"))]
     RepositoryError {
+        /// Underlying repository error.
         source: crate::knowledge::storage::ContextRepositoryError,
     },
 }

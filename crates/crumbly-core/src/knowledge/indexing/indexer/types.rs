@@ -12,14 +12,15 @@ use crate::knowledge::storage::StorageError;
 
 use super::super::{DispatchError, IndexDataError, ScanError};
 
-/// Configuration for batch writing during indexing
+/// Configuration for batch writing during indexing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchConfig {
-    /// Number of chunks to accumulate before writing to storage
+    /// Number of chunks to accumulate before writing to storage.
     pub batch_size: BatchSize,
 }
 
 impl Default for BatchConfig {
+    #[expect(clippy::expect_used)]
     fn default() -> Self {
         Self {
             batch_size: BatchSize::try_new(100).expect("100 is valid batch size"),
@@ -59,31 +60,47 @@ pub struct IndexResult {
 #[snafu(module, visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum IndexingError {
+    /// Failed to scan the forest directory for files.
     #[snafu(display("Failed to scan files in forest directory"))]
     #[diagnostic(
         code(crumbly::indexing::scan_failed),
         help("Check that the directory is readable and contains valid Bottlerocket repositories")
     )]
-    ScanFailed { source: ScanError },
+    ScanFailed {
+        /// Underlying scan error.
+        source: ScanError,
+    },
 
+    /// Failed to chunk a file into searchable segments.
     #[snafu(display("Failed to chunk file into searchable segments"))]
     #[diagnostic(
         code(crumbly::indexing::chunking_failed),
         help("The file may contain invalid syntax or unsupported content")
     )]
-    ChunkingFailed { source: DispatchError },
+    ChunkingFailed {
+        /// Underlying chunking error.
+        source: DispatchError,
+    },
 
+    /// Failed to generate embeddings for chunks.
     #[snafu(display("Failed to generate search index data for chunks"))]
     #[diagnostic(
         code(crumbly::indexing::index_data_generation_failed),
         help("This may be due to embedding model issues or invalid text content")
     )]
-    IndexDataGenerationFailed { source: IndexDataError },
+    IndexDataGenerationFailed {
+        /// Underlying embedding error.
+        source: IndexDataError,
+    },
 
+    /// Failed to persist indexed chunks to storage.
     #[snafu(display("Failed to save indexed chunks to database"))]
     #[diagnostic(
         code(crumbly::indexing::storage_failed),
         help("Check available disk space and database permissions")
     )]
-    StorageFailed { source: StorageError },
+    StorageFailed {
+        /// Underlying storage error.
+        source: StorageError,
+    },
 }

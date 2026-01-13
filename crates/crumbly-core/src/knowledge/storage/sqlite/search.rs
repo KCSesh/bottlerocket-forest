@@ -95,8 +95,8 @@ pub fn search_semantic(
             // Update the chunk's file_path from indexed_files
             chunk.chunk.source.file_path = file_path.clone();
             let similarity = (1.0 - distance).clamp(0.0, 1.0);
-            let score = RelevanceScore::try_new(similarity)
-                .unwrap_or_else(|_| RelevanceScore::try_new(0.0).unwrap());
+            let score =
+                RelevanceScore::try_new(similarity).unwrap_or_else(|_| RelevanceScore::zero());
             results.push((chunk, score));
 
             if results.len() >= limit.into_inner() {

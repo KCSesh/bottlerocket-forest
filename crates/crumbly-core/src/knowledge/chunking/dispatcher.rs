@@ -65,10 +65,12 @@ impl ChunkingDispatcher {
     }
 }
 
+/// Errors from the chunking dispatcher.
 #[derive(Debug, Snafu, miette::Diagnostic)]
 #[snafu(module, visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum DispatchError {
+    /// No strategy supports this file type.
     #[snafu(display("No chunking strategy available for this file type"))]
     #[diagnostic(
         code(crumbly::chunking::no_strategy_found),
@@ -76,19 +78,27 @@ pub enum DispatchError {
     )]
     NoStrategyFound,
 
+    /// Chunking strategy returned an error.
     #[snafu(display("Failed to chunk file content into searchable segments"))]
     #[diagnostic(
         code(crumbly::chunking::chunking_failed),
         help("The file may contain invalid syntax or exceed size limits")
     )]
-    ChunkingFailed { source: ChunkingError },
+    ChunkingFailed {
+        /// Underlying chunking error.
+        source: ChunkingError,
+    },
 
+    /// Strategy initialization failed.
     #[snafu(display("Failed to initialize chunking strategy"))]
     #[diagnostic(
         code(crumbly::chunking::strategy_init_failed),
         help("Check that the embedding model configuration is valid")
     )]
-    StrategyInitFailed { source: ChunkingError },
+    StrategyInitFailed {
+        /// Underlying chunking error.
+        source: ChunkingError,
+    },
 }
 
 #[cfg(test)]

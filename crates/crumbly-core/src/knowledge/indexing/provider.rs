@@ -59,16 +59,19 @@ pub trait IndexDataProvider: Send + Sync {
 }
 
 /// Errors that can occur during index data generation
+/// Errors that can occur during index data generation.
 #[derive(Debug, Snafu, miette::Diagnostic)]
 #[snafu(module)]
 #[non_exhaustive]
 pub enum IndexDataError {
+    /// Failed to generate an embedding vector.
     #[snafu(display("Failed to generate embedding"))]
     #[diagnostic(
         code(crumbly::indexing::embedding_failed),
         help("The embedding model may not be loaded or the text may be invalid")
     )]
     EmbeddingFailed {
+        /// Underlying embedding error.
         source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 }

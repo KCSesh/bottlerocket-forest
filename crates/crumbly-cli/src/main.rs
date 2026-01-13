@@ -1,3 +1,5 @@
+//! Crumbly CLI - semantic search tool for documentation.
+
 use std::io::IsTerminal;
 
 use clap::{Parser, Subcommand, ValueEnum};

@@ -13,9 +13,14 @@ use crate::knowledge::domain::EmbeddingModelConfig;
 #[snafu(module)]
 #[non_exhaustive]
 pub enum SchemaError {
+    /// SQL statement execution failed.
     #[snafu(display("Failed to execute SQL"))]
-    SqlExecution { source: rusqlite::Error },
+    SqlExecution {
+        /// Underlying database error.
+        source: rusqlite::Error,
+    },
 
+    /// Database schema version incompatible with application.
     #[snafu(display(
         "Schema version mismatch: stored version {stored}, expected version {expected}"
     ))]
@@ -24,7 +29,12 @@ pub enum SchemaError {
         code(crumbly::schema::version_mismatch),
         help("Run `crumbly rebuild` to recreate the index with the current schema")
     )]
-    SchemaMismatch { stored: u32, expected: u32 },
+    SchemaMismatch {
+        /// Version found in the database.
+        stored: u32,
+        /// Version expected by the application.
+        expected: u32,
+    },
 }
 
 type Result<T> = std::result::Result<T, SchemaError>;

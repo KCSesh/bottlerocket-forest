@@ -33,18 +33,20 @@ pub use search::{
     DEFAULT_RESULT_LIMIT, FileSearchResult, SearchQuery, SearchResult, SearchResults,
 };
 
-/// Controls which files are scanned during indexing
+/// Controls which files are scanned during indexing.
 #[derive(Debug, Clone, Builder)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct ScanConfig {
+    /// Whether to respect .gitignore rules.
     #[builder(default = true)]
     pub respect_gitignore: bool,
 
+    /// Whether to use .crumblyignore rules.
     #[builder(default = true)]
     pub use_crumblyignore: bool,
 
-    /// Empty means scan entire forest root; non-empty restricts to specified paths
+    /// Empty means scan entire forest root; non-empty restricts to specified paths.
     #[builder(default)]
     pub targets: Vec<PathBuf>,
 }
@@ -157,8 +159,8 @@ pub struct RelevanceScore(f32);
 
 impl RelevanceScore {
     /// Returns a zero relevance score.
+    #[expect(clippy::expect_used)]
     pub fn zero() -> Self {
-        // SAFETY: 0.0 is within valid range [0.0, 1.0], so try_new cannot fail
         Self::try_new(0.0).expect("0.0 is valid")
     }
 }
@@ -172,9 +174,8 @@ impl PartialOrd for RelevanceScore {
 }
 
 impl Ord for RelevanceScore {
+    #[expect(clippy::expect_used)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // SAFETY: RelevanceScore is validated to be in [0.0, 1.0], so it cannot be NaN.
-        // Therefore f32::partial_cmp always returns Some and unwrap is safe.
         self.into_inner()
             .partial_cmp(&other.into_inner())
             .expect("RelevanceScore is validated to exclude NaN")
@@ -211,9 +212,13 @@ pub struct ChunkableContent(String);
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct EmbeddingModelConfig {
+    /// Name of the embedding model.
     pub model_name: String,
+    /// Dimensionality of embedding vectors.
     pub embedding_dim: usize,
+    /// Maximum tokens per chunk.
     pub max_tokens: usize,
+    /// Token overlap between adjacent chunks.
     pub overlap_tokens: usize,
 }
 
@@ -228,35 +233,37 @@ impl Default for EmbeddingModelConfig {
     }
 }
 
-/// Domain chunk with embedding and indexing timestamp
+/// Domain chunk with embedding and indexing timestamp.
 #[derive(Debug, Clone, Builder)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct IndexedChunk {
+    /// The indexed chunk content and metadata.
     pub chunk: Chunk,
+    /// Semantic embedding vector for similarity search.
     pub embedding: Embedding,
+    /// When this chunk was indexed.
     pub indexed_at: Timestamp,
 }
 
-/// Unix timestamp for staleness detection
+/// Unix timestamp for staleness detection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp(i64);
 
 impl Timestamp {
-    /// Creates a timestamp from Unix seconds
+    /// Creates a timestamp from Unix seconds.
     pub fn from_secs(secs: i64) -> Self {
         Self(secs)
     }
 
-    /// Returns the Unix seconds value
+    /// Returns the Unix seconds value.
     pub fn as_secs(&self) -> i64 {
         self.0
     }
 
-    /// Creates a timestamp for the current system time
+    /// Creates a timestamp for the current system time.
+    #[expect(clippy::expect_used)]
     pub fn now() -> Self {
-        // SAFETY: SystemTime::now() returns current time which is always after Unix epoch
-        // (1970-01-01). A system with time before 1970 would have far worse problems.
         Self(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -266,15 +273,19 @@ impl Timestamp {
     }
 }
 
-/// Statistics and configuration snapshot of the index
+/// Statistics and configuration snapshot of the index.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(EmbeddingModelConfig, into))]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct IndexMetadata {
+    /// When the index was last built.
     pub last_build: std::time::SystemTime,
+    /// Total number of chunks in the index.
     pub chunk_count: usize,
+    /// Total number of files indexed.
     pub file_count: usize,
+    /// Embedding model configuration used.
     pub model_config: EmbeddingModelConfig,
 }
 

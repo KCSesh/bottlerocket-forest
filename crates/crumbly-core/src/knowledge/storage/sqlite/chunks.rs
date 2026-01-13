@@ -12,6 +12,7 @@ use super::serialization::{indexed_chunk_from_row, serialize_context};
 use crate::knowledge::domain::{ChunkHash, FileHash, IndexedChunk};
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 
+/// Persists an indexed chunk to storage.
 pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), StorageError> {
     let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
     conn.execute(
@@ -32,6 +33,7 @@ pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), Storage
     Ok(())
 }
 
+/// Retrieves all chunks associated with a file hash.
 pub fn get_chunks_by_file_hash(
     conn: &Connection,
     file_hash: &FileHash,
@@ -53,6 +55,7 @@ pub fn get_chunks_by_file_hash(
     .context(DatabaseSnafu)
 }
 
+/// Checks if a chunk exists in storage.
 pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, StorageError> {
     let count: i64 = conn
         .query_row(
@@ -64,6 +67,7 @@ pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, Stor
     Ok(count > 0)
 }
 
+/// Deletes chunks not referenced by any indexed file.
 pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
     let deleted_chunks = conn.execute(
     "DELETE FROM chunks WHERE file_hash NOT IN (SELECT DISTINCT file_hash FROM indexed_files)",

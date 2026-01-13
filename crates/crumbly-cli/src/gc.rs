@@ -20,12 +20,13 @@ pub struct GcArgs {
 }
 
 /// Runs garbage collection to remove orphaned chunks.
+#[expect(clippy::expect_used)]
 pub fn handle_gc(args: GcArgs) -> Result<(), GcError> {
     use gc_error::*;
 
-    let index_root = args
-        .index_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index_root = args.index_root.unwrap_or_else(|| {
+        std::env::current_dir().expect("current directory should be accessible")
+    });
 
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 

@@ -61,6 +61,7 @@ impl CliProgressReporter {
     ///
     /// Returns a spinner style for the scanning phase:
     /// `[00:00:01.234] ⠋ Scanning... (123 files found)`
+    #[expect(clippy::unwrap_used)]
     fn default_scan_style() -> ProgressStyle {
         ProgressStyle::default_spinner()
             .template(theme::progress::SCAN)
@@ -71,6 +72,7 @@ impl CliProgressReporter {
     ///
     /// Returns a progress bar style for chunking:
     /// `[00:00:02.456] Chunking... [████████░░] 45/100 files`
+    #[expect(clippy::unwrap_used)]
     fn default_chunk_style() -> ProgressStyle {
         ProgressStyle::default_bar()
             .template(theme::progress::CHUNK)
@@ -82,6 +84,7 @@ impl CliProgressReporter {
     ///
     /// Returns a progress bar style for indexing:
     /// `[00:00:03.789] ⠋ Indexing... (450/1000 chunks indexed)`
+    #[expect(clippy::unwrap_used)]
     fn default_embed_style() -> ProgressStyle {
         ProgressStyle::default_spinner()
             .template(theme::progress::EMBED)

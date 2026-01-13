@@ -101,6 +101,7 @@ pub(in crate::knowledge::facade) fn rebuild(
         .set_metadata(&metadata)
         .context(DatabaseAccessFailedSnafu)?;
 
+    #[expect(clippy::expect_used)]
     let default_context = Context::builder()
         .context_id(ContextId::from_path(".").expect("'.' is valid context id"))
         .build();

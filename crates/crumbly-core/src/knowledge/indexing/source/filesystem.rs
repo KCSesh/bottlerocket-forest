@@ -13,10 +13,12 @@ use crate::knowledge::indexing::scanner::{FileScanner, IndexableFile, ScanError}
 /// Content source backed by the local filesystem.
 #[derive(Debug)]
 pub struct FilesystemSource {
+    /// Scanner for discovering files.
     scanner: FileScanner,
 }
 
 impl FilesystemSource {
+    /// Create a new filesystem source wrapping the given scanner.
     pub fn new(scanner: FileScanner) -> Self {
         Self { scanner }
     }
@@ -48,15 +50,23 @@ impl ContentSource for FilesystemSource {
     }
 }
 
+/// Errors from filesystem content source operations.
 #[derive(Debug, Snafu)]
 #[snafu(module)]
 pub enum FilesystemSourceError {
+    /// Failed to scan the filesystem for files.
     #[snafu(display("Failed to scan filesystem"))]
-    Scan { source: ScanError },
+    Scan {
+        /// Underlying scan error.
+        source: ScanError,
+    },
 
+    /// Failed to read file contents.
     #[snafu(display("Failed to read file: {path}"))]
     ReadFile {
+        /// Path to the file.
         path: String,
+        /// Underlying I/O error.
         source: std::io::Error,
     },
 }

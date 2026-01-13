@@ -45,6 +45,7 @@ impl<'a> DocExtractor<'a> {
     }
 
     /// Helper to process items with common pattern: extract doc, create name, create chunks.
+    #[expect(clippy::too_many_arguments)]
     fn process_item(
         &self,
         attrs: &[Attribute],
@@ -168,6 +169,7 @@ impl<'a> DocExtractor<'a> {
     }
 
     /// Helper for items without signatures (struct, enum, trait, type, const, module).
+    #[expect(clippy::too_many_arguments)]
     fn process_simple_item(
         &self,
         attrs: &[Attribute],
@@ -229,6 +231,7 @@ impl<'a> DocExtractor<'a> {
     /// Splits doc text into chunks with token-based overlap.
     ///
     /// Each chunk preserves the same metadata (item name, visibility, signature).
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn create_chunks(
         &self,
         doc_text: &str,

@@ -55,12 +55,13 @@ pub fn run(cmd: ContextCommand) -> Result<(), ContextError> {
 }
 
 /// Lists all registered contexts in the workspace.
+#[expect(clippy::expect_used)]
 fn handle_list(args: ListArgs) -> Result<(), ContextError> {
     use context_error::*;
 
-    let index_root = args
-        .index_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index_root = args.index_root.unwrap_or_else(|| {
+        std::env::current_dir().expect("current directory should be accessible")
+    });
 
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
@@ -72,12 +73,13 @@ fn handle_list(args: ListArgs) -> Result<(), ContextError> {
 }
 
 /// Removes a registered context from the workspace.
+#[expect(clippy::expect_used)]
 fn handle_remove(args: RemoveArgs) -> Result<(), ContextError> {
     use context_error::*;
 
-    let index_root = args
-        .index_root
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+    let index_root = args.index_root.unwrap_or_else(|| {
+        std::env::current_dir().expect("current directory should be accessible")
+    });
 
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 

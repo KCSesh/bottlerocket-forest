@@ -58,12 +58,11 @@ fn has_rename_all_kebab(attrs: &[syn::Attribute]) -> bool {
         }
         let mut found = false;
         let _ = a.parse_nested_meta(|m| {
-            if m.path.is_ident("rename_all") {
-                if let Ok(lit) = m.value().and_then(|v| v.parse::<syn::LitStr>()) {
-                    if lit.value() == "kebab-case" {
-                        found = true;
-                    }
-                }
+            if m.path.is_ident("rename_all")
+                && let Ok(lit) = m.value().and_then(|v| v.parse::<syn::LitStr>())
+                && lit.value() == "kebab-case"
+            {
+                found = true;
             }
             Ok(())
         });

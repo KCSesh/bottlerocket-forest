@@ -53,8 +53,8 @@ impl fmt::Display for ContextId {
 }
 
 impl Default for ContextId {
+    #[expect(clippy::expect_used)]
     fn default() -> Self {
-        // SAFETY: "." is always a valid path that normalizes to "."
         Self::from_path(".").expect("'.' is valid context id")
     }
 }
