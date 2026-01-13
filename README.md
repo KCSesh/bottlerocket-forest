@@ -71,7 +71,7 @@ See `crates/forester/README.md` for complete documentation.
 
 ## brdev
 
-Bottlerocket-specific development tooling. **Must run from forest root directory.**
+Bottlerocket-specific development tooling. **Must run from within a grove directory.**
 
 ```bash
 brdev registry start    # Start local registry

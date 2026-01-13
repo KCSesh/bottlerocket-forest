@@ -18,6 +18,7 @@ Start and manage a local OCI registry for development. This allows building and 
 ## Prerequisites
 
 - Docker installed and running
+- Working from within a grove directory
 
 ## Procedure
 
@@ -70,17 +71,14 @@ This removes both the container and the data volume.
 
 ## Configuration
 
-Forester uses environment variables for configuration. Create a `.env` file in the forest root or set environment variables:
+brdev uses environment variables for configuration. Create a `.env` file in the forest root or set environment variables:
 
 ```bash
-# Custom port (default: 5000, minimum: 1024)
-FORESTER_REGISTRY_PORT=5001
-
 # Custom image (default: registry:2)
-FORESTER_REGISTRY_IMAGE=registry:2.8
+BRDEV_REGISTRY_IMAGE=registry:2.8
 ```
 
-Note: Container and volume names are automatically derived from the port as `forester-registry-{port}` and `forester-registry-data-{port}`.
+Note: Container and volume names are automatically derived from the grove name as `brdev-registry-{grove}` and `brdev-registry-data-{grove}`. The port is auto-derived from a hash of the grove name (range 5001-5999).
 
 ## Validation
 

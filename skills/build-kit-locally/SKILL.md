@@ -18,6 +18,7 @@ Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI 
 ## Prerequisites
 
 - Docker installed and running
+- Working from within a grove directory
 - Kit repository cloned in `kits/` directory
 
 ## Procedure
