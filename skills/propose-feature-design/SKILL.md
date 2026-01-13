@@ -101,6 +101,29 @@ Show how code should be organized:
 - File organization
 - Separation of concerns
 
+**Module size limit**: This project enforces a 550-line limit per module (see `scripts/lint_loc.py`).
+When designing modules, consider whether a component might exceed this limit.
+If so, plan the internal decomposition upfront—split by capability (e.g., `builder.rs`, `searcher.rs`), not by artifact type.
+The linter's output includes refactoring guidance if limits are exceeded.
+
+**Keep impl blocks together**: All `impl` blocks for a type should live in one file.
+Scattering impl blocks across files makes it hard for readers (and AI) to get a complete picture of what a type does.
+If a type's implementation is too large, delegate to helper functions or internal component types rather than splitting the impl block itself.
+
+```rust
+// ✅ Good: single impl block delegates to helpers
+impl KnowledgeIndex {
+    pub fn build(&self, path: &Path) -> Result<()> {
+        self.builder.build(path)  // delegates to internal component
+    }
+}
+
+// ❌ Bad: impl blocks split across files
+// facade/mod.rs: impl KnowledgeIndex { fn new() ... }
+// facade/build.rs: impl KnowledgeIndex { fn build() ... }
+// facade/search.rs: impl KnowledgeIndex { fn search() ... }
+```
+
 ### 9. Document Design Patterns
 
 Describe relevant patterns and why they apply:

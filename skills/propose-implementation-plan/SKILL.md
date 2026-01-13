@@ -71,11 +71,17 @@ If the design lacks critical constraints, ask for clarification before proceedin
 
 ### 4. Identify Natural Boundaries
 
-Look for logical separation points:
-- New types that can be introduced independently
-- Trait definitions separate from implementations
-- Schema changes separate from code using them
-- Tests that can be written before implementation
+Look for **capability boundaries**, not code artifact boundaries.
+A good commit tells a story about impact—"here's a new capability" or "here's a behavior change"—not "here's a struct" followed by "here's its methods."
+
+Good boundaries:
+- A new module with its types, implementation, and tests together
+- A user-visible capability (e.g., a new CLI command with its handler)
+- A requirement being satisfied end-to-end
+- A refactoring that prepares for new functionality
+
+**Anti-pattern**: Splitting by code artifact (types in one commit, impl in another, tests in a third).
+This fragments the reviewable story and undermines TDD—the implement-commit workflow expects types, implementation, and tests to be developed together within a single commit.
 
 ### 5. Plan Commits Following the Atomic Commit Rules
 
@@ -143,20 +149,24 @@ This approach:
 ### 6. Size Commits Appropriately
 
 **Too Small** (avoid):
-- Adding a single import
-- Renaming one variable
-- Adding an empty module
+- Adding types without their implementation
+- Trait definitions without at least one implementation
+- Implementation without its tests
+- Changes that don't stand alone as a reviewable story
 
 **Too Large** (avoid):
 - Entire feature in one commit
-- Multiple unrelated changes
+- Multiple unrelated capabilities
 - Changes that take days to review
+- Modules exceeding ~500 lines (see lint_loc.py for project limits)
 
 **Just Right** (target):
-- Add a new type with its tests (~50-200 lines)
-- Implement a trait for one adapter (~100-300 lines)
-- Add a new CLI command with tests (~100-300 lines)
-- Refactor a module to prepare for new feature (~100-400 lines)
+- A new module with types, implementation, and tests (~200-400 lines)
+- A new CLI command with handler and tests (~150-350 lines)
+- A complete adapter implementation with tests (~200-400 lines)
+- A refactoring that prepares for new functionality (~100-300 lines)
+
+Use judgment: if a module will exceed ~500 lines, split by capability (e.g., "config loading" vs "config validation"), not by artifact type.
 
 ### 7. Order Commits by Dependency
 
@@ -233,47 +243,57 @@ Track decisions that need resolution during implementation:
 ### Indicators a Commit is Too Large
 
 - More than 500 lines changed
-- Touches more than 5 files
-- Takes more than 2 hours to implement
-- Commit message needs multiple paragraphs to explain
-- Reviewer asks "can this be split up?"
+- Touches more than 5-6 files
+- Implements multiple unrelated capabilities
+- Commit message needs to explain several distinct changes
+- Reviewer can't hold the whole change in their head
 
 ### Indicators a Commit is Too Small
 
-- Less than 20 lines changed
-- No tests included
-- Doesn't compile on its own
-- Commit message is longer than the change
-- Creates dead code that's only used in later commits
+- Introduces types without their implementation or tests
+- Defines traits without at least one implementation
+- Creates code that only makes sense with later commits
+- Splits what should be one reviewable story into fragments
+- Separates tests from the code they test
 
 ### Splitting Large Changes
 
-If a change seems too large, look for:
+If a change seems too large, look for **capability boundaries**:
 
-1. **Type extraction**: Can new types be introduced first?
-2. **Interface first**: Can traits be defined before implementations?
-3. **Refactor then change**: Can existing code be restructured first?
-4. **Test scaffolding**: Can test infrastructure be added separately?
-5. **Feature flags**: Can new code be added but disabled?
+1. **Separate capabilities**: Does this module do two distinct things? (e.g., "loading" vs "validation")
+2. **Layer boundaries**: Can storage, logic, and CLI be separate commits?
+3. **Refactor then change**: Can existing code be restructured in a prep commit?
+4. **Integration points**: Can the core capability land before integrating it everywhere?
+
+Keep types, implementation, and tests together within each split.
+The goal is commits that each tell a complete story, not commits that each touch one kind of artifact.
 
 ### Example: Splitting a Large Feature
 
-Instead of one commit "Add multi-context support":
+Instead of one commit "Add multi-context support", split by **capability**:
 
+```
+Commit 1: Add context storage layer (types, repository, schema, tests)
+Commit 2: Add context discovery from workspace (scanner, tests)
+Commit 3: Add context CLI commands (list, remove, tests)
+Commit 4: Integrate context into indexing (scoped storage, tests)
+Commit 5: Integrate context into search (filtering, tests)
+```
+
+Each commit delivers a complete capability with its tests.
+A reviewer can understand what Commit 1 accomplishes without needing to see Commits 2-5.
+
+**Anti-pattern** (too granular):
 ```
 Commit 1: Add Context type and ContextId newtype
 Commit 2: Add ContextRepository trait definition
 Commit 3: Update database schema with contexts table
 Commit 4: Implement SqliteContextRepository
-Commit 5: Add context discovery (workspace walk)
-Commit 6: Wire context resolution into facade
-Commit 7: Add 'context list' CLI command
-Commit 8: Add 'context remove' CLI command
-Commit 9: Update indexing to use context-scoped storage
-Commit 10: Update search to filter by context
+Commit 5: Add tests for context storage
+...
 ```
 
-Each commit is reviewable, testable, and buildable.
+This splits one capability (context storage) across 5 commits, making review harder and breaking TDD.
 
 ## Validation
 
