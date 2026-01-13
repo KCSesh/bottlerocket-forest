@@ -51,6 +51,7 @@ pub struct ImageTag(String);
 /// Contains metadata extracted from the image manifest including size,
 /// content digest, and optional creation timestamp.
 #[derive(Debug, Clone, Builder)]
+#[non_exhaustive]
 struct ImageManifest {
     size_bytes: u64,
     digest: String,
@@ -274,11 +275,13 @@ fn fetch_created_time(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct CatalogResponse {
     repositories: Vec<String>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct TagsListResponse {
     #[allow(dead_code)]
     name: String,
@@ -286,6 +289,7 @@ struct TagsListResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct ManifestResponse {
     #[serde(default)]
     config: Option<Descriptor>,
@@ -296,6 +300,7 @@ struct ManifestResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Descriptor {
     size: u64,
     #[serde(default)]
@@ -303,6 +308,7 @@ struct Descriptor {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct ConfigBlob {
     created: Option<DateTime<Utc>>,
 }
