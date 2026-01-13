@@ -1,3 +1,4 @@
+#![expect(clippy::unwrap_used, reason = "panics are appropriate in tests")]
 //! Integration tests for forester seed and grove commands.
 //!
 //! These tests use local git repos to avoid network dependencies.

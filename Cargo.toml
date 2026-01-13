@@ -87,3 +87,5 @@ test-case = "3"
 
 [workspace.lints.clippy]
 all = "deny"
+unwrap_used = "deny"
+expect_used = "deny"

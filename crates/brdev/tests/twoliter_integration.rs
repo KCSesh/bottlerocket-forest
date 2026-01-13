@@ -1,3 +1,4 @@
+#![expect(clippy::expect_used, reason = "panics are appropriate in tests")]
 //! Integration tests for twoliter configuration management.
 
 use std::process::Command;

@@ -63,6 +63,7 @@ impl GroveRegistryConfig {
     }
 
     /// Converts to runtime configuration with derived container and volume names.
+    #[expect(clippy::unwrap_used, reason = "format strings are non-empty")]
     pub fn into_runtime(self) -> RegistryRuntimeConfig {
         let container_name =
             ContainerName::try_new(format!("brdev-registry-{}", self.grove_name)).unwrap();
@@ -73,6 +74,7 @@ impl GroveRegistryConfig {
 }
 
 /// Derives port from grove name hash (range 5001-6999).
+#[expect(clippy::unwrap_used, reason = "port range 5001-6999 always >= 1024")]
 fn derive_port(grove_name: &str) -> RegistryPort {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

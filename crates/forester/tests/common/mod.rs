@@ -1,4 +1,5 @@
-#![allow(dead_code)]
+#![expect(dead_code, reason = "test utilities may not all be used")]
+#![expect(clippy::unwrap_used, clippy::expect_used, reason = "panics are appropriate in tests")]
 //! Common test utilities for forester integration tests.
 
 use std::path::Path;

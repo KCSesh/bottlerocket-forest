@@ -14,6 +14,7 @@ use std::fmt;
 pub struct RegistryPort(u16);
 
 impl Default for RegistryPort {
+    #[expect(clippy::unwrap_used, reason = "5000 >= 1024, always valid")]
     fn default() -> Self {
         Self::try_new(5000).unwrap()
     }
@@ -54,6 +55,7 @@ pub(crate) struct VolumeName(String);
 pub(crate) struct ImageRef(String);
 
 impl Default for ImageRef {
+    #[expect(clippy::unwrap_used, reason = "literal is non-empty")]
     fn default() -> Self {
         Self::try_new("registry:2").unwrap()
     }
@@ -104,6 +106,7 @@ impl RegistryRuntimeConfig {
 }
 
 impl Default for RegistryRuntimeConfig {
+    #[expect(clippy::unwrap_used, reason = "format strings are non-empty")]
     fn default() -> Self {
         let port = RegistryPort::default();
         let container_name =

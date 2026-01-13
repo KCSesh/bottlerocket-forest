@@ -1,3 +1,4 @@
+#![expect(clippy::expect_used, reason = "panics are appropriate in tests")]
 //! Integration tests for registry management.
 //!
 //! These tests create a temporary grove structure and run brdev from within it.

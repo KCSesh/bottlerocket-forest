@@ -4,7 +4,7 @@ use crate::grove::GroveContext;
 use clap::Args;
 use miette::Diagnostic;
 use owo_colors::OwoColorize;
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
 use std::fs;
 use std::path::Path;
 use tracing::instrument;
@@ -22,6 +22,12 @@ pub enum InitError {
     #[snafu(display("cannot initialize forest inside grove '{name}'"))]
     #[diagnostic(help("Change to a directory outside any grove before running init"))]
     InsideGrove { name: String },
+
+    #[snafu(display("failed to get current directory"))]
+    CurrentDir { source: std::io::Error },
+
+    #[snafu(display("failed to write {path}"))]
+    WriteFile { path: String, source: std::io::Error },
 }
 
 const GITIGNORE: &str = r#"# Forester
@@ -50,7 +56,7 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
         .build()
         .into());
     }
-    let cwd = std::env::current_dir().expect("Failed to get current directory");
+    let cwd = std::env::current_dir().context(CurrentDirSnafu)?;
     let name = args.name.unwrap_or_else(|| {
         cwd.file_name()
             .and_then(|n| n.to_str())
@@ -66,7 +72,7 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
 
     // Create forester.toml
     let forester_toml = FORESTER_TOML_TEMPLATE.replace("{name}", &name);
-    fs::write("forester.toml", forester_toml).expect("Failed to write forester.toml");
+    fs::write("forester.toml", &forester_toml).context(WriteFileSnafu { path: "forester.toml" })?;
     println!("{} Created forester.toml", "✓".green());
 
     // Create/update .gitignore
@@ -75,11 +81,11 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
         let existing = fs::read_to_string(gitignore_path).unwrap_or_default();
         if !existing.contains(".forest/") {
             let updated = format!("{}\n{}", existing.trim_end(), GITIGNORE);
-            fs::write(gitignore_path, updated).expect("Failed to update .gitignore");
+            fs::write(gitignore_path, updated).context(WriteFileSnafu { path: ".gitignore" })?;
             println!("{} Updated .gitignore", "✓".green());
         }
     } else {
-        fs::write(gitignore_path, GITIGNORE).expect("Failed to write .gitignore");
+        fs::write(gitignore_path, GITIGNORE).context(WriteFileSnafu { path: ".gitignore" })?;
         println!("{} Created .gitignore", "✓".green());
     }
 
