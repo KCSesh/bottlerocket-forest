@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 /// Forest configuration loaded from `forester.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct ForestConfig {
@@ -18,6 +19,7 @@ pub struct ForestConfig {
 
 /// Forest metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct ForestMeta {
     pub name: String,
     #[serde(default)]
@@ -26,6 +28,7 @@ pub struct ForestMeta {
 
 /// Grove configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct GroveConfig {
     #[serde(default)]
     pub symlink: Vec<SymlinkEntry>,
@@ -33,6 +36,7 @@ pub struct GroveConfig {
 
 /// A symlink to create in groves.
 #[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct SymlinkEntry {
@@ -42,6 +46,7 @@ pub struct SymlinkEntry {
 
 /// A member repository in the forest.
 #[derive(Debug, Clone, Serialize, Deserialize, Builder)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct Member {
