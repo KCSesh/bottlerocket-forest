@@ -8,9 +8,14 @@
 //! - Integration with crumbly for semantic search
 
 pub mod cli;
+pub mod domain;
 pub mod error;
+pub mod events;
 pub mod forest;
+pub mod git;
 pub mod grove;
+pub mod hooks;
+pub mod ops;
 
+pub use domain::ForestConfig;
 pub use error::Error;
-pub use forest::ForestConfig;
