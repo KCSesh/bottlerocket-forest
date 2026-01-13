@@ -61,13 +61,20 @@ The crumbly index is stored in the forest root under `.crumbly`
 
 Generic forest management tool.
 
+Install via:
 ```bash
-brdev registry start    # Start local registry
-brdev registry status   # Check registry status
-brdev registry list     # List published images
+cargo install forester
 ```
 
-See `crates/forester/README.md` for complete documentation.
+Usage:
+```bash
+forester seed                        # Clone all member repos and set up forest
+forester worktree create feature-x   # Create worktree for all member repos
+forester worktree list               # List existing worktrees
+forester worktree remove feature-x   # Remove a worktree
+```
+
+Forester is a standalone open-source tool that can be applied to any codebase. See `crates/forester/README.md` for complete documentation.
 
 ## brdev
 
