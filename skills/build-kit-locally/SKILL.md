@@ -29,17 +29,14 @@ Build a Bottlerocket kit (core-kit or kernel-kit) and publish it to a local OCI 
 brdev registry start
 ```
 
-### 2. Configure Infra.toml for local registry
-
-Check if `Infra.toml` exists in the kit directory. If not, create it:
+### 2. Configure for local registry
 
 ```bash
 cd kits/<kit-name>
-cat > Infra.toml << 'EOF'
-[vendor.local]
-registry = "localhost:5000"
-EOF
+brdev twoliter use-local-publish
 ```
+
+This creates `Infra.toml` pointing to the local registry for publishing.
 
 ### 3. Build the kit
 
@@ -65,7 +62,7 @@ This publishes the kit to `localhost:5000` with the vendor prefix "local".
 ### 5. Verify publication
 
 ```bash
-curl http://localhost:5000/v2/_catalog
+brdev registry list
 ```
 
 Should show your kit in the repositories list.
@@ -74,7 +71,7 @@ Should show your kit in the repositories list.
 
 Check the kit is available:
 ```bash
-curl http://localhost:5000/v2/<kit-name>/tags/list
+brdev registry list
 ```
 
 Should return the published version tags.
@@ -91,7 +88,7 @@ Solution: Run `brdev registry start`
 ```
 Error: vendor 'local' not found
 ```
-Solution: Create or update `Infra.toml` with local registry configuration
+Solution: Run `brdev twoliter use-local-publish` to create the configuration
 
 **Docker permission denied:**
 Solution: Ensure user is in docker group and Docker daemon is running

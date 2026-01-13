@@ -36,6 +36,8 @@ enum RegistrySubcommand {
     Logs(LogsArgs),
     /// List images in the registry
     List,
+    /// Print registry URL for scripting
+    Url,
 }
 
 /// Show registry logs
@@ -62,6 +64,7 @@ pub fn run(cmd: RegistryCommand) -> Result<(), RegistryError> {
         RegistrySubcommand::Clean => clean(&config),
         RegistrySubcommand::Logs(args) => logs(&config, args.follow),
         RegistrySubcommand::List => list(&config),
+        RegistrySubcommand::Url => url(&config),
     }
 }
 
@@ -147,6 +150,12 @@ fn logs(config: &registry::RegistryRuntimeConfig, follow: bool) -> Result<(), Re
     use registry_error::*;
 
     registry::logs(config, follow).context(OperationSnafu)
+}
+
+/// Prints the registry URL for scripting
+fn url(config: &registry::RegistryRuntimeConfig) -> Result<(), RegistryError> {
+    println!("localhost:{}", config.port.into_inner());
+    Ok(())
 }
 
 /// Queries and displays all images stored in the registry
@@ -305,19 +314,22 @@ pub enum RegistryError {
 
     #[snafu(display("Registry operation failed"))]
     #[diagnostic(
-        code(forester::registry::operation_failed),
+        code(brdev::registry::operation_failed),
         help("Ensure Docker is installed and running: sudo systemctl start docker")
     )]
     Operation { source: registry::RegistryError },
 
     #[snafu(display("Failed to list registry images"))]
     #[diagnostic(
-        code(forester::registry::catalog_failed),
-        help("Ensure the registry is running with 'forester registry start'")
+        code(brdev::registry::catalog_failed),
+        help("Ensure the registry is running with 'brdev registry start'")
     )]
     Catalog { source: registry::CatalogError },
 
     #[snafu(display("Registry is not running"))]
-    #[diagnostic(code(forester::registry::not_running), help("{message}"))]
+    #[diagnostic(
+        code(brdev::registry::not_running),
+        help("Start the registry with 'brdev registry start'")
+    )]
     RegistryNotRunning { message: String },
 }

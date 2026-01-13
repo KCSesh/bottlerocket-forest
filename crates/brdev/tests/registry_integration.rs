@@ -228,3 +228,20 @@ fn test_registry_port_from_grove_file() {
 
     clean_test_registry(grove.path(), &name);
 }
+
+#[test]
+#[ignore]
+fn test_registry_url() {
+    let (grove, port, name) = create_test_grove();
+
+    let (code, stdout, _) = run_brdev(grove.path(), &name, &["registry", "url"]);
+
+    assert_eq!(code, 0, "url command should succeed");
+    let expected = format!("localhost:{}", port);
+    assert!(
+        stdout.trim() == expected,
+        "Expected '{}', got '{}'",
+        expected,
+        stdout.trim()
+    );
+}

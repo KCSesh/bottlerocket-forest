@@ -1,10 +1,12 @@
-//! Command-line interface for forester.
+//! Command-line interface for brdev.
 //!
 //! This module provides the top-level CLI structure and dispatches to subcommands:
 //! * [`registry`] - Manages the local OCI registry
+//! * [`twoliter`] - Manages Twoliter configuration
 
 mod registry;
 mod theme;
+mod twoliter;
 
 use std::io::IsTerminal;
 
@@ -38,6 +40,7 @@ enum ColorChoice {
 #[derive(Subcommand)]
 enum Command {
     Registry(registry::RegistryCommand),
+    Twoliter(twoliter::TwoliterCommand),
 }
 
 pub fn run() -> Result<(), CliError> {
@@ -57,6 +60,7 @@ pub fn run() -> Result<(), CliError> {
 
     match args.command {
         Command::Registry(cmd) => registry::run(cmd).context(RegistrySnafu)?,
+        Command::Twoliter(cmd) => twoliter::run(cmd).context(TwoliterSnafu)?,
     }
 
     Ok(())
@@ -71,4 +75,11 @@ pub enum CliError {
         help("Check the error details above for specific guidance")
     )]
     Registry { source: registry::RegistryError },
+
+    #[snafu(display("Twoliter command failed"))]
+    #[diagnostic(
+        code(brdev::cli::twoliter_command_failed),
+        help("Check the error details above for specific guidance")
+    )]
+    Twoliter { source: twoliter::TwoliterError },
 }

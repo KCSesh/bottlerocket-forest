@@ -30,6 +30,38 @@ When you identify that a skill should be used:
 
 **💡 TIP: If you have todolist functionality, use it to track skill steps.** Multi-step skills benefit from explicit progress tracking.
 
+### Delegating Skills to Subagents
+
+When an orchestrating agent delegates a skill to a subagent:
+
+1. **Announce the skill and provide only the question/task**
+2. **Pass the SKILL.md via context_files**
+3. **Do not restate or paraphrase the procedure** - trust the subagent to follow the authoritative SKILL.md
+
+```python
+# ✅ RIGHT - minimal delegation
+spawn(
+    '''USING SKILL "fact-find"
+
+    QUESTION: What partition scheme does Bottlerocket use?''',
+    context_files=["skills/fact-find/SKILL.md"],
+    allow_tools=True
+)
+
+# ❌ WRONG - restating skill instructions
+spawn(
+    '''USING SKILL "fact-find"
+
+    QUESTION: What partition scheme does Bottlerocket use?
+
+    Use crumbly to search, read relevant files, provide citations...''',
+    context_files=["skills/fact-find/SKILL.md"],
+    allow_tools=True
+)
+```
+
+Why: Paraphrased instructions may diverge from the SKILL.md, creating conflicting guidance.
+
 ## Available Skills
 
 - **fact-find** - Quick lookup of specific facts with citations. Use for concrete questions with definitive answers (e.g., "What partition scheme does Bottlerocket use?")

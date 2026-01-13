@@ -23,35 +23,34 @@ Build a complete Bottlerocket variant image using kits published to the local de
 
 ## Procedure
 
-### 1. Update variant Twoliter.toml
+### 1. Configure for local registry
 
-Edit `./bottlerocket/Twoliter.toml` to reference local kits:
-
-```toml
-[[kit]]
-name = "bottlerocket-core-kit"
-version = "<version-from-kit>"
-vendor = "local"
-
-[[kit]]
-name = "bottlerocket-kernel-kit"
-version = "<version-from-kit>"
-vendor = "local"
+```bash
+cd ./bottlerocket
+brdev twoliter use-local-deps
 ```
 
-### 2. Configure Infra.toml
+This creates `Twoliter.override` pointing to the local registry for fetching kits.
 
-Ensure `./bottlerocket/Infra.toml` includes local registry:
+### 2. Select which kits to fetch locally
+
+Edit `Twoliter.toml` and set `vendor = "local"` for kits you want from the local registry:
 
 ```toml
-[vendor.local]
-registry = "localhost:5000"
+[kit.bottlerocket-core-kit]
+vendor = "local"  # Fetch from local registry
+version = "2.0.0"
+
+[kit.bottlerocket-kernel-6.1-kit]
+# No vendor override - uses upstream
+version = "2.0.0"
 ```
+
+Only kits with `vendor = "local"` will be fetched from the local registry; others use upstream.
 
 ### 3. Update lock file
 
 ```bash
-cd ./bottlerocket
 ./tools/twoliter/twoliter update
 ```
 
@@ -80,6 +79,17 @@ ls -lh build/images/*.img
 ## Validation
 
 The build should complete successfully and produce an `.img` file in `build/images/`.
+
+## Cleanup
+
+When done testing, restore upstream configuration:
+
+```bash
+brdev twoliter use-upstream-deps
+```
+
+This removes `Twoliter.override`.
+Remember to also revert any `vendor = "local"` changes in `Twoliter.toml`.
 
 ## Common Issues
 

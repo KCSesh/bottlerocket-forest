@@ -42,6 +42,14 @@ brdev registry status
 
 Returns exit code 0 if running, non-zero otherwise.
 
+### Get registry URL
+
+```bash
+brdev registry url
+```
+
+Outputs `localhost:{port}` for the current grove. Use this in scripts instead of hardcoding ports.
+
 ### View registry logs
 
 ```bash
@@ -84,7 +92,7 @@ Note: Container and volume names are automatically derived from the grove name a
 
 After starting the registry:
 ```bash
-curl http://localhost:5000/v2/_catalog
+brdev registry list
 ```
 
 Should return: `{"repositories":[]}`
@@ -119,6 +127,24 @@ Solution:
 
 ## Related Skills
 
-- `build-and-publish-kit` - Uses local registry to publish built kits
-- `build-variant` - Configures variant builds to use local registry
+- `build-kit-locally` - Uses local registry to publish built kits
+- `build-variant-from-local-kits` - Configures variant builds to use local registry
+
+## See Also
+
+Configuration commands for local registry usage:
+
+**For publishing kits:**
+- `brdev twoliter use-local-publish` - Create `Infra.toml` for publishing to local registry
+- `brdev twoliter use-upstream-publish` - Remove `Infra.toml`
+
+**For fetching kits:**
+- `brdev twoliter use-local-deps` - Create `Twoliter.override` for fetching from local registry
+- `brdev twoliter use-upstream-deps` - Remove `Twoliter.override`
+
+**Both (convenience):**
+- `brdev twoliter use-local` - Create both files
+- `brdev twoliter use-upstream` - Remove both files
+
+When fetching, also set `vendor = "local"` in `Twoliter.toml` for specific kits you want from the local registry.
 
