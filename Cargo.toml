@@ -78,6 +78,10 @@ owo-colors = { version = "4", features = ["supports-colors"] }
 dotenvy = "0.15"
 envy = "0.4"
 
+# Linting
+inventory = "0.3"
+walkdir = "2"
+
 # Testing
 assert_cmd = "2"
 mockall = "0.13"

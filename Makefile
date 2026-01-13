@@ -41,3 +41,7 @@ build:
 .PHONY: release-build
 release-build:
 	cargo build --workspace --release --locked --quiet
+
+.PHONY: lint-style
+lint-style:
+	cargo run --quiet --release --package syn-lint

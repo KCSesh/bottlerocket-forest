@@ -27,7 +27,10 @@ pub enum InitError {
     CurrentDir { source: std::io::Error },
 
     #[snafu(display("failed to write {path}"))]
-    WriteFile { path: String, source: std::io::Error },
+    WriteFile {
+        path: String,
+        source: std::io::Error,
+    },
 }
 
 const GITIGNORE: &str = r#"# Forester
@@ -72,7 +75,9 @@ pub fn run(args: InitArgs) -> miette::Result<()> {
 
     // Create forester.toml
     let forester_toml = FORESTER_TOML_TEMPLATE.replace("{name}", &name);
-    fs::write("forester.toml", &forester_toml).context(WriteFileSnafu { path: "forester.toml" })?;
+    fs::write("forester.toml", &forester_toml).context(WriteFileSnafu {
+        path: "forester.toml",
+    })?;
     println!("{} Created forester.toml", "✓".green());
 
     // Create/update .gitignore

@@ -17,7 +17,7 @@ These are non-negotiable project conventions:
 | Purpose | Crate | Notes |
 |---------|-------|-------|
 | Error handling | `snafu` | Never `thiserror` |
-| Builders | `bon` | With `#[builder(on(_, into))]` |
+| Builders | `bon` | Per-field `#[builder(into)]` |
 | Validated newtypes | `nutype` | For simple validation |
 | Measurements | `uom` | For physical quantities |
 | Logging | `tracing` | With `#[instrument]` |
@@ -195,9 +195,9 @@ Composite structs (2+ fields) MUST use builders, not constructors:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
-#[builder(on(_, into))]
 #[non_exhaustive]
 pub struct SearchQuery {
+    #[builder(into)]
     text: String,
     limit: Option<usize>,
 }
@@ -205,25 +205,30 @@ pub struct SearchQuery {
 
 Rules:
 - `#[non_exhaustive]` is REQUIRED - prevents direct struct construction
-- `on(_, into)` enables `.field("value")` without `.to_string()`
+- Add `#[builder(into)]` to individual fields that benefit from conversion (String, PathBuf, newtypes)
+- **DO NOT use `#[builder(on(_, into))]`** - it breaks numeric fields by requiring type annotations
 - Only newtypes (single-field tuple structs) get `new()` constructors
 - Use `#[builder(default = Utc::now())]` for timestamp fields that should default to now
 - `Option<T>` fields automatically default to `None` in bon builders - DO NOT add `#[builder(default)]` to Option fields
 
-Example with timestamps:
+Example with mixed field types:
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
-#[builder(on(_, into))]
 #[non_exhaustive]
 pub struct Context {
+    #[builder(into)]
     context_id: ContextId,
     #[builder(default = Utc::now())]
     created_at: DateTime<Utc>,
     last_indexed: Option<DateTime<Utc>>,  // No annotation needed - Option defaults to None
+    max_retries: u32,  // No #[builder(into)] - numeric types stay as-is
 }
 
-// Usage in tests - clean and minimal
-let ctx = Context::builder().context_id(id).build();
+// Usage - no type annotations needed for numeric literals
+let ctx = Context::builder()
+    .context_id(id)
+    .max_retries(3)
+    .build();
 ```
 
 ### Measurements with uom
