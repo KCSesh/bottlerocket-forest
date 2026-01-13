@@ -20,6 +20,7 @@ pub const DEFAULT_RESULT_LIMIT: usize = 20;
 /// Search parameters combining query text and result limit
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(QueryText, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct SearchQuery {
     pub text: QueryText,
@@ -32,6 +33,7 @@ pub struct SearchQuery {
 /// Single chunk match with relevance score
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct SearchResult {
     pub chunk: Chunk,
@@ -41,6 +43,7 @@ pub struct SearchResult {
 /// Complete search operation results with performance metrics
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct SearchResults {
     pub query: SearchQuery,
@@ -52,6 +55,7 @@ pub struct SearchResults {
 /// Chunk matches grouped by source file
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct FileSearchResult {
     pub file_path: IndexRelativePath,

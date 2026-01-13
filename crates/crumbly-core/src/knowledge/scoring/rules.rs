@@ -40,6 +40,7 @@ impl Default for BoostMultiplier {
 /// Rule for boosting search scores based on file characteristics
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct BoostRule {
     /// Human-readable description of what this rule matches
@@ -60,6 +61,7 @@ impl BoostRule {
 
 /// Glob pattern for matching file paths
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct BoostPattern {
     pattern: String,
     #[serde(skip)]

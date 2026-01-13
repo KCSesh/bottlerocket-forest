@@ -18,6 +18,7 @@ use crate::knowledge::indexing::RustItemType;
 /// Searchable documentation unit with source and context metadata
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Chunk {
     pub id: ChunkId,
@@ -33,6 +34,7 @@ pub struct Chunk {
 /// Origin location of a chunk
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct ChunkSource {
     pub file_path: IndexRelativePath,
@@ -42,6 +44,7 @@ pub struct ChunkSource {
 /// Text content with token count for size tracking
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct ChunkContent {
     pub text: String,
@@ -59,6 +62,7 @@ pub enum ChunkContext {
 /// Heading hierarchy for markdown document structure
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct MarkdownContext {
     pub heading_hierarchy: Vec<HeadingText>,
@@ -67,6 +71,7 @@ pub struct MarkdownContext {
 /// Rust item metadata for doc comment context
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct RustDocContext {
     pub item_name: ItemName,
@@ -103,6 +108,7 @@ impl From<syn::Visibility> for Visibility {
 /// Go item metadata for doc comment context
 #[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
 #[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct GoDocContext {
     pub item_name: ItemName,

@@ -208,6 +208,7 @@ pub struct ChunkableContent(String);
 /// Changes to these parameters require rebuilding the entire index.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(String, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct EmbeddingModelConfig {
     pub model_name: String,
@@ -268,6 +269,7 @@ impl Timestamp {
 /// Statistics and configuration snapshot of the index
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(on(EmbeddingModelConfig, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct IndexMetadata {
     pub last_build: std::time::SystemTime,

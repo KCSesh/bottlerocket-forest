@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 /// - `.` and `..` components are resolved
 /// - The default context at workspace root is represented as `.`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct ContextId(String);
 
 impl ContextId {

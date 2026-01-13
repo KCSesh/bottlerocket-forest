@@ -16,6 +16,7 @@ use super::Chunk;
 /// Files with identical content produce identical hashes, enabling
 /// embedding reuse across contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct FileHash([u8; 32]);
 
 impl FileHash {
@@ -51,6 +52,7 @@ impl fmt::Display for FileHash {
 /// Chunks with identical content produce identical hashes, enabling
 /// embedding reuse when the same text appears in different files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct ChunkHash([u8; 32]);
 
 impl ChunkHash {
