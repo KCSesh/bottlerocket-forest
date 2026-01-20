@@ -1,6 +1,7 @@
 //! Grove creation operation.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
 
@@ -14,7 +15,7 @@ pub struct GroveCreateOperation<'a> {
     forest_root: &'a ForestRoot,
     config: &'a ForestConfig,
     hooks: &'a HookRegistry,
-    emitter: &'a dyn EventEmitter,
+    emitter: Arc<dyn EventEmitter>,
     verbose: bool,
 }
 
@@ -24,7 +25,7 @@ impl<'a> GroveCreateOperation<'a> {
         forest_root: &'a ForestRoot,
         config: &'a ForestConfig,
         hooks: &'a HookRegistry,
-        emitter: &'a dyn EventEmitter,
+        emitter: Arc<dyn EventEmitter>,
         verbose: bool,
     ) -> Self {
         Self {
@@ -170,6 +171,7 @@ impl<'a> GroveCreateOperation<'a> {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
             .trigger(Trigger::PostGroveCreate)
+            .emitter(Arc::clone(&self.emitter))
             .grove_name(name.to_string())
             .grove_path(path.to_path_buf())
             .verbose(self.verbose)

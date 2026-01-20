@@ -9,6 +9,7 @@ description = "Generic forest management for multi-repo projects"
 bon.workspace = true
 clap.workspace = true
 dirs.workspace = true
+indicatif.workspace = true
 miette.workspace = true
 nutype.workspace = true
 owo-colors.workspace = true

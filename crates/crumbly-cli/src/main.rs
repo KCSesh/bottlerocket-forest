@@ -5,6 +5,7 @@ use std::io::IsTerminal;
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::Result;
 
+mod build_cache;
 mod cache;
 mod context;
 mod gc;
@@ -56,6 +57,8 @@ enum Command {
     Gc(gc::GcArgs),
     /// Cache chunks from content sources.
     Cache(cache::CacheArgs),
+    /// Create database and warm chunk cache.
+    BuildCache(build_cache::BuildCacheArgs),
 }
 
 fn main() -> Result<()> {
@@ -82,5 +85,6 @@ fn main() -> Result<()> {
         Command::Context(cmd) => Ok(context::run(cmd)?),
         Command::Gc(args) => Ok(gc::handle_gc(args)?),
         Command::Cache(args) => Ok(cache::handle_cache(args)?),
+        Command::BuildCache(args) => Ok(build_cache::handle_build_cache(args)?),
     }
 }

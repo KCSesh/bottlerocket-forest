@@ -65,4 +65,6 @@ pub enum ForesterEvent {
     Warning(String),
     /// An informational message.
     Info(String),
+    /// An error message.
+    Error(String),
 }

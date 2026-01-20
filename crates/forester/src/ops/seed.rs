@@ -1,6 +1,7 @@
 //! Forest seeding operation.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
 
@@ -14,7 +15,7 @@ pub struct SeedOperation<'a> {
     forest_root: &'a ForestRoot,
     config: &'a ForestConfig,
     hooks: &'a HookRegistry,
-    emitter: &'a dyn EventEmitter,
+    emitter: Arc<dyn EventEmitter>,
     verbose: bool,
 }
 
@@ -24,7 +25,7 @@ impl<'a> SeedOperation<'a> {
         forest_root: &'a ForestRoot,
         config: &'a ForestConfig,
         hooks: &'a HookRegistry,
-        emitter: &'a dyn EventEmitter,
+        emitter: Arc<dyn EventEmitter>,
         verbose: bool,
     ) -> Self {
         Self {
@@ -88,6 +89,7 @@ impl<'a> SeedOperation<'a> {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
             .trigger(Trigger::PostSeed)
+            .emitter(Arc::clone(&self.emitter))
             .verbose(self.verbose)
             .build()
     }

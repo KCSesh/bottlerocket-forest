@@ -2,7 +2,7 @@
 
 use crate::cli::args::{GroveCommand, GroveCreateArgs, GroveRemoveArgs};
 use crate::domain::{ForestConfig, ForestRoot, GroveName};
-use crate::events::ConsoleEmitter;
+use crate::events::{ConsoleEmitter, EventEmitter};
 use crate::grove::GroveContext;
 use crate::hooks::HookRegistry;
 use crate::ops::{GroveCreateOperation, GroveListOperation, GroveRemoveOperation};
@@ -10,6 +10,7 @@ use miette::Diagnostic;
 use owo_colors::OwoColorize;
 use snafu::Snafu;
 use std::path::Path;
+use std::sync::Arc;
 
 #[derive(Debug, Snafu, Diagnostic)]
 #[snafu(module)]
@@ -32,12 +33,18 @@ pub fn run(cmd: GroveCommand) -> miette::Result<()> {
 fn create(args: GroveCreateArgs) -> miette::Result<()> {
     let (forest_path, config) = find_config()?;
     let forest_root = ForestRoot::builder().path(&forest_path).build();
-    let emitter = ConsoleEmitter::new(args.verbose);
+    let emitter: Arc<dyn EventEmitter> = Arc::new(ConsoleEmitter::new(args.verbose));
     let hooks = HookRegistry::from_config(&config.hook).map_err(|e| miette::miette!("{}", e))?;
 
     let grove_name = GroveName::try_new(args.name).map_err(|e| miette::miette!("{}", e))?;
 
-    let op = GroveCreateOperation::new(&forest_root, &config, &hooks, &emitter, args.verbose);
+    let op = GroveCreateOperation::new(
+        &forest_root,
+        &config,
+        &hooks,
+        Arc::clone(&emitter),
+        args.verbose,
+    );
     op.execute(&grove_name, args.branch.as_deref())
         .map_err(|e| miette::miette!("{}", e))?;
 
@@ -80,12 +87,12 @@ fn remove(args: GroveRemoveArgs) -> miette::Result<()> {
 
     let (forest_path, config) = find_config()?;
     let forest_root = ForestRoot::builder().path(&forest_path).build();
-    let emitter = ConsoleEmitter::new(false);
+    let emitter: Arc<dyn EventEmitter> = Arc::new(ConsoleEmitter::new(false));
     let hooks = HookRegistry::from_config(&config.hook).map_err(|e| miette::miette!("{}", e))?;
 
     let grove_name = GroveName::try_new(args.name).map_err(|e| miette::miette!("{}", e))?;
 
-    let op = GroveRemoveOperation::new(&forest_root, &hooks, &emitter, false);
+    let op = GroveRemoveOperation::new(&forest_root, &hooks, Arc::clone(&emitter), false);
     op.execute(&grove_name, args.force)
         .map_err(|e| miette::miette!("{}", e))?;
 

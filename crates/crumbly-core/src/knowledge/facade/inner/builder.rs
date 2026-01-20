@@ -76,6 +76,32 @@ pub(in crate::knowledge::facade) fn build(
     Ok(result)
 }
 
+pub(in crate::knowledge::facade) fn build_cache(index: &KnowledgeIndex) -> Result<(), IndexError> {
+    use crate::knowledge::facade::types::index_error::*;
+
+    snafu::ensure!(
+        !index.db_path.exists(),
+        IndexAlreadyExistsSnafu {
+            path: index.db_path.display().to_string()
+        }
+    );
+
+    let mut repository = SqliteChunkRepository::open(&index.db_path, &index.config)
+        .context(DatabaseAccessFailedSnafu)?;
+
+    let metadata = IndexMetadata::builder()
+        .last_build(std::time::SystemTime::now())
+        .chunk_count(0)
+        .file_count(0)
+        .model_config(index.config.clone())
+        .build();
+    repository
+        .set_metadata(&metadata)
+        .context(DatabaseAccessFailedSnafu)?;
+
+    Ok(())
+}
+
 pub(in crate::knowledge::facade) fn rebuild(
     index: &KnowledgeIndex,
     progress: Option<Arc<dyn ProgressReporter>>,

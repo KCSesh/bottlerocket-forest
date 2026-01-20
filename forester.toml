@@ -4,7 +4,7 @@ name = "bottlerocket"
 [[hook]]
 # Create crumbly index on initial seed
 name = "crumbly"
-command = "cache-bare"
+command = "build-cache"
 triggers = ["post-seed"]
 
 [[hook]]

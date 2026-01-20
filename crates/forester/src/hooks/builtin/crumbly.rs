@@ -1,6 +1,7 @@
 //! Crumbly indexing plugin.
 
 use crate::domain::HookConfig;
+use crate::events::ForesterEvent;
 use crate::hooks::{Hook, HookContext, HookError, Plugin, PluginError, Trigger};
 use std::process::{Command, Stdio};
 
@@ -52,6 +53,9 @@ impl Hook for CrumblyHook {
 
     fn execute(&self, ctx: &HookContext) -> Result<(), HookError> {
         if !Self::is_installed() {
+            ctx.emit(&ForesterEvent::Warning(
+                "crumbly not installed, skipping index update".into(),
+            ));
             return Ok(());
         }
 
@@ -61,12 +65,20 @@ impl Hook for CrumblyHook {
         }
 
         match self.command.as_str() {
-            "cache-bare" => {
-                cmd.args(["cache", "bare-git"])
+            "build-cache" => {
+                ctx.emit(&ForesterEvent::Info(
+                    "Building crumbly cache from bare repositories...".into(),
+                ));
+                cmd.args(["build-cache", "bare-git"])
                     .arg(ctx.forest_root.bare_dir())
                     .current_dir(ctx.forest_root.path());
             }
             "update-context" => {
+                let grove_name = ctx.grove_name.as_deref().unwrap_or("unknown");
+                ctx.emit(&ForesterEvent::Info(format!(
+                    "Updating crumbly index for grove '{}'...",
+                    grove_name
+                )));
                 let context_arg = ctx
                     .grove_path
                     .as_ref()
@@ -97,6 +109,7 @@ impl Hook for CrumblyHook {
             });
         }
 
+        ctx.emit(&ForesterEvent::Info("Crumbly index updated".into()));
         Ok(())
     }
 }

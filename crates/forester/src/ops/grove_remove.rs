@@ -1,6 +1,7 @@
 //! Grove removal operation.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
 
@@ -12,7 +13,7 @@ use crate::hooks::{HookContext, HookRegistry, Trigger};
 pub struct GroveRemoveOperation<'a> {
     forest_root: &'a ForestRoot,
     hooks: &'a HookRegistry,
-    emitter: &'a dyn EventEmitter,
+    emitter: Arc<dyn EventEmitter>,
     verbose: bool,
 }
 
@@ -21,7 +22,7 @@ impl<'a> GroveRemoveOperation<'a> {
     pub fn new(
         forest_root: &'a ForestRoot,
         hooks: &'a HookRegistry,
-        emitter: &'a dyn EventEmitter,
+        emitter: Arc<dyn EventEmitter>,
         verbose: bool,
     ) -> Self {
         Self {
@@ -65,6 +66,7 @@ impl<'a> GroveRemoveOperation<'a> {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
             .trigger(Trigger::PostGroveRemove)
+            .emitter(Arc::clone(&self.emitter))
             .grove_name(name.to_string())
             .grove_path(path.to_path_buf())
             .verbose(self.verbose)

@@ -26,6 +26,14 @@ impl KnowledgeIndex {
         inner::build(self, progress, batch_size, context_id)
     }
 
+    /// Create database and metadata without indexing files.
+    ///
+    /// Creates the database and saves metadata but skips context creation
+    /// and file indexing. Use this to prepare a database for cache warming.
+    pub fn build_cache(&self) -> Result<(), IndexError> {
+        inner::build_cache(self)
+    }
+
     /// Delete the index and rebuild from scratch
     ///
     /// Deletes the existing index database and creates a new one by scanning all files.
@@ -180,5 +188,56 @@ targets = ["docs"]
 
         // Then only files in configured targets are indexed
         assert_eq!(result.files_processed, 1);
+    }
+
+    #[test]
+    fn test_build_cache_creates_database() {
+        let temp_dir = TempDir::new().unwrap();
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+
+        let result = index.build_cache();
+
+        assert!(result.is_ok());
+        assert!(
+            temp_dir
+                .path()
+                .join(".crumbly")
+                .join("knowledge.db")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn test_build_cache_creates_metadata() {
+        let temp_dir = TempDir::new().unwrap();
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+
+        index.build_cache().unwrap();
+
+        let status = index.status().unwrap();
+        assert_eq!(status.file_count, 0);
+        assert_eq!(status.chunk_count, 0);
+    }
+
+    #[test]
+    fn test_build_cache_skips_context() {
+        let temp_dir = TempDir::new().unwrap();
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+
+        index.build_cache().unwrap();
+
+        let contexts = index.list_contexts().unwrap();
+        assert!(contexts.is_empty());
+    }
+
+    #[test]
+    fn test_build_cache_fails_if_exists() {
+        let temp_dir = TempDir::new().unwrap();
+        let index = KnowledgeIndex::open(temp_dir.path()).unwrap();
+
+        index.build_cache().unwrap();
+
+        let result = index.build_cache();
+        assert!(result.is_err());
     }
 }

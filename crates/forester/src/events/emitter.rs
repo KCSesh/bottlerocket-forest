@@ -1,8 +1,18 @@
 //! Event emission for forester operations.
 
 use owo_colors::OwoColorize;
+use std::io::IsTerminal;
 
 use super::ForesterEvent;
+
+/// Creates an event emitter appropriate for the current environment.
+pub fn create_emitter(verbose: bool) -> std::sync::Arc<dyn EventEmitter + Send + Sync> {
+    if std::io::stdout().is_terminal() {
+        std::sync::Arc::new(super::RichEmitter::new())
+    } else {
+        std::sync::Arc::new(ConsoleEmitter::new(verbose))
+    }
+}
 
 /// Trait for emitting forester events.
 pub trait EventEmitter {
@@ -85,6 +95,35 @@ impl EventEmitter for ConsoleEmitter {
             ForesterEvent::Info(msg) => {
                 eprintln!("{} {}", "info:".blue(), msg);
             }
+            ForesterEvent::Error(msg) => {
+                eprintln!("{} {}", "error:".red(), msg);
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_event_formats_with_red_prefix() {
+        let emitter = ConsoleEmitter::new(false);
+        let event = ForesterEvent::Error("test message".to_string());
+        // Verify the emitter can be called without panic.
+        // The actual output goes to stderr with red "error:" prefix.
+        emitter.emit(&event);
+    }
+
+    #[test]
+    fn create_emitter_can_emit_events_without_panic() {
+        // Given an emitter from the factory
+        let emitter = create_emitter(false);
+
+        // When emitting an event
+        let event = ForesterEvent::Info("test".to_string());
+
+        // Then it should not panic
+        emitter.emit(&event);
     }
 }

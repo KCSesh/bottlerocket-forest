@@ -9,7 +9,7 @@ mod gc;
 mod searcher;
 mod updater;
 
-pub(in crate::knowledge::facade) use builder::{build, rebuild};
+pub(in crate::knowledge::facade) use builder::{build, build_cache, rebuild};
 pub(in crate::knowledge::facade) use context::{list_contexts, remove_context, resolve_context};
 pub(in crate::knowledge::facade) use gc::gc;
 pub(in crate::knowledge::facade) use searcher::{search, search_in_context};
