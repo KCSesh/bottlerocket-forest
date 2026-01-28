@@ -26,7 +26,13 @@ Filter and categorize implications from commit reviews. Apply binary classificat
    - SKIP: Duplicates another implication, restates information already in the diff, or describes standard language/library behavior
 3. Categorize each surfaced implication using the rules below
 4. Preserve implication text exactly as written in source—do not rephrase, summarize, or editorialize
-5. Parse commit SHA from citations (format: `{sha}:path/to/file.rs:line`)
+5. Parse citations to populate table columns:
+   - Citation format in source: `{sha}:path/to/file.rs:line` (e.g., `3beb4d77:tools/pcrsys/src/aws/uefi.rs:37-56`)
+   - Split on first `:` → SHA is before, file:line is after
+   - SHA column: first 8 characters of the SHA
+   - Citation column: the `path/to/file.rs:line` portion
+   - Example: `3beb4d77c447419d504128723000059dd8e144b5:tools/pcrsys/src/aws/uefi.rs:37-56`
+     → SHA: `3beb4d77`, Citation: `tools/pcrsys/src/aws/uefi.rs:37-56`
 6. Write output to `{workspace}/filtered-implications.md`
 
 ## Categorization Rules
