@@ -82,3 +82,7 @@ target = "AGENTS.md"
 source = "inner-docs/README.md"
 target = "README.md"
 
+
+[[grove.symlink]]
+source = ".agentrun.toml"
+target = ".agentrun.toml"
