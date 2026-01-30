@@ -63,11 +63,6 @@ Parallel groups:
 
 For each commit (or parallel batch), run the five-phase pipeline.
 
-**Each commit gets its own worktree** to enable parallel execution:
-```bash
-git worktree add /tmp/commit-N -b impl-commit-N HEAD
-```
-
 #### Phase 1: Designer
 
 Create module structure, types, and function stubs.
@@ -169,27 +164,15 @@ results = spawn_batch([
 
 Finalize the commit.
 
-1. Commit changes in worktree:
+1. Verify build still passes, e.g.: `cargo check`
+
+2. Commit changes:
    ```bash
    cd /tmp/commit-N
    git add -A && git commit -m "<commit message from plan>"
    ```
 
-2. Cherry-pick to main branch (in dependency order):
-   ```bash
-   cd <main-worktree>
-   git cherry-pick <commit-sha>
-   ```
-
-3. Verify build still passes: `cargo check`
-
-4. Mark commit complete in plan (check the box)
-
-5. Cleanup worktree:
-   ```bash
-   git worktree remove /tmp/commit-N
-   git branch -D impl-commit-N
-   ```
+3. Mark commit complete in plan (check the box)
 
 ### 4. Handle Failures
 
