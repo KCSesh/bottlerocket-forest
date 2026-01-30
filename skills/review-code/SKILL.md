@@ -227,7 +227,9 @@ Organizes surfaced concerns by category (correctness, assumption, type-system, i
 
 ### 8. Deliver
 
-Present `REVIEW.md` to user. Offer to post comments to GitHub.
+Present `REVIEW.md` to user.
+
+**⚠️ LOCAL ONLY:** This skill produces local artifacts only. Do NOT offer to post comments to GitHub or interact with GitHub in any way beyond the initial `gh pr checkout`. The review output is for the user to act on manually.
 
 ## Token Preservation
 
