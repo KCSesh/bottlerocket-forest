@@ -28,6 +28,34 @@ This is a pass/fail gate, not a feedback session.
 - `phase`: Which phase (design/impl/test) - determines primary style guide
 - `changed_files`: List of files to review
 
+## Ledger Awareness
+
+When a ledger file (`.review-ledger.md`) is provided in context_files:
+
+1. **Read previous cycles** - Check what violations were raised and how implementor responded
+2. **Verify RESOLVED items** - Confirm fixes were actually applied
+3. **Respect DISPUTED items** - Do NOT re-raise if implementor's reason is valid
+4. **Only raise NEW violations** - Issues not previously discussed
+
+### Output Format (with ledger)
+
+```
+PREVIOUS VIOLATIONS:
+- [VERIFIED FIXED] <location> - <description>
+- [STILL PRESENT] <location> - <description>
+- [DISPUTED ACCEPTED] <location> - <implementor's reason is valid>
+- [DISPUTED REJECTED] <location> - <implementor's reason is invalid because...>
+
+NEW VIOLATIONS:
+- <location> - <description>
+```
+
+If no new violations and all previous are fixed/accepted: output `ACCEPT`
+
+### Without Ledger
+
+Use the existing output format (ACCEPT or VIOLATIONS list).
+
 ## Style Guides (Authoritative Sources)
 
 The style guides in `docs/style/` are the ONLY source of truth:

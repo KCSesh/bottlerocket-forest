@@ -1,0 +1,50 @@
+# Implementation Plan Template
+#
+# This TOML file drives the implement-commit skill.
+# The orchestrator parses this mechanically—no interpretation needed.
+
+[meta]
+feature = "feature-name"
+feature_dir = "docs/features/NNNN-feature-name"
+workspace = "./path/to/workspace"
+
+# Dependency graph: commit_id -> [dependency_ids]
+# Orchestrator uses this to determine parallel execution
+[dependencies]
+1 = []
+2 = []
+3 = [1, 2]
+
+# Each commit goes through: designer -> tester -> implementor -> review -> close
+[[commits]]
+id = 1
+title = "Short description of the change"
+message = "feat(scope): commit message following conventional commits"
+
+# Files this commit will create or modify
+files = ["path/to/file.rs"]
+
+# Review criteria (from design doc Critical Constraints)
+acceptance = [
+    "Criterion 1 (CC-N)",
+    "Criterion 2",
+]
+anti_patterns = [
+    "What NOT to do",
+]
+
+[[commits]]
+id = 2
+title = "Another change"
+message = "feat(scope): another commit message"
+files = ["path/to/other.rs"]
+acceptance = []
+anti_patterns = []
+
+[[commits]]
+id = 3
+title = "Change depending on 1 and 2"
+message = "feat(scope): dependent change"
+files = ["path/to/dependent.rs"]
+acceptance = []
+anti_patterns = []
