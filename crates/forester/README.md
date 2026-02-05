@@ -25,6 +25,18 @@ forester seed
 forester seed --verbose
 ```
 
+### Sync Seed
+
+Fetch latest changes from upstream remotes into local bare repositories:
+
+```bash
+forester sync-seed
+forester sync-seed --verbose
+```
+
+This updates the bare repos without affecting existing groves.
+New groves will use the updated refs.
+
 ### Manage Groves
 
 Create a new forest grove (creates git worktrees for all member repos):
