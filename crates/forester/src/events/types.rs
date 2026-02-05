@@ -65,6 +65,27 @@ pub enum ForesterEvent {
     Warning(String),
     /// An informational message.
     Info(String),
+    /// Sync-seed has started.
+    SyncSeedStarted,
+    /// A member repository is being fetched.
+    MemberFetching {
+        /// Member name.
+        name: String,
+    },
+    /// A member repository has been fetched.
+    MemberFetched {
+        /// Member name.
+        name: String,
+    },
+    /// A member was skipped during sync-seed.
+    MemberSkipped {
+        /// Member name.
+        name: String,
+        /// Reason for skipping.
+        reason: String,
+    },
+    /// Sync-seed has completed.
+    SyncSeedCompleted,
     /// An error message.
     Error(String),
 }

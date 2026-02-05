@@ -30,6 +30,8 @@ pub enum Command {
     Init(InitArgs),
     /// Clone all member repositories and set up the forest
     Seed(SeedArgs),
+    /// Fetch latest changes for all member repositories
+    SyncSeed(SyncSeedArgs),
     /// Manage forest groves
     #[command(subcommand)]
     Grove(GroveCommand),
@@ -40,6 +42,16 @@ pub struct InitArgs {
     /// Forest name
     #[arg(short, long)]
     pub name: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct SyncSeedArgs {
+    /// Path to forester.toml (default: current directory)
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 #[derive(Args, Debug)]

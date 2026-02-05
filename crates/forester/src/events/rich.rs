@@ -69,6 +69,23 @@ impl EventEmitter for RichEmitter {
                 self.finish_current();
                 eprintln!("✓ Forest seeded");
             }
+            ForesterEvent::SyncSeedStarted => {
+                let pb = self.spinner("Syncing forest...");
+                *self.lock_bar() = Some(pb);
+            }
+            ForesterEvent::MemberFetching { name } => {
+                if let Some(pb) = self.lock_bar().as_ref() {
+                    pb.set_message(format!("Fetching {name}..."));
+                }
+            }
+            ForesterEvent::MemberFetched { .. } => {}
+            ForesterEvent::MemberSkipped { name, reason } => {
+                self.mp.suspend(|| eprintln!("⚠ {name} skipped: {reason}"));
+            }
+            ForesterEvent::SyncSeedCompleted => {
+                self.finish_current();
+                eprintln!("✓ Forest synced");
+            }
             ForesterEvent::GroveCreating { name } => {
                 let pb = self.spinner(&format!("Creating grove '{name}'..."));
                 *self.lock_bar() = Some(pb);

@@ -141,6 +141,34 @@ impl BareRepository {
 
         Ok(())
     }
+
+    /// Fetches from a remote into this bare repository.
+    pub fn fetch(&self, remote: &str, quiet: bool) -> Result<(), FetchError> {
+        use fetch_error::*;
+
+        let mut cmd = Command::new("git");
+        cmd.current_dir(&self.path).args([
+            "fetch",
+            remote,
+            "+refs/heads/*:refs/remotes/origin/*",
+            "--prune",
+        ]);
+
+        if quiet {
+            cmd.stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+        }
+
+        let status = cmd.status().context(IoSnafu)?;
+        snafu::ensure!(
+            status.success(),
+            CommandFailedSnafu {
+                exit_code: status.code()
+            }
+        );
+
+        Ok(())
+    }
 }
 
 /// Errors from cloning a bare repository.
@@ -187,6 +215,25 @@ pub enum CloneToError {
 pub enum CheckoutError {
     /// Git checkout command failed.
     #[snafu(display("Git checkout command failed"))]
+    CommandFailed {
+        /// The exit code from git.
+        exit_code: Option<i32>,
+    },
+
+    /// Failed to execute git.
+    #[snafu(display("Failed to execute git"))]
+    Io {
+        /// The underlying IO error.
+        source: std::io::Error,
+    },
+}
+
+/// Errors from fetching into a bare repository.
+#[derive(Debug, Snafu)]
+#[snafu(module)]
+pub enum FetchError {
+    /// Git fetch command failed.
+    #[snafu(display("Git fetch command failed"))]
     CommandFailed {
         /// The exit code from git.
         exit_code: Option<i32>,

@@ -4,4 +4,4 @@
 
 mod bare;
 
-pub use bare::{BareRepository, CheckoutError, CloneBareError, CloneToError};
+pub use bare::{BareRepository, CheckoutError, CloneBareError, CloneToError, FetchError};

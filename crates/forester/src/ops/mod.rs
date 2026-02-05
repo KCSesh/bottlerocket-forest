@@ -8,9 +8,11 @@ mod grove_list;
 mod grove_remove;
 mod init;
 mod seed;
+mod sync_seed;
 
 pub use grove_create::{GroveCreateError, GroveCreateOperation};
 pub use grove_list::{GroveListError, GroveListOperation};
 pub use grove_remove::{GroveRemoveError, GroveRemoveOperation};
 pub use init::{InitError, InitOperation};
 pub use seed::{SeedError, SeedOperation};
+pub use sync_seed::{SyncSeedError, SyncSeedOperation};

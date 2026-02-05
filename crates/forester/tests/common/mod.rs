@@ -45,6 +45,15 @@ pub fn forester_seed(cwd: &Path, verbose: bool) -> (i32, String, String) {
     forester_cmd(cwd, &args)
 }
 
+/// Run forester sync-seed in the given directory
+pub fn forester_sync_seed(cwd: &Path, verbose: bool) -> (i32, String, String) {
+    let mut args = vec!["sync-seed"];
+    if verbose {
+        args.push("--verbose");
+    }
+    forester_cmd(cwd, &args)
+}
+
 /// Run forester grove command
 pub fn forester_grove(cwd: &Path, subcmd: &str, args: &[&str]) -> (i32, String, String) {
     let mut full_args = vec!["grove", subcmd];
