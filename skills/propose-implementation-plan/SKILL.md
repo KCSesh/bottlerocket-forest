@@ -40,7 +40,7 @@ workspace = "./path/to/workspace"
 id = 1
 title = "Short description"
 message = "feat(scope): conventional commit message"
-files = ["path/to/file.rs"]
+files = ["path/to/file.rs"]  # Relative to workspace
 acceptance = ["Criterion from CC table (CC-N)"]
 anti_patterns = ["What NOT to do"]
 tests = ["test_name_from_test_plan"]  # REQUIRED: maps to test-plan.md
@@ -110,7 +110,7 @@ For each commit:
 id = N                    # Sequential integer
 title = "..."             # What this commit accomplishes
 message = "..."           # Full conventional commit message
-files = ["..."]           # Files this commit creates/modifies
+files = ["..."]           # Paths relative to workspace
 acceptance = ["..."]      # From CC table + test descriptions
 anti_patterns = ["..."]   # From CC table, or empty []
 tests = ["..."]           # Test names from test-plan.md (REQUIRED)

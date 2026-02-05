@@ -20,7 +20,7 @@ You receive via `context_data`:
   - `acceptance` - criteria you MUST meet
   - `anti_patterns` - what to AVOID (reviewer will reject these)
   - `tests` - test names that must pass
-- **`workspace`** - where files are
+- **`workspace`** - your current directory (paths in `commit.files` are relative to here)
 
 ## Your Task
 
@@ -66,6 +66,11 @@ If you find the implementation satisfies tests but not acceptance:
 
 1. `cargo test` passes - all tests green
 2. **Each `commit.acceptance` criterion is verifiably met in the code**
+
+## Before Responding
+
+Run `cargo test` in the workspace. If it fails, fix the issues and try again.
+Only return `status: ok` when the gate passes and acceptance criteria are met.
 
 ## Response Format
 

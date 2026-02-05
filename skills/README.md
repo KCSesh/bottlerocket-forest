@@ -75,7 +75,6 @@ Why: Paraphrased instructions may diverge from the SKILL.md, creating conflictin
 - **test-local-twoliter** - Build and test local changes to twoliter before releasing
 - **update-twoliter** - Update all repositories to a new Twoliter version
 - **idea-honing** - Clarify feature ideas through iterative Q&A, recording insights to guide concept development
-- **prepare-core-kit-release** - Prepare bottlerocket-core-kit for release by bumping version and updating changelog
 - **propose-feature-concept** - Create a new feature concept document to pitch the idea and explain the problem/solution
 - **propose-feature-requirements** - Create or update feature requirements specification using EARS notation with examples and appendices
 - **propose-feature-design** - Create or update feature technical design document with architecture and implementation guidance

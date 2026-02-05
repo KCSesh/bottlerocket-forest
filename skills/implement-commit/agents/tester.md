@@ -20,7 +20,7 @@ You receive via `context_data`:
   - `files` - files containing code to test
   - `acceptance` - criteria that tests should verify
   - `tests` - **REQUIRED: specific test names from test-plan.md to implement**
-- **`workspace`** - where to write files
+- **`workspace`** - your current directory (paths in `commit.files` are relative to here)
 
 ## Your Task
 
@@ -69,6 +69,11 @@ Examples from test-plan.md that MUST be integration tests:
 ## Success Criteria
 
 `cargo test --no-run` passes. Tests compile but don't need to pass yet.
+
+## Before Responding
+
+Run `cargo test --no-run` in the workspace. If it fails, fix the issues and try again.
+Only return `status: ok` when the gate passes.
 
 ## Response Format
 

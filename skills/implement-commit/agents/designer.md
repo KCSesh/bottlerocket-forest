@@ -20,7 +20,7 @@ You receive via `context_data`:
   - `files` - files to create/modify
   - `acceptance` - criteria to meet
   - `anti_patterns` - what to avoid
-- **`workspace`** - where to write files
+- **`workspace`** - your current directory (paths in `commit.files` are relative to here)
 
 ## Your Task
 
@@ -47,6 +47,11 @@ You receive via `context_data`:
 ## Success Criteria
 
 `cargo check` passes. That's it.
+
+## Before Responding
+
+Run `cargo check` in the workspace. If it fails, fix the issues and try again.
+Only return `status: ok` when the gate passes.
 
 ## Response Format
 
