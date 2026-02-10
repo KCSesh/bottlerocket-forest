@@ -8,10 +8,11 @@ use crate::knowledge::indexing::filter::IndexingFilter;
 use bon::Builder;
 use nutype::nutype;
 use snafu::{ResultExt, Snafu};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
-use super::{ContentEntry, ContentSource};
+use super::{ContentEntry, ContentSource, FetchError, FetchResult};
 
 /// Git revision reference (branch, tag, or commit SHA).
 #[nutype(
@@ -146,6 +147,118 @@ impl BareGitSource {
 
         Ok(entries)
     }
+
+    fn batch_fetch_for_repo(
+        &self,
+        git_dir: &Path,
+        entries: &[&ContentEntry<GitBlobRef>],
+    ) -> Vec<FetchResult<GitBlobRef>> {
+        if entries.is_empty() {
+            return Vec::new();
+        }
+
+        let mut child = match Command::new("git")
+            .args(["--git-dir", &git_dir.to_string_lossy()])
+            .args(["cat-file", "--batch"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(_) => {
+                return entries
+                    .iter()
+                    .map(|e| {
+                        Err(FetchError::Io {
+                            path: PathBuf::from(e.relative_path.to_string()),
+                            source: std::io::Error::other("failed to spawn git cat-file"),
+                        })
+                    })
+                    .collect();
+            }
+        };
+
+        let Some(mut stdin) = child.stdin.take() else {
+            let _ = child.kill();
+            return entries
+                .iter()
+                .map(|e| {
+                    Err(FetchError::Io {
+                        path: PathBuf::from(e.relative_path.to_string()),
+                        source: std::io::Error::other("stdin not available"),
+                    })
+                })
+                .collect();
+        };
+        let Some(stdout) = child.stdout.take() else {
+            let _ = child.kill();
+            return entries
+                .iter()
+                .map(|e| {
+                    Err(FetchError::Io {
+                        path: PathBuf::from(e.relative_path.to_string()),
+                        source: std::io::Error::other("stdout not available"),
+                    })
+                })
+                .collect();
+        };
+
+        // Write all object refs to stdin
+        for entry in entries {
+            let obj_ref = format!("{}:{}", entry.id.rev(), entry.id.path());
+            let _ = writeln!(stdin, "{}", obj_ref);
+        }
+        drop(stdin);
+
+        // Parse batch output
+        let mut reader = BufReader::new(stdout);
+        let mut results = Vec::with_capacity(entries.len());
+
+        for entry in entries {
+            let path = PathBuf::from(entry.relative_path.to_string());
+            let result =
+                parse_cat_file_entry(&mut reader, &path).map(|content| ((*entry).clone(), content));
+            results.push(result);
+        }
+
+        let _ = child.wait();
+        results
+    }
+}
+
+/// Parses a single entry from git cat-file --batch output.
+fn parse_cat_file_entry(
+    reader: &mut BufReader<impl Read>,
+    path: &Path,
+) -> Result<String, FetchError> {
+    let mut header = String::new();
+    if reader.read_line(&mut header).is_err() || header.is_empty() {
+        return Err(FetchError::NotFound { path: path.into() });
+    }
+
+    // Header format: "<sha> <type> <size>" or "<ref> missing"
+    let header = header.trim();
+    if header.ends_with("missing") {
+        return Err(FetchError::NotFound { path: path.into() });
+    }
+
+    let size: usize = header
+        .rsplit_once(' ')
+        .and_then(|(_, s)| s.parse().ok())
+        .ok_or_else(|| FetchError::NotFound { path: path.into() })?;
+
+    // Read exactly `size` bytes of content
+    let mut content = vec![0u8; size];
+    if reader.read_exact(&mut content).is_err() {
+        return Err(FetchError::NotFound { path: path.into() });
+    }
+
+    // Consume trailing newline
+    let mut newline = [0u8; 1];
+    let _ = reader.read_exact(&mut newline);
+
+    String::from_utf8(content).map_err(|_| FetchError::InvalidUtf8 { path: path.into() })
 }
 
 impl ContentSource for BareGitSource {
@@ -185,6 +298,33 @@ impl ContentSource for BareGitSource {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    fn batch_fetch(
+        &self,
+        entries: &[ContentEntry<Self::EntryId>],
+    ) -> Vec<FetchResult<Self::EntryId>> {
+        // Group entries by repository using Vec to avoid Hash requirement
+        let mut groups: Vec<(&RepoName, Vec<&ContentEntry<GitBlobRef>>)> = Vec::new();
+        for entry in entries {
+            if let Some((_, group)) = groups
+                .iter_mut()
+                .find(|(name, _)| *name == &entry.repo_name)
+            {
+                group.push(entry);
+            } else {
+                groups.push((&entry.repo_name, vec![entry]));
+            }
+        }
+
+        // Process each repo with a single git cat-file --batch process
+        let mut results = Vec::with_capacity(entries.len());
+        for (repo_name, repo_entries) in groups {
+            let git_dir = self.bare_repos_dir.join(format!("{}.git", repo_name));
+            results.extend(self.batch_fetch_for_repo(&git_dir, &repo_entries));
+        }
+
+        results
     }
 }
 

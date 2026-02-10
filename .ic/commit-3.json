@@ -1,0 +1,27 @@
+{
+  "plan_path": "docs/features/0005-git-batch-fetch/implementation-plan.toml",
+  "commit_id": 3,
+  "workspace": ".",
+  "state": "format",
+  "designer_gate": "cargo check -p crumbly-core --locked --quiet",
+  "test_gate": "cargo check -p crumbly-core --locked --quiet",
+  "fmt_cmd": "cargo fmt",
+  "lint_cmd": "cargo clippy --fix --allow-dirty --allow-staged",
+  "commit_title": "Implement BareGitSource batch_fetch with git cat-file --batch",
+  "commit_message": "feat(crumbly): add BareGitSource.batch_fetch via git cat-file --batch\n\nSpawn single git cat-file --batch process for efficient bulk retrieval.\nHandle missing files, empty files, and UTF-8 errors gracefully.",
+  "commit_files": [
+    "crates/crumbly-core/src/knowledge/indexing/source/bare_git.rs"
+  ],
+  "commit_tests": [
+    "test_batch_fetch_git_single_file",
+    "test_batch_fetch_git_multiple_files",
+    "test_batch_fetch_git_missing_file",
+    "test_batch_fetch_git_empty_file"
+  ],
+  "files_touched": [],
+  "gate_retries": 0,
+  "style_cycles": 0,
+  "last_gate_error": "",
+  "last_style_violations": [],
+  "escalation_context": ""
+}
