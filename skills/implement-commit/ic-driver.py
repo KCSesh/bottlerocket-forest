@@ -14,6 +14,18 @@ from enum import Enum
 from pathlib import Path
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONSTANTS & CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+MAX_GATE_RETRIES = 2
+MAX_STYLE_CYCLES = 3
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE DEFINITIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
 class State(str, Enum):
     EXPLORE_GATES = "explore_gates"
     EXPLORE_FORMATTERS = "explore_formatters"
@@ -32,6 +44,10 @@ class State(str, Enum):
     DONE = "done"
     NEEDS_LLM = "needs_llm"
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMMIT STATE
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
 class CommitState:
@@ -65,9 +81,75 @@ class CommitState:
         return cls(**json.loads(data))
 
 
-MAX_GATE_RETRIES = 2
-MAX_STYLE_CYCLES = 3
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROMPT TEMPLATES
+# ═══════════════════════════════════════════════════════════════════════════════
 
+PROMPTS = {
+    "explore_gates": lambda st: f"""Determine build and test gate commands for this project.
+
+Workspace: {st.workspace}
+Files to be modified: {st.commit_files}
+
+Return JSON: {{"designer_gate": "<cargo check or equivalent>", "test_gate": "<cargo test or equivalent>"}}
+
+Gates VALIDATE code (compile, run tests) - they never modify files.
+Scope commands to affected crates/packages when possible.
+Use --release if needed for ARM compatibility.""",
+
+    "explore_formatters": lambda st: f"""Determine format and lint-fix commands for this project.
+
+Workspace: {st.workspace}
+Files to be modified: {st.commit_files}
+
+Return JSON: {{"fmt_cmd": "<cargo fmt or equivalent>", "lint_cmd": "<cargo clippy --fix or equivalent>"}}
+
+Formatters MODIFY code to fix style - they change files.""",
+
+    "phase": lambda phase, st, retry="": f"""Execute {phase} phase for commit {st.commit_id}: {st.commit_title}
+
+Workspace: {st.workspace}
+Files: {st.commit_files}
+{f"Tests to write: {st.commit_tests}" if phase == "tester" and st.commit_tests else ""}
+
+Follow the {phase}.md agent instructions and style guide.{f'''
+
+PREVIOUS ATTEMPT FAILED:
+{retry}''' if retry else ''}""",
+
+    "style_review": lambda phase, st: f"""Review {phase} phase style compliance.
+
+Files to review: {st.files_touched}
+Phase: {phase}
+
+Return JSON: {{"status": "accept" | "violations", "violations": [...]}}""",
+
+    "style_fix": lambda phase, st: f"""Fix style violations for {phase} phase of commit {st.commit_id}.
+
+Violations: {st.last_style_violations}
+Files: {st.files_touched}
+
+Fix the violations while maintaining correctness.""",
+
+    "scope_review": lambda st: f"""Review scope compliance for commit {st.commit_id}: {st.commit_title}
+
+Allowed files: {st.commit_files}
+Actual files touched: {st.files_touched}
+
+Return ACCEPT or VIOLATIONS: [...]""",
+
+    "arbiter": lambda st: f"""Style review exceeded {MAX_STYLE_CYCLES} cycles.
+
+Remaining violations: {st.last_style_violations}
+
+Decide: proceed with noted style debt, or reject?
+Return JSON: {{"proceed": true|false, "reasoning": "..."}}""",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITIES
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def load_plan(path: str) -> dict:
     try:
@@ -104,160 +186,15 @@ def escalate(st: CommitState, reason: str, state_path: str) -> None:
     sys.exit(1)
 
 
-# --- Prompt Templates ---
-
-def prompt_explore_gates(st: CommitState) -> str:
-    return f"""Determine build and test gate commands for this project.
-
-Workspace: {st.workspace}
-Files to be modified: {st.commit_files}
-
-Return JSON: {{"designer_gate": "<cargo check or equivalent>", "test_gate": "<cargo test or equivalent>"}}
-
-Gates VALIDATE code (compile, run tests) - they never modify files.
-Scope commands to affected crates/packages when possible.
-Use --release if needed for ARM compatibility."""
-
-
-def prompt_explore_formatters(st: CommitState) -> str:
-    return f"""Determine format and lint-fix commands for this project.
-
-Workspace: {st.workspace}
-Files to be modified: {st.commit_files}
-
-Return JSON: {{"fmt_cmd": "<cargo fmt or equivalent>", "lint_cmd": "<cargo clippy --fix or equivalent>"}}
-
-Formatters MODIFY code to fix style - they change files."""
-
-
-def prompt_phase(phase: str, st: CommitState, retry_context: str = "") -> str:
-    tests_info = f"Tests to write: {st.commit_tests}" if phase == "tester" and st.commit_tests else ""
-    base = f"""Execute {phase} phase for commit {st.commit_id}: {st.commit_title}
-
-Workspace: {st.workspace}
-Files: {st.commit_files}
-{tests_info}
-
-Follow the {phase}.md agent instructions and style guide."""
-    if retry_context:
-        base += f"""
-
-PREVIOUS ATTEMPT FAILED:
-{retry_context}"""
-    return base
-
-
-def prompt_style_review(phase: str, st: CommitState) -> str:
-    return f"""Review {phase} phase style compliance.
-
-Files to review: {st.files_touched}
-Phase: {phase}
-
-Return JSON: {{"status": "accept" | "violations", "violations": [...]}}"""
-
-
-def prompt_style_fix(phase: str, st: CommitState) -> str:
-    return f"""Fix style violations for {phase} phase of commit {st.commit_id}.
-
-Violations: {st.last_style_violations}
-Files: {st.files_touched}
-
-Fix the violations while maintaining correctness."""
-
-
-def prompt_scope_review(st: CommitState) -> str:
-    return f"""Review scope compliance for commit {st.commit_id}: {st.commit_title}
-
-Allowed files: {st.commit_files}
-Actual files touched: {st.files_touched}
-
-Return ACCEPT or VIOLATIONS: [...]"""
-
-
-def prompt_arbiter(st: CommitState) -> str:
-    return f"""Style review exceeded {MAX_STYLE_CYCLES} cycles.
-
-Remaining violations: {st.last_style_violations}
-
-Decide: proceed with noted style debt, or reject?
-Return JSON: {{"proceed": true|false, "reasoning": "..."}}"""
-
-
-# --- State Transitions ---
-
-def next_action(st: CommitState, state_path: str) -> dict:
-    """Return next action for orchestrator, or execute directly."""
-    s = State(st.state)
-
-    if s == State.EXPLORE_GATES:
-        return action("spawn", prompt=prompt_explore_gates(st), response_schema="GateDiscovery")
-
-    if s == State.EXPLORE_FORMATTERS:
-        return action("spawn", prompt=prompt_explore_formatters(st), response_schema="FormatterDiscovery")
-
-    if s in (State.DESIGNER_PHASE, State.TESTER_PHASE, State.IMPLEMENTOR_PHASE):
-        phase = s.value.replace("_phase", "")
-        retry = st.last_gate_error if st.gate_retries > 0 else ""
-        return action("spawn", prompt=prompt_phase(phase, st, retry), phase=phase)
-
-    if s == State.DESIGNER_GATE:
-        ok, out = run_cmd(st.designer_gate, st.workspace)
-        if ok:
-            st.state = State.DESIGNER_STYLE.value
-            st.gate_retries = 0
-            return next_action(st, state_path)
-        return handle_gate_failure(st, out, State.DESIGNER_PHASE, state_path)
-
-    if s == State.TESTER_GATE:
-        # Tester gate EXPECTS failure (TDD red) - but only if there are tests
-        if not st.commit_tests:
-            # No tests for this commit, skip to style
-            st.state = State.TESTER_STYLE.value
-            return next_action(st, state_path)
-        ok, out = run_cmd(st.test_gate, st.workspace)
-        if not ok:
-            st.state = State.TESTER_STYLE.value
-            st.gate_retries = 0
-            return next_action(st, state_path)
-        # Tests passed = bad (vacuous tests or designer over-implemented)
-        escalate(st, "Tester gate passed but should fail (TDD red). Tests may be vacuous.", state_path)
-
-    if s == State.IMPLEMENTOR_GATE:
-        ok, out = run_cmd(st.test_gate, st.workspace)
-        if ok:
-            st.state = State.IMPLEMENTOR_STYLE.value
-            st.gate_retries = 0
-            return next_action(st, state_path)
-        return handle_gate_failure(st, out, State.IMPLEMENTOR_PHASE, state_path)
-
-    if s in (State.DESIGNER_STYLE, State.TESTER_STYLE, State.IMPLEMENTOR_STYLE):
-        phase = s.value.replace("_style", "")
-        if st.style_cycles >= MAX_STYLE_CYCLES:
-            return action("spawn", prompt=prompt_arbiter(st), arbiter=True)
-        return action("spawn", prompt=prompt_style_review(phase, st), style_review=True, phase=phase)
-
-    if s == State.SCOPE_REVIEW:
-        return action("spawn", prompt=prompt_scope_review(st), scope_review=True)
-
-    if s == State.FORMAT:
-        run_cmd(st.fmt_cmd, st.workspace)
-        run_cmd(st.lint_cmd, st.workspace)
-        st.state = State.COMMIT.value
-        return next_action(st, state_path)
-
-    if s == State.COMMIT:
-        # Escape single quotes for shell
-        msg = st.commit_message.replace("'", "'\''")
-        ok, out = run_cmd(f"git add -A && git commit -m '{msg}'", st.workspace)
-        if ok:
-            st.state = State.DONE.value
-            return action("done", commit_id=st.commit_id)
-        escalate(st, f"Commit failed: {out}", state_path)
-
-    if s == State.DONE:
-        return action("done", commit_id=st.commit_id)
-
-    escalate(st, f"Unknown state: {s}", state_path)
+def advance_from_style(st: CommitState) -> None:
+    """Move to next phase after style acceptance."""
+    st.style_cycles = 0
+    transitions = {
+        State.DESIGNER_STYLE: State.TESTER_PHASE,
+        State.TESTER_STYLE: State.IMPLEMENTOR_PHASE,
+        State.IMPLEMENTOR_STYLE: State.SCOPE_REVIEW,
+    }
+    st.state = transitions[State(st.state)].value
 
 
 def handle_gate_failure(st: CommitState, error: str, retry_state: State, state_path: str) -> dict:
@@ -269,71 +206,185 @@ def handle_gate_failure(st: CommitState, error: str, retry_state: State, state_p
     return next_action(st, state_path)
 
 
-def process_report(st: CommitState, result: dict) -> None:
-    """Update state based on spawn result."""
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE HANDLERS (next_action dispatch)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def handle_explore_gates(st, state_path):
+    return action("spawn", prompt=PROMPTS["explore_gates"](st), response_schema="GateDiscovery")
+
+
+def handle_explore_formatters(st, state_path):
+    return action("spawn", prompt=PROMPTS["explore_formatters"](st), response_schema="FormatterDiscovery")
+
+
+def handle_phase(phase: str):
+    def handler(st, state_path):
+        retry = st.last_gate_error if st.gate_retries > 0 else ""
+        return action("spawn", prompt=PROMPTS["phase"](phase, st, retry), phase=phase)
+    return handler
+
+
+def handle_designer_gate(st, state_path):
+    ok, out = run_cmd(st.designer_gate, st.workspace)
+    if ok:
+        st.state = State.DESIGNER_STYLE.value
+        st.gate_retries = 0
+        return next_action(st, state_path)
+    return handle_gate_failure(st, out, State.DESIGNER_PHASE, state_path)
+
+
+def handle_tester_gate(st, state_path):
+    if not st.commit_tests:
+        st.state = State.TESTER_STYLE.value
+        return next_action(st, state_path)
+    ok, out = run_cmd(st.test_gate, st.workspace)
+    if not ok:
+        st.state = State.TESTER_STYLE.value
+        st.gate_retries = 0
+        return next_action(st, state_path)
+    escalate(st, "Tester gate passed but should fail (TDD red). Tests may be vacuous.", state_path)
+
+
+def handle_implementor_gate(st, state_path):
+    ok, out = run_cmd(st.test_gate, st.workspace)
+    if ok:
+        st.state = State.IMPLEMENTOR_STYLE.value
+        st.gate_retries = 0
+        return next_action(st, state_path)
+    return handle_gate_failure(st, out, State.IMPLEMENTOR_PHASE, state_path)
+
+
+def handle_style(phase: str):
+    def handler(st, state_path):
+        if st.style_cycles >= MAX_STYLE_CYCLES:
+            return action("spawn", prompt=PROMPTS["arbiter"](st), arbiter=True)
+        return action("spawn", prompt=PROMPTS["style_review"](phase, st), style_review=True, phase=phase)
+    return handler
+
+
+def handle_scope_review(st, state_path):
+    return action("spawn", prompt=PROMPTS["scope_review"](st), scope_review=True)
+
+
+def handle_format(st, state_path):
+    run_cmd(st.fmt_cmd, st.workspace)
+    run_cmd(st.lint_cmd, st.workspace)
+    st.state = State.COMMIT.value
+    return next_action(st, state_path)
+
+
+def handle_commit(st, state_path):
+    msg = st.commit_message.replace("'", "'\''")
+    ok, out = run_cmd(f"git add -A && git commit -m '{msg}'", st.workspace)
+    if ok:
+        st.state = State.DONE.value
+        return action("done", commit_id=st.commit_id)
+    escalate(st, f"Commit failed: {out}", state_path)
+
+
+def handle_done(st, state_path):
+    return action("done", commit_id=st.commit_id)
+
+
+STATE_HANDLERS = {
+    State.EXPLORE_GATES: handle_explore_gates,
+    State.EXPLORE_FORMATTERS: handle_explore_formatters,
+    State.DESIGNER_PHASE: handle_phase("designer"),
+    State.DESIGNER_GATE: handle_designer_gate,
+    State.DESIGNER_STYLE: handle_style("designer"),
+    State.TESTER_PHASE: handle_phase("tester"),
+    State.TESTER_GATE: handle_tester_gate,
+    State.TESTER_STYLE: handle_style("tester"),
+    State.IMPLEMENTOR_PHASE: handle_phase("implementor"),
+    State.IMPLEMENTOR_GATE: handle_implementor_gate,
+    State.IMPLEMENTOR_STYLE: handle_style("implementor"),
+    State.SCOPE_REVIEW: handle_scope_review,
+    State.FORMAT: handle_format,
+    State.COMMIT: handle_commit,
+    State.DONE: handle_done,
+}
+
+
+def next_action(st: CommitState, state_path: str) -> dict:
+    """Return next action for orchestrator, or execute directly."""
     s = State(st.state)
+    handler = STATE_HANDLERS.get(s)
+    if handler:
+        return handler(st, state_path)
+    escalate(st, f"Unknown state: {s}", state_path)
 
-    if s == State.EXPLORE_GATES:
-        st.designer_gate = result.get("designer_gate", "cargo check")
-        st.test_gate = result.get("test_gate", "cargo test")
-        st.state = State.EXPLORE_FORMATTERS.value
 
-    elif s == State.EXPLORE_FORMATTERS:
-        st.fmt_cmd = result.get("fmt_cmd", "cargo fmt")
-        st.lint_cmd = result.get("lint_cmd", "cargo clippy --fix --allow-dirty --allow-staged")
-        st.state = State.DESIGNER_PHASE.value
+# ═══════════════════════════════════════════════════════════════════════════════
+# REPORT HANDLERS (process_report dispatch)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    elif s == State.DESIGNER_PHASE:
+def report_explore_gates(st, result):
+    st.designer_gate = result.get("designer_gate", "cargo check")
+    st.test_gate = result.get("test_gate", "cargo test")
+    st.state = State.EXPLORE_FORMATTERS.value
+
+
+def report_explore_formatters(st, result):
+    st.fmt_cmd = result.get("fmt_cmd", "cargo fmt")
+    st.lint_cmd = result.get("lint_cmd", "cargo clippy --fix --allow-dirty --allow-staged")
+    st.state = State.DESIGNER_PHASE.value
+
+
+def report_phase(next_state: State):
+    def handler(st, result):
         st.files_touched.extend(result.get("files_created", []))
         st.files_touched.extend(result.get("files_modified", []))
-        st.state = State.DESIGNER_GATE.value
+        st.state = next_state.value
+    return handler
 
-    elif s == State.TESTER_PHASE:
-        st.files_touched.extend(result.get("files_created", []))
-        st.files_touched.extend(result.get("files_modified", []))
-        st.state = State.TESTER_GATE.value
 
-    elif s == State.IMPLEMENTOR_PHASE:
-        st.files_touched.extend(result.get("files_created", []))
-        st.files_touched.extend(result.get("files_modified", []))
-        st.state = State.IMPLEMENTOR_GATE.value
-
-    elif s in (State.DESIGNER_STYLE, State.TESTER_STYLE, State.IMPLEMENTOR_STYLE):
-        if result.get("arbiter"):
-            if result.get("proceed"):
-                advance_from_style(st)
-            else:
-                st.escalation_context = f"Arbiter rejected: {result.get('reasoning')}"
-                st.state = State.NEEDS_LLM.value
-        elif result.get("status") == "accept":
+def report_style(st, result):
+    if result.get("arbiter"):
+        if result.get("proceed"):
             advance_from_style(st)
         else:
-            st.last_style_violations = result.get("violations", [])
-            st.style_cycles += 1
-            # Stay in same state for style fix
-
-    elif s == State.SCOPE_REVIEW:
-        response = str(result.get("response", ""))
-        if "VIOLATIONS" in response.upper():
-            st.escalation_context = f"Scope violations: {response}"
+            st.escalation_context = f"Arbiter rejected: {result.get('reasoning')}"
             st.state = State.NEEDS_LLM.value
-        else:
-            st.state = State.FORMAT.value
+    elif result.get("status") == "accept":
+        advance_from_style(st)
+    else:
+        st.last_style_violations = result.get("violations", [])
+        st.style_cycles += 1
 
 
-def advance_from_style(st: CommitState) -> None:
-    """Move to next phase after style acceptance."""
-    s = State(st.state)
-    st.style_cycles = 0
-    if s == State.DESIGNER_STYLE:
-        st.state = State.TESTER_PHASE.value
-    elif s == State.TESTER_STYLE:
-        st.state = State.IMPLEMENTOR_PHASE.value
-    elif s == State.IMPLEMENTOR_STYLE:
-        st.state = State.SCOPE_REVIEW.value
+def report_scope_review(st, result):
+    response = str(result.get("response", ""))
+    if "VIOLATIONS" in response.upper():
+        st.escalation_context = f"Scope violations: {response}"
+        st.state = State.NEEDS_LLM.value
+    else:
+        st.state = State.FORMAT.value
 
 
-# --- CLI ---
+REPORT_HANDLERS = {
+    State.EXPLORE_GATES: report_explore_gates,
+    State.EXPLORE_FORMATTERS: report_explore_formatters,
+    State.DESIGNER_PHASE: report_phase(State.DESIGNER_GATE),
+    State.TESTER_PHASE: report_phase(State.TESTER_GATE),
+    State.IMPLEMENTOR_PHASE: report_phase(State.IMPLEMENTOR_GATE),
+    State.DESIGNER_STYLE: report_style,
+    State.TESTER_STYLE: report_style,
+    State.IMPLEMENTOR_STYLE: report_style,
+    State.SCOPE_REVIEW: report_scope_review,
+}
+
+
+def process_report(st: CommitState, result: dict) -> None:
+    """Update state based on spawn result."""
+    handler = REPORT_HANDLERS.get(State(st.state))
+    if handler:
+        handler(st, result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLI COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def cmd_init(args):
     plan = load_plan(args.plan)
@@ -374,18 +425,17 @@ def cmd_report(args):
 def cmd_resume(args):
     st = CommitState.from_json(Path(args.state).read_text())
     if st.state == State.NEEDS_LLM.value:
-        # LLM fixed the issue, retry from appropriate state based on context
-        # The orchestrator should have fixed the issue, we re-run from last phase
-        if "designer" in st.escalation_context.lower():
+        ctx = st.escalation_context.lower()
+        if "designer" in ctx:
             st.state = State.DESIGNER_PHASE.value
-        elif "tester" in st.escalation_context.lower():
+        elif "tester" in ctx:
             st.state = State.TESTER_PHASE.value
-        elif "implementor" in st.escalation_context.lower():
+        elif "implementor" in ctx:
             st.state = State.IMPLEMENTOR_PHASE.value
-        elif "scope" in st.escalation_context.lower():
+        elif "scope" in ctx:
             st.state = State.SCOPE_REVIEW.value
         else:
-            st.state = State.DESIGNER_PHASE.value  # Default restart
+            st.state = State.DESIGNER_PHASE.value
         st.escalation_context = ""
         st.gate_retries = 0
     Path(args.state).write_text(st.to_json())
@@ -396,6 +446,10 @@ def cmd_status(args):
     st = CommitState.from_json(Path(args.state).read_text())
     print(st.to_json())
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
     p = argparse.ArgumentParser(description="implement-commit state machine driver")
