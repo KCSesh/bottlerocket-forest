@@ -7,9 +7,10 @@
 use crossbeam_channel::{Receiver, Sender};
 use snafu::{ResultExt, Snafu};
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 
 use super::EmbeddingError;
-use super::model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel};
+use super::model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel, default_cache_dir};
 use crate::knowledge::domain::Embedding;
 use crate::knowledge::indexing::{IndexDataError, IndexDataProvider};
 
@@ -23,6 +24,9 @@ pub struct PoolConfig {
     /// Number of model instances in the pool
     #[builder(default = compute_default_pool_size())]
     pool_size: NonZeroUsize,
+    /// Cache directory for model downloads
+    #[builder(default = default_cache_dir())]
+    cache_dir: PathBuf,
 }
 
 fn compute_default_pool_size() -> NonZeroUsize {
@@ -71,6 +75,7 @@ impl EmbeddingModelPool {
 
         for _ in 0..config.pool_size.get() {
             let model = EmbeddingModel::builder()
+                .cache_dir(config.cache_dir.clone())
                 .build()
                 .load()
                 .context(ModelLoadSnafu)?;

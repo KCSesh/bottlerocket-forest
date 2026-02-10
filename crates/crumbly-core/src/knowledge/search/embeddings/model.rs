@@ -304,7 +304,8 @@ impl EmbeddingProvider for LoadedEmbeddingModel {
     }
 }
 
-fn default_cache_dir() -> PathBuf {
+/// Returns the default cache directory for embedding models.
+pub fn default_cache_dir() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("crumbly")

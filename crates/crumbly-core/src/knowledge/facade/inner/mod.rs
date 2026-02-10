@@ -65,11 +65,17 @@ pub(super) fn create_search_engine(
 }
 
 pub(super) fn create_provider(
-    _index: &KnowledgeIndex,
+    index: &KnowledgeIndex,
 ) -> Result<Box<dyn IndexDataProvider>, IndexError> {
     use super::types::index_error::*;
+    use crate::knowledge::search::embeddings::PoolConfig;
+
+    let config = PoolConfig::builder()
+        .cache_dir(index.index_root.join(SEMBLY_DIR).join(MODEL_CACHE_DIR))
+        .build();
+
     Ok(Box::new(
-        PooledEmbeddingProvider::new()
+        PooledEmbeddingProvider::with_config(config)
             .map_err(Box::new)
             .context(PoolCreationFailedSnafu)?,
     ))
