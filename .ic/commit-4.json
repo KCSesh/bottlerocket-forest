@@ -1,0 +1,32 @@
+{
+  "plan_path": "docs/features/0005-git-batch-fetch/implementation-plan.toml",
+  "commit_id": 4,
+  "workspace": ".",
+  "state": "done",
+  "designer_gate": "cargo check -p crumbly-core --locked --quiet",
+  "test_gate": "cargo check -p crumbly-core --locked --quiet",
+  "fmt_cmd": "cargo fmt",
+  "lint_cmd": "cargo clippy --fix --allow-dirty --allow-staged",
+  "commit_title": "Generalize indexer strategies to use ContentSource",
+  "commit_message": "refactor(crumbly): generalize indexer to accept ContentSource\n\nModify strategies to use source.scan() and batch_fetch() for content.\nRename chunk_file to chunk_content taking content string parameter.\nPreserve incremental indexing via last_modified.",
+  "commit_files": [
+    "crates/crumbly-core/src/knowledge/indexing/indexer/mod.rs",
+    "crates/crumbly-core/src/knowledge/indexing/indexer/operations.rs",
+    "crates/crumbly-core/src/knowledge/indexing/indexer/strategies.rs"
+  ],
+  "commit_tests": [
+    "test_indexer_with_git_source",
+    "test_incremental_indexing_with_content_source"
+  ],
+  "files_touched": [
+    "crates/crumbly-core/src/knowledge/indexing/indexer/mod.rs",
+    "crates/crumbly-core/src/knowledge/indexing/indexer/operations.rs",
+    "crates/crumbly-core/src/knowledge/indexing/indexer/strategies.rs",
+    "crates/crumbly-core/src/knowledge/indexing/indexer/strategies.rs"
+  ],
+  "gate_retries": 0,
+  "style_cycles": 0,
+  "last_gate_error": "",
+  "last_style_violations": [],
+  "escalation_context": ""
+}

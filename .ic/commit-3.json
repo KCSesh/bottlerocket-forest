@@ -2,7 +2,7 @@
   "plan_path": "docs/features/0005-git-batch-fetch/implementation-plan.toml",
   "commit_id": 3,
   "workspace": ".",
-  "state": "format",
+  "state": "done",
   "designer_gate": "cargo check -p crumbly-core --locked --quiet",
   "test_gate": "cargo check -p crumbly-core --locked --quiet",
   "fmt_cmd": "cargo fmt",

@@ -97,6 +97,8 @@ pub(super) fn chunk_file_gracefully(
     }
 }
 
+/// Chunk content from a ContentEntry without reading from filesystem.
+
 #[cfg(test)]
 mod test {
     use super::*;
