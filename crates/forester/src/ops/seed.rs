@@ -114,7 +114,7 @@ pub enum SeedError {
         /// Member name.
         name: String,
         /// Underlying clone error.
-        source: crate::git::CloneBareError,
+        source: crate::git::GitCommandError,
     },
 
     /// A hook failed during execution.

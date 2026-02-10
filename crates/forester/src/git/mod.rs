@@ -3,5 +3,7 @@
 //! Provides operations for bare repositories and clones.
 
 mod bare;
+mod command;
 
-pub use bare::{BareRepository, CheckoutError, CloneBareError, CloneToError, FetchError};
+pub use bare::BareRepository;
+pub use command::GitCommandError;

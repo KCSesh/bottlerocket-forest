@@ -205,7 +205,7 @@ pub enum GroveCreateError {
         /// Member name.
         member: String,
         /// Underlying clone error.
-        source: crate::git::CloneToError,
+        source: crate::git::GitCommandError,
     },
 
     /// Failed to checkout branch.
@@ -214,7 +214,7 @@ pub enum GroveCreateError {
         /// Member name.
         member: String,
         /// Underlying checkout error.
-        source: crate::git::CheckoutError,
+        source: crate::git::GitCommandError,
     },
 
     /// Failed to create a symlink.

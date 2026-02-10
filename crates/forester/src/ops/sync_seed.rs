@@ -85,6 +85,6 @@ pub enum SyncSeedError {
         /// Member name.
         name: String,
         /// Underlying fetch error.
-        source: crate::git::FetchError,
+        source: crate::git::GitCommandError,
     },
 }

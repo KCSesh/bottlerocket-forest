@@ -1,8 +1,8 @@
 //! Bare git repository operations.
 
-use snafu::{ResultExt, Snafu};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
+use crate::git::command::{GitCommand, GitCommandError};
 
 /// A bare git repository.
 #[derive(Debug, Clone)]
@@ -21,30 +21,18 @@ impl BareRepository {
     }
 
     /// Clones a remote repository as a bare repository.
-    pub fn clone_from(remote: &str, path: &Path, quiet: bool) -> Result<Self, CloneBareError> {
-        use clone_bare_error::*;
-
+    pub fn clone_from(remote: &str, path: &Path, quiet: bool) -> Result<Self, GitCommandError> {
         let name = path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("repo")
             .to_string();
 
-        let mut cmd = Command::new("git");
-        cmd.args(["clone", "--bare", remote]).arg(path);
-
-        if quiet {
-            cmd.stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-        }
-
-        let status = cmd.status().context(IoSnafu)?;
-        snafu::ensure!(
-            status.success(),
-            CommandFailedSnafu {
-                exit_code: status.code()
-            }
-        );
+        GitCommand::new("clone")
+            .args(["--bare", remote])
+            .arg(path.to_string_lossy())
+            .quiet(quiet)
+            .run()?;
 
         Ok(Self {
             path: path.to_path_buf(),
@@ -68,49 +56,25 @@ impl BareRepository {
     }
 
     /// Clones this bare repository to a target directory.
-    pub fn clone_to(&self, target: &Path, quiet: bool) -> Result<(), CloneToError> {
-        use clone_to_error::*;
-
-        let mut cmd = Command::new("git");
-        cmd.args(["clone"]).arg(&self.path).arg(target);
-
-        if quiet {
-            cmd.stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-        }
-
-        let status = cmd.status().context(IoSnafu)?;
-        snafu::ensure!(
-            status.success(),
-            CommandFailedSnafu {
-                exit_code: status.code()
-            }
-        );
-
-        Ok(())
+    pub fn clone_to(&self, target: &Path, quiet: bool) -> Result<(), GitCommandError> {
+        GitCommand::new("clone")
+            .arg(self.path.to_string_lossy())
+            .arg(target.to_string_lossy())
+            .quiet(quiet)
+            .run()
     }
 
     /// Checks out a branch in a cloned repository.
-    pub fn checkout_branch(target: &Path, branch: &str, quiet: bool) -> Result<(), CheckoutError> {
-        use checkout_error::*;
-
-        let mut cmd = Command::new("git");
-        cmd.current_dir(target).args(["checkout", branch]);
-
-        if quiet {
-            cmd.stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-        }
-
-        let status = cmd.status().context(IoSnafu)?;
-        snafu::ensure!(
-            status.success(),
-            CommandFailedSnafu {
-                exit_code: status.code()
-            }
-        );
-
-        Ok(())
+    pub fn checkout_branch(
+        target: &Path,
+        branch: &str,
+        quiet: bool,
+    ) -> Result<(), GitCommandError> {
+        GitCommand::new("checkout")
+            .arg(branch)
+            .cwd(target)
+            .quiet(quiet)
+            .run()
     }
 
     /// Creates and checks out a new branch in a cloned repository.
@@ -119,130 +83,20 @@ impl BareRepository {
         new_branch: &str,
         start_point: &str,
         quiet: bool,
-    ) -> Result<(), CheckoutError> {
-        use checkout_error::*;
-
-        let mut cmd = Command::new("git");
-        cmd.current_dir(target)
-            .args(["checkout", "-b", new_branch, start_point]);
-
-        if quiet {
-            cmd.stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-        }
-
-        let status = cmd.status().context(IoSnafu)?;
-        snafu::ensure!(
-            status.success(),
-            CommandFailedSnafu {
-                exit_code: status.code()
-            }
-        );
-
-        Ok(())
+    ) -> Result<(), GitCommandError> {
+        GitCommand::new("checkout")
+            .args(["-b", new_branch, start_point])
+            .cwd(target)
+            .quiet(quiet)
+            .run()
     }
 
     /// Fetches from a remote into this bare repository.
-    pub fn fetch(&self, remote: &str, quiet: bool) -> Result<(), FetchError> {
-        use fetch_error::*;
-
-        let mut cmd = Command::new("git");
-        cmd.current_dir(&self.path).args([
-            "fetch",
-            remote,
-            "+refs/heads/*:refs/remotes/origin/*",
-            "--prune",
-        ]);
-
-        if quiet {
-            cmd.stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-        }
-
-        let status = cmd.status().context(IoSnafu)?;
-        snafu::ensure!(
-            status.success(),
-            CommandFailedSnafu {
-                exit_code: status.code()
-            }
-        );
-
-        Ok(())
+    pub fn fetch(&self, remote: &str, quiet: bool) -> Result<(), GitCommandError> {
+        GitCommand::new("fetch")
+            .args([remote, "+refs/heads/*:refs/remotes/origin/*", "--prune"])
+            .cwd(&self.path)
+            .quiet(quiet)
+            .run()
     }
-}
-
-/// Errors from cloning a bare repository.
-#[derive(Debug, Snafu)]
-#[snafu(module)]
-pub enum CloneBareError {
-    /// Git clone command failed.
-    #[snafu(display("Git clone command failed"))]
-    CommandFailed {
-        /// The exit code from git.
-        exit_code: Option<i32>,
-    },
-
-    /// Failed to execute git.
-    #[snafu(display("Failed to execute git"))]
-    Io {
-        /// The underlying IO error.
-        source: std::io::Error,
-    },
-}
-
-/// Errors from cloning to a target directory.
-#[derive(Debug, Snafu)]
-#[snafu(module)]
-pub enum CloneToError {
-    /// Git clone command failed.
-    #[snafu(display("Git clone command failed"))]
-    CommandFailed {
-        /// The exit code from git.
-        exit_code: Option<i32>,
-    },
-
-    /// Failed to execute git.
-    #[snafu(display("Failed to execute git"))]
-    Io {
-        /// The underlying IO error.
-        source: std::io::Error,
-    },
-}
-
-/// Errors from checking out a branch.
-#[derive(Debug, Snafu)]
-#[snafu(module)]
-pub enum CheckoutError {
-    /// Git checkout command failed.
-    #[snafu(display("Git checkout command failed"))]
-    CommandFailed {
-        /// The exit code from git.
-        exit_code: Option<i32>,
-    },
-
-    /// Failed to execute git.
-    #[snafu(display("Failed to execute git"))]
-    Io {
-        /// The underlying IO error.
-        source: std::io::Error,
-    },
-}
-
-/// Errors from fetching into a bare repository.
-#[derive(Debug, Snafu)]
-#[snafu(module)]
-pub enum FetchError {
-    /// Git fetch command failed.
-    #[snafu(display("Git fetch command failed"))]
-    CommandFailed {
-        /// The exit code from git.
-        exit_code: Option<i32>,
-    },
-
-    /// Failed to execute git.
-    #[snafu(display("Failed to execute git"))]
-    Io {
-        /// The underlying IO error.
-        source: std::io::Error,
-    },
 }
