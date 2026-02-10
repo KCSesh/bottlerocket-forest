@@ -15,14 +15,14 @@ use crate::knowledge::domain::{Chunk, IndexedChunk};
 use crate::knowledge::indexing::{IndexDataProvider, ProgressReporter};
 
 /// Work item sent through the pipeline
-pub(super) struct WorkItem {
+pub(crate) struct WorkItem {
     pub(super) chunk: Chunk,
 }
 
 /// Builder for configuring an embedding pipeline
 #[derive(bon::Builder)]
 #[non_exhaustive]
-pub(super) struct EmbeddingPipeline {
+pub(crate) struct EmbeddingPipeline {
     provider: Arc<dyn IndexDataProvider>,
     worker_count: NonZeroUsize,
     progress: Option<Arc<dyn ProgressReporter>>,
@@ -32,7 +32,7 @@ pub(super) struct EmbeddingPipeline {
 
 impl EmbeddingPipeline {
     /// Run the pipeline with the given chunks, returning indexed chunks
-    pub(super) fn run<I>(self, chunks: I) -> Result<Vec<IndexedChunk>, IndexingError>
+    pub(crate) fn run<I>(self, chunks: I) -> Result<Vec<IndexedChunk>, IndexingError>
     where
         I: Iterator<Item = Chunk>,
     {

@@ -14,7 +14,7 @@
 
 mod batch;
 mod operations;
-mod pipeline;
+pub(crate) mod pipeline;
 mod strategies;
 mod types;
 mod worker;

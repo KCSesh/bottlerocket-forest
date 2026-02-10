@@ -8,17 +8,17 @@ mod types;
 
 pub use types::CacheResult;
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use bon::Builder;
 use snafu::{ResultExt, Snafu};
 
+use super::indexer::pipeline::EmbeddingPipeline;
 use super::source::ContentSource;
-use super::{BatchConfig, IndexDataError, IndexDataProvider, ProgressReporter};
+use super::{BatchConfig, IndexDataProvider, IndexingError, ProgressReporter};
 use crate::knowledge::chunking::{ChunkingDispatcher, ChunkingInput, DispatchError};
-use crate::knowledge::domain::{
-    ChunkHash, ChunkSource, ChunkableContent, FileHash, IndexedChunk, Timestamp,
-};
+use crate::knowledge::domain::{Chunk, ChunkHash, ChunkSource, ChunkableContent, FileHash};
 use crate::knowledge::storage::{ChunkRepository, StorageError};
 
 /// Caches chunks and embeddings without context association.
@@ -33,7 +33,7 @@ pub struct ChunkCacher<S: ContentSource, R: ChunkRepository> {
     /// Repository for storing indexed chunks.
     repository: R,
     /// Provider for generating embeddings.
-    provider: Box<dyn IndexDataProvider>,
+    provider: Arc<dyn IndexDataProvider>,
     /// Configuration for batch operations.
     #[builder(default)]
     batch_config: BatchConfig,
@@ -42,17 +42,6 @@ pub struct ChunkCacher<S: ContentSource, R: ChunkRepository> {
 }
 
 impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
-    fn flush_batch(&mut self, batch: &mut Vec<IndexedChunk>) -> Result<(), CacheError<S::Error>> {
-        use cache_error::*;
-        if !batch.is_empty() {
-            self.repository
-                .save_batch(batch)
-                .context(StorageFailedSnafu)?;
-            batch.clear();
-        }
-        Ok(())
-    }
-
     /// Cache all content from source, skipping existing embeddings.
     pub fn cache(&mut self) -> Result<CacheResult, CacheError<S::Error>> {
         use cache_error::*;
@@ -60,10 +49,9 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
         let entries = self.source.scan().context(ScanFailedSnafu)?;
         let entries_scanned = entries.len();
 
-        let mut chunks_created: usize = 0;
+        // Phase 1: Collect all chunks needing embeddings
+        let mut all_chunks: Vec<Chunk> = Vec::new();
         let mut chunks_skipped: usize = 0;
-        let mut embeddings_generated: usize = 0;
-        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size.into_inner());
 
         for entry in &entries {
             let content = self.source.fetch(entry).context(FetchFailedSnafu)?;
@@ -95,43 +83,43 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
                 .has_embedding_batch(&hashes)
                 .context(StorageFailedSnafu)?;
 
+            chunks_skipped += existing.len();
+
             let new_chunks: Vec<_> = chunks
                 .into_iter()
                 .filter(|c| !existing.contains(&c.chunk_hash))
                 .collect();
 
-            chunks_skipped += existing.len();
-
-            if new_chunks.is_empty() {
-                continue;
-            }
-
-            let texts: Vec<_> = new_chunks.iter().map(|c| c.content.text.as_ref()).collect();
-            let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
-            let embeddings = self
-                .provider
-                .generate_batch_with_progress(&texts, progress_ref)
-                .context(EmbeddingFailedSnafu)?;
-
-            embeddings_generated += embeddings.len();
-            let timestamp = Timestamp::now();
-
-            for (chunk, embedding) in new_chunks.into_iter().zip(embeddings) {
-                let indexed = IndexedChunk::builder()
-                    .chunk(chunk)
-                    .embedding(embedding)
-                    .indexed_at(timestamp)
-                    .build();
-                batch_buffer.push(indexed);
-                chunks_created += 1;
-            }
-
-            if batch_buffer.len() >= self.batch_config.batch_size.into_inner() {
-                self.flush_batch(&mut batch_buffer)?;
-            }
+            all_chunks.extend(new_chunks);
         }
 
-        self.flush_batch(&mut batch_buffer)?;
+        // Phase 2: Generate embeddings via pipeline
+        let indexed_chunks = if all_chunks.is_empty() {
+            Vec::new()
+        } else {
+            let worker_count = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
+
+            let pipeline = EmbeddingPipeline::builder()
+                .provider(Arc::clone(&self.provider))
+                .worker_count(worker_count)
+                .maybe_progress(self.progress.clone())
+                .build();
+
+            pipeline
+                .run(all_chunks.into_iter())
+                .context(EmbeddingFailedSnafu)?
+        };
+
+        // Phase 3: Store results in batches
+        let chunks_created = indexed_chunks.len();
+        let embeddings_generated = chunks_created;
+        let batch_size = self.batch_config.batch_size.into_inner();
+
+        for batch in indexed_chunks.chunks(batch_size) {
+            self.repository
+                .save_batch(batch)
+                .context(StorageFailedSnafu)?;
+        }
 
         Ok(CacheResult::builder()
             .entries_scanned(entries_scanned)
@@ -171,8 +159,8 @@ pub enum CacheError<E: std::error::Error + 'static> {
     /// Failed to generate embeddings for chunks.
     #[snafu(display("Failed to generate embeddings"))]
     EmbeddingFailed {
-        /// Underlying embedding error.
-        source: IndexDataError,
+        /// Underlying indexing error.
+        source: IndexingError,
     },
 
     /// Failed to save chunks to storage.
