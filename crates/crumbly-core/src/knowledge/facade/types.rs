@@ -130,6 +130,17 @@ pub enum IndexError {
         source: crate::knowledge::search::embeddings::EmbeddingError,
     },
 
+    /// Model pool creation failed.
+    #[snafu(display("Failed to create embedding model pool"))]
+    #[diagnostic(
+        code(crumbly::index::pool_creation_failed),
+        help("Check available memory and model cache directory permissions")
+    )]
+    PoolCreationFailed {
+        /// Underlying pool error.
+        source: Box<crate::knowledge::search::embeddings::CreatePoolError>,
+    },
+
     /// Index data provider initialization failed.
     #[snafu(display("Failed to initialize index data provider"))]
     #[diagnostic(

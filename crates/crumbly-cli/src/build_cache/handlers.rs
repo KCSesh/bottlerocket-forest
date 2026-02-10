@@ -5,12 +5,11 @@ use std::sync::Arc;
 use crumbly_core::knowledge::KnowledgeIndex;
 use crumbly_core::knowledge::chunking::{ChunkingDispatcher, DispatchError};
 use crumbly_core::knowledge::indexing::load_crumbly_config;
-use crumbly_core::knowledge::indexing::provider::EmbeddingDataProvider;
 use crumbly_core::knowledge::indexing::source::FilesystemSource;
 use crumbly_core::knowledge::indexing::{
     BareGitSource, CacheResult, ChunkCacher, FileScanner, GitRev, ProgressReporter,
 };
-use crumbly_core::knowledge::search::EmbeddingModel;
+use crumbly_core::knowledge::search::embeddings::PooledEmbeddingProvider;
 use crumbly_core::knowledge::storage::sqlite::SqliteChunkRepository;
 
 use super::{BareGitArgs, BuildCacheArgs, FilesystemArgs, SourceBackend};
@@ -100,19 +99,14 @@ fn cache_bare_git(
 }
 
 fn create_provider(
-    index: &KnowledgeIndex,
+    _index: &KnowledgeIndex,
 ) -> Result<Box<dyn crumbly_core::knowledge::indexing::IndexDataProvider>, BuildCacheError> {
     use build_cache_error::*;
-
-    let model = EmbeddingModel::builder()
-        .model_name(index.config().model_name.clone())
-        .dimension(index.config().embedding_dim)
-        .cache_dir(index.index_root().join(".crumbly").join("models"))
-        .build()
-        .load()
-        .context(EmbeddingModelSnafu)?;
-
-    Ok(Box::new(EmbeddingDataProvider::new(Box::new(model))))
+    Ok(Box::new(
+        PooledEmbeddingProvider::new()
+            .map_err(Box::new)
+            .context(PoolCreationSnafu)?,
+    ))
 }
 
 fn load_filter(
@@ -209,14 +203,13 @@ pub enum BuildCacheError {
         source: crumbly_core::knowledge::StorageError,
     },
 
-    #[snafu(display("Failed to load embedding model"))]
+    #[snafu(display("Failed to create embedding model pool"))]
     #[diagnostic(
-        code(crumbly::cli::build_cache::embedding_model),
-        forward(source),
-        help("Check network connectivity for model download")
+        code(crumbly::cli::build_cache::pool_creation),
+        help("Check available memory and model cache directory permissions")
     )]
-    EmbeddingModel {
-        source: crumbly_core::knowledge::search::EmbeddingError,
+    PoolCreation {
+        source: Box<crumbly_core::knowledge::search::embeddings::CreatePoolError>,
     },
 
     #[snafu(display("Failed to load configuration"))]

@@ -22,7 +22,6 @@ allow = [
 ]
 
 exceptions = [
-    { name = "libfuzzer-sys", allow = ["NCSA"], version = "*" },
 ]
 
 [bans]
@@ -36,8 +35,6 @@ deny = [
 ]
 
 skip-tree = [
-    # fastembed has many dependencies that clash with other dependencies of itself
-    { name = "fastembed", reason = "fastembed's transitive dependencies have many version conflicts within its own dependency tree" },
 ]
 
 skip = [
@@ -52,6 +49,23 @@ skip = [
     { name = "windows_x86_64_gnu", reason = "transitive from windows-sys" },
     { name = "windows_x86_64_gnullvm", reason = "transitive from windows-sys" },
     { name = "windows_x86_64_msvc", reason = "transitive from windows-sys" },
+    { name = "windows_i686_gnullvm", reason = "transitive from windows-sys" },
+    { name = "base64", reason = "tokenizers and reqwest use different versions" },
+    { name = "console", reason = "indicatif versions from tokenizers and hf-hub" },
+    { name = "core-foundation", reason = "system-configuration and rustls-platform-verifier use different versions" },
+    { name = "darling", reason = "derive_builder and bon use different versions" },
+    { name = "darling_core", reason = "transitive from darling" },
+    { name = "darling_macro", reason = "transitive from darling" },
+    { name = "dirs", reason = "hf-hub uses newer version than workspace" },
+    { name = "dirs-sys", reason = "transitive from dirs" },
+    { name = "getrandom", reason = "rand 0.9 and ring use different versions" },
+    { name = "indicatif", reason = "tokenizers uses newer version than workspace" },
+    { name = "redox_users", reason = "transitive from dirs-sys" },
+    { name = "reqwest", reason = "hf-hub and brdev use different versions" },
+    { name = "thiserror", reason = "candle and older deps use different versions" },
+    { name = "thiserror-impl", reason = "transitive from thiserror" },
+    { name = "unicode-width", reason = "miette and console use different versions" },
+    { name = "webpki-roots", reason = "ureq and hyper-rustls use different versions" },
 ]
 
 [bans.workspace-dependencies]

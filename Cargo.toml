@@ -33,7 +33,9 @@ bon = "3"
 nutype = { version = "0.5", features = ["serde"] }
 
 # Embeddings and ML
-fastembed = { version = "4", default-features = false, features = ["hf-hub-rustls-tls", "ort-download-binaries"] }
+candle-core = { version = "0.9", default-features = false }
+candle-nn = "0.9"
+candle-transformers = "0.9"
 hf-hub = { version = "0.4", default-features = false, features = ["tokio", "rustls-tls"] }
 tokenizers = { version = "0.22", features = ["http", "rustls-tls"] }
 
@@ -61,6 +63,10 @@ dirs = "5"
 
 # Concurrency
 rayon = "1"
+crossbeam-channel = "0.5"
+
+# System info
+sysinfo = "0.38"
 
 # HTTP
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }

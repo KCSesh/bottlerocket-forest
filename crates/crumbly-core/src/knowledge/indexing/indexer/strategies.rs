@@ -8,11 +8,6 @@ impl<R: ChunkRepository> Indexer<R> {
     pub(super) fn build(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
 
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(crate::knowledge::constants::MAX_INDEXING_THREADS)
-            .build_global()
-            .ok();
-
         let start = Instant::now();
         let files = self.scanner.scan().context(ScanFailedSnafu)?;
 
@@ -70,11 +65,6 @@ impl<R: ChunkRepository> Indexer<R> {
 
     pub(super) fn incremental(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
-
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(crate::knowledge::constants::MAX_INDEXING_THREADS)
-            .build_global()
-            .ok();
 
         let start = Instant::now();
         let current_files = self.scanner.scan().context(ScanFailedSnafu)?;
@@ -214,7 +204,7 @@ mod test {
             .index_root(temp_dir.path())
             .repository(repo)
             .config(&config)
-            .provider(Box::new(provider))
+            .provider(Arc::new(provider))
             .scan_config(ScanConfig::default())
             .filter(IndexingFilter::default())
             .context_id(context_id)
@@ -266,7 +256,7 @@ mod test {
             .index_root(nonexistent)
             .repository(mock_repo)
             .config(&config)
-            .provider(Box::new(mock_provider))
+            .provider(Arc::new(mock_provider))
             .scan_config(ScanConfig::default())
             .filter(IndexingFilter::default())
             .context_id(context_id)

@@ -38,13 +38,6 @@ pub const DEFAULT_CHUNK_OVERLAP_PERCENTAGE: f32 = 0.15;
 pub const DEFAULT_CHUNK_OVERLAP_TOKENS: usize =
     (DEFAULT_MAX_CHUNK_TOKENS as f32 * DEFAULT_CHUNK_OVERLAP_PERCENTAGE) as usize;
 
-/// Maximum number of threads for parallel file processing during indexing
-///
-/// Limits rayon parallelism to prevent CPU saturation. ONNX Runtime (used by
-/// fastembed) also uses multiple threads per embedding generation, so limiting
-/// file-level parallelism prevents thread oversubscription.
-pub const MAX_INDEXING_THREADS: usize = 4;
-
 /// Database schema version for multi-context indexing
 ///
 /// Version 4 removes CHECK constraint on context_type for extensibility.

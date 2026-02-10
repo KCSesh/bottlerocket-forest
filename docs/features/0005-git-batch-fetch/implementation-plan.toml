@@ -1,0 +1,91 @@
+[meta]
+feature = "git-batch-fetch"
+feature_dir = "docs/features/0005-git-batch-fetch"
+workspace = "."
+
+[dependencies]
+1 = []
+2 = [1]
+3 = [1]
+4 = [2, 3]
+
+[[commits]]
+id = 1
+title = "Add ContentSource trait with batch_fetch and FetchResult types"
+message = "feat(crumbly): add ContentSource trait with batch_fetch support\n\nIntroduce ContentSource abstraction that decouples indexer from filesystem.\nAdd ContentEntry.last_modified for incremental indexing support.\nProvide default batch_fetch impl that calls fetch per entry."
+files = ["crates/crumbly-core/src/knowledge/indexing/source/mod.rs"]
+acceptance = [
+  "ContentEntry has last_modified: Option<SystemTime> field (CC-2)",
+  "ContentSource trait has batch_fetch method",
+  "FetchResult wraps per-file Result for partial failure handling (CC-3)",
+  "Default batch_fetch calls fetch per entry (test_batch_fetch_default_impl)",
+]
+anti_patterns = [
+  "Using ? to propagate single-file errors in batch operations (CC-3)",
+  "Panicking on individual file issues (CC-4)",
+]
+tests = ["test_batch_fetch_default_impl"]
+
+[[commits]]
+id = 2
+title = "Implement FilesystemSource with ContentSource trait"
+message = "feat(crumbly): implement FilesystemSource for ContentSource\n\nMigrate existing filesystem indexing to use ContentSource trait.\nPreserves backward compatibility with current behavior."
+files = ["crates/crumbly-core/src/knowledge/indexing/source/filesystem.rs"]
+acceptance = [
+  "FilesystemSource implements ContentSource trait (CC-1)",
+  "Existing filesystem indexing behavior preserved",
+  "Indexer works with FilesystemSource (test_indexer_with_filesystem_source)",
+]
+anti_patterns = [
+  "Breaking FilesystemSource or removing it (CC-1)",
+  "Removing last_modified tracking (CC-2)",
+]
+tests = ["test_indexer_with_filesystem_source"]
+
+[[commits]]
+id = 3
+title = "Implement BareGitSource batch_fetch with git cat-file --batch"
+message = "feat(crumbly): add BareGitSource.batch_fetch via git cat-file --batch\n\nSpawn single git cat-file --batch process for efficient bulk retrieval.\nHandle missing files, empty files, and UTF-8 errors gracefully."
+files = ["crates/crumbly-core/src/knowledge/indexing/source/bare_git.rs"]
+acceptance = [
+  "batch_fetch spawns single git cat-file --batch process",
+  "Missing blob returns FetchError, not panic (CC-4, test_batch_fetch_git_missing_file)",
+  "Empty file handled gracefully (CC-4, test_batch_fetch_git_empty_file)",
+  "Multiple files retrieved in one batch (test_batch_fetch_git_multiple_files)",
+  "Single file retrieval works (test_batch_fetch_git_single_file)",
+]
+anti_patterns = [
+  "Panicking or failing batch on individual file issues (CC-4)",
+  "Using ? to propagate single-file errors (CC-3)",
+]
+tests = [
+  "test_batch_fetch_git_single_file",
+  "test_batch_fetch_git_multiple_files",
+  "test_batch_fetch_git_missing_file",
+  "test_batch_fetch_git_empty_file",
+]
+
+[[commits]]
+id = 4
+title = "Generalize indexer strategies to use ContentSource"
+message = "refactor(crumbly): generalize indexer to accept ContentSource\n\nModify strategies to use source.scan() and batch_fetch() for content.\nRename chunk_file to chunk_content taking content string parameter.\nPreserve incremental indexing via last_modified."
+files = [
+  "crates/crumbly-core/src/knowledge/indexing/indexer/mod.rs",
+  "crates/crumbly-core/src/knowledge/indexing/indexer/operations.rs",
+  "crates/crumbly-core/src/knowledge/indexing/indexer/strategies.rs",
+]
+acceptance = [
+  "Indexer accepts &dyn ContentSource instead of &FileScanner",
+  "Uses source.scan() then batch_fetch() for content retrieval",
+  "Incremental indexing respects last_modified (CC-2, test_incremental_indexing_with_content_source)",
+  "Indexer works with BareGitSource (test_indexer_with_git_source)",
+  "FetchResult errors logged and skipped, not propagated (CC-3)",
+]
+anti_patterns = [
+  "Always re-indexing regardless of last_modified (CC-2)",
+  "Failing entire batch on single file error (CC-3)",
+]
+tests = [
+  "test_indexer_with_git_source",
+  "test_incremental_indexing_with_content_source",
+]

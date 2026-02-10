@@ -1,0 +1,27 @@
+{
+  "plan_path": "docs/features/0005-git-batch-fetch/implementation-plan.toml",
+  "commit_id": 1,
+  "workspace": ".",
+  "state": "done",
+  "designer_gate": "cargo check -p crumbly-core --locked --quiet",
+  "test_gate": "cargo test -p crumbly-core --release --locked --quiet --lib",
+  "fmt_cmd": "cargo fmt",
+  "lint_cmd": "cargo clippy --fix --allow-dirty --allow-staged",
+  "commit_title": "Add ContentSource trait with batch_fetch and FetchResult types",
+  "commit_message": "feat(crumbly): add ContentSource trait with batch_fetch support\n\nIntroduce ContentSource abstraction that decouples indexer from filesystem.\nAdd ContentEntry.last_modified for incremental indexing support.\nProvide default batch_fetch impl that calls fetch per entry.",
+  "commit_files": [
+    "crates/crumbly-core/src/knowledge/indexing/source/mod.rs"
+  ],
+  "commit_tests": [
+    "test_batch_fetch_default_impl"
+  ],
+  "files_touched": [
+    "crates/crumbly-core/src/knowledge/indexing/source/mod.rs",
+    "crates/crumbly-core/src/knowledge/indexing/source/mod.rs"
+  ],
+  "gate_retries": 0,
+  "style_cycles": 0,
+  "last_gate_error": "",
+  "last_style_violations": [],
+  "escalation_context": ""
+}

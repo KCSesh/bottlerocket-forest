@@ -40,16 +40,13 @@ State facts and implications. Let humans decide significance.
 
 ## Principles
 
-### 1. Self-Interrogation Before Escalation
-Ask questions. Answer them yourself from available context. Only surface to the author what you genuinely cannot determine or what reveals a problem.
-
-### 2. Implicit Requirements Extraction
+### Implicit Requirements Extraction
 Code introduces requirements even when unstated. At function level: "returns sorted" implies callers depend on order. At system level: new functionality has implicit requirements that engineers with domain knowledge leave unspoken. Surface these. Ask: intentional? documented? verified?
 
-### 3. Verification Over Trust
+### Verification Over Trust
 Prefer guarantees in order: compile-time (types, generics, typestate, newtypes) → runtime checks → tests → documentation. Tests should verify what types cannot. Worthless tests: language features, library behavior. Valuable tests: domain logic, edge cases, error paths.
 
-### 4. Type System as Primary Verification
+### Type System as Primary Verification
 
 The type system is the strongest verification tool. Maximize its use:
 
@@ -67,22 +64,13 @@ The type system is the strongest verification tool. Maximize its use:
 
 **Hierarchy of trust:** What the compiler enforces > what tests verify > what documentation promises > what comments claim.
 
-### 5. Testability as Design Feedback
+### Testability as Design Feedback
 Hard to test = design smell. IO behind traits. Pure functions. Dependency injection. Code written to be verified.
 
-### 6. Change Coherence
-Per-commit: single idea, builds on previous, independently reviewable. Per-PR: every change serves the stated goal. Unrelated fixes obscure intent.
-
-### 7. Customer Surface Awareness
+### Customer Surface Awareness
 Customer surfaces aren't always public methods. Consider: CLI, config formats, API behavior, error messages, upgrade paths. What promises are we making or changing?
 
-### 8. Error Handling Completeness
-"Shouldn't happen" → panic/assert. "Might happen" → Result/Option. Are errors actionable? Can callers recover?
-
-### 9. Naming as Documentation
-Names reveal intent. If you must read implementation to understand purpose, the name is wrong.
-
-### 10. Readability as Answerability
+### Readability as Answerability
 How hard is it to uncover purpose and hidden assumptions?
 
 **Progressive disclosure:** Good abstractions orchestrate smaller abstractions. 60 lines of english-like orchestration beats 500 LOC of inline algorithm. Docstrings describe abstraction interactions; invariants belong in code (newtypes, not comments).

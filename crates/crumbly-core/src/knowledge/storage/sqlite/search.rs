@@ -5,7 +5,7 @@
 //! # Implementation Notes
 //!
 //! Similarity scores are computed as `1.0 - distance` where distance is cosine distance.
-//! This assumes normalized embeddings (as produced by fastembed). Non-normalized embeddings
+//! This assumes normalized embeddings (as produced by candle). Non-normalized embeddings
 //! may produce scores outside [0, 1].
 //!
 //! # Context Filtering

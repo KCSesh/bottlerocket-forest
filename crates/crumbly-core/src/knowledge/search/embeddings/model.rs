@@ -5,8 +5,12 @@
 
 use std::path::PathBuf;
 
-use fastembed::{EmbeddingModel as FastEmbedModel, InitOptions, TextEmbedding};
+use candle_core::{Device, Tensor};
+use candle_nn::VarBuilder;
+use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+use hf_hub::{Repo, RepoType, api::sync::ApiBuilder};
 use snafu::IntoError;
+use tokenizers::Tokenizer;
 
 use crate::knowledge::domain::Embedding;
 
@@ -51,13 +55,75 @@ impl EmbeddingModel {
     ///
     /// Downloads and caches the model if not already present in the cache directory.
     pub fn load(self) -> Result<LoadedEmbeddingModel, EmbeddingError> {
-        let fastembed_model = map_model_name(&self.model_name)?;
+        let api = ApiBuilder::new()
+            .with_cache_dir(self.cache_dir)
+            .build()
+            .map_err(|e| {
+                embedding_error::ModelLoadFailedSnafu {
+                    model_name: self.model_name.clone(),
+                }
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?;
 
-        let init_options = InitOptions::new(fastembed_model)
-            .with_cache_dir(self.cache_dir.clone())
-            .with_show_download_progress(false);
+        let repo = api.repo(Repo::with_revision(
+            self.model_name.clone(),
+            RepoType::Model,
+            "main".to_string(),
+        ));
 
-        let text_embedding = TextEmbedding::try_new(init_options).map_err(|e| {
+        let config_path = repo.get("config.json").map_err(|e| {
+            embedding_error::ModelLoadFailedSnafu {
+                model_name: self.model_name.clone(),
+            }
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
+            embedding_error::ModelLoadFailedSnafu {
+                model_name: self.model_name.clone(),
+            }
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let weights_path = repo.get("model.safetensors").map_err(|e| {
+            embedding_error::ModelLoadFailedSnafu {
+                model_name: self.model_name.clone(),
+            }
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let config: Config =
+            serde_json::from_str(&std::fs::read_to_string(&config_path).map_err(|e| {
+                embedding_error::ModelLoadFailedSnafu {
+                    model_name: self.model_name.clone(),
+                }
+                .into_error(Box::new(e))
+            })?)
+            .map_err(|e| {
+                embedding_error::ModelLoadFailedSnafu {
+                    model_name: self.model_name.clone(),
+                }
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?;
+
+        let tokenizer = Tokenizer::from_file(&tokenizer_path).map_err(|e| {
+            embedding_error::ModelLoadFailedSnafu {
+                model_name: self.model_name.clone(),
+            }
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let device = Device::Cpu;
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&[weights_path], DTYPE, &device).map_err(|e| {
+                embedding_error::ModelLoadFailedSnafu {
+                    model_name: self.model_name.clone(),
+                }
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?
+        };
+
+        let model = BertModel::load(vb, &config).map_err(|e| {
             embedding_error::ModelLoadFailedSnafu {
                 model_name: self.model_name.clone(),
             }
@@ -67,7 +133,9 @@ impl EmbeddingModel {
         Ok(LoadedEmbeddingModel {
             model_name: self.model_name,
             dimension: self.dimension,
-            text_embedding,
+            model,
+            tokenizer,
+            device,
         })
     }
 }
@@ -76,7 +144,9 @@ impl EmbeddingModel {
 pub struct LoadedEmbeddingModel {
     model_name: String,
     dimension: usize,
-    text_embedding: TextEmbedding,
+    model: BertModel,
+    tokenizer: Tokenizer,
+    device: Device,
 }
 
 impl std::fmt::Debug for LoadedEmbeddingModel {
@@ -84,26 +154,48 @@ impl std::fmt::Debug for LoadedEmbeddingModel {
         f.debug_struct("LoadedEmbeddingModel")
             .field("model_name", &self.model_name)
             .field("dimension", &self.dimension)
-            .field("text_embedding", &"<TextEmbedding>")
+            .field("model", &"<BertModel>")
+            .field("tokenizer", &"<Tokenizer>")
+            .field("device", &self.device)
             .finish()
     }
 }
 
 impl EmbeddingProvider for LoadedEmbeddingModel {
     fn embed(&self, text: &str) -> Result<Embedding, EmbeddingError> {
-        let embeddings = self
-            .text_embedding
-            .embed(vec![text.to_string()], None)
+        let encoding = self.tokenizer.encode(text, true).map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let input_ids = Tensor::new(encoding.get_ids(), &self.device)
+            .and_then(|t| t.unsqueeze(0))
             .map_err(|e| {
                 embedding_error::EmbeddingGenerationFailedSnafu
                     .into_error(Box::new(std::io::Error::other(e.to_string())))
             })?;
 
-        let embedding_vec = embeddings.into_iter().next().ok_or_else(|| {
+        let token_type_ids = input_ids.zeros_like().map_err(|e| {
             embedding_error::EmbeddingGenerationFailedSnafu
-                .into_error(Box::new(std::io::Error::other("no embedding returned")))
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
         })?;
 
+        let attention_mask = Tensor::new(encoding.get_attention_mask(), &self.device)
+            .and_then(|t| t.unsqueeze(0))
+            .map_err(|e| {
+                embedding_error::EmbeddingGenerationFailedSnafu
+                    .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?;
+
+        let embeddings = self
+            .model
+            .forward(&input_ids, &token_type_ids, Some(&attention_mask))
+            .map_err(|e| {
+                embedding_error::EmbeddingGenerationFailedSnafu
+                    .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?;
+
+        let embedding_vec = mean_pool_and_normalize(&embeddings, &attention_mask)?;
         validate_dimension(&embedding_vec, self.dimension)?;
 
         Embedding::try_new(embedding_vec).map_err(|_| {
@@ -113,12 +205,85 @@ impl EmbeddingProvider for LoadedEmbeddingModel {
     }
 
     fn embed_batch(&self, texts: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
-        let embeddings = self.text_embedding.embed(texts, None).map_err(|e| {
+        if texts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let encodings: Vec<_> = texts
+            .iter()
+            .map(|t| {
+                self.tokenizer.encode(t.as_str(), true).map_err(|e| {
+                    embedding_error::EmbeddingGenerationFailedSnafu
+                        .into_error(Box::new(std::io::Error::other(e.to_string())))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let max_len = encodings
+            .iter()
+            .map(|e| e.get_ids().len())
+            .max()
+            .unwrap_or(0);
+
+        let mut all_input_ids = Vec::new();
+        let mut all_attention_masks = Vec::new();
+
+        for enc in &encodings {
+            let ids = enc.get_ids();
+            let mask = enc.get_attention_mask();
+            let mut padded_ids = ids.to_vec();
+            let mut padded_mask = mask.to_vec();
+            padded_ids.resize(max_len, 0);
+            padded_mask.resize(max_len, 0);
+            all_input_ids.push(padded_ids);
+            all_attention_masks.push(padded_mask);
+        }
+
+        let batch_size = texts.len();
+        let input_ids = Tensor::new(
+            all_input_ids
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .as_slice(),
+            &self.device,
+        )
+        .and_then(|t| t.reshape((batch_size, max_len)))
+        .map_err(|e| {
             embedding_error::EmbeddingGenerationFailedSnafu
                 .into_error(Box::new(std::io::Error::other(e.to_string())))
         })?;
 
-        embeddings
+        let token_type_ids = input_ids.zeros_like().map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let attention_mask = Tensor::new(
+            all_attention_masks
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .as_slice(),
+            &self.device,
+        )
+        .and_then(|t| t.reshape((batch_size, max_len)))
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+        let embeddings = self
+            .model
+            .forward(&input_ids, &token_type_ids, Some(&attention_mask))
+            .map_err(|e| {
+                embedding_error::EmbeddingGenerationFailedSnafu
+                    .into_error(Box::new(std::io::Error::other(e.to_string())))
+            })?;
+
+        let pooled = mean_pool_and_normalize_batch(&embeddings, &attention_mask)?;
+
+        pooled
             .into_iter()
             .map(|vec| {
                 validate_dimension(&vec, self.dimension)?;
@@ -146,18 +311,119 @@ fn default_cache_dir() -> PathBuf {
         .join("model")
 }
 
-fn map_model_name(model_name: &str) -> Result<FastEmbedModel, EmbeddingError> {
-    match model_name {
-        "sentence-transformers/all-MiniLM-L6-v2" => Ok(FastEmbedModel::AllMiniLML6V2),
-        "sentence-transformers/all-MiniLM-L12-v2" => Ok(FastEmbedModel::AllMiniLML12V2),
-        _ => Err(embedding_error::ModelLoadFailedSnafu {
-            model_name: model_name.to_string(),
-        }
-        .into_error(Box::new(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("unsupported model: {}", model_name),
-        )))),
-    }
+fn mean_pool_and_normalize(
+    embeddings: &Tensor,
+    attention_mask: &Tensor,
+) -> Result<Vec<f32>, EmbeddingError> {
+    let mask = attention_mask
+        .unsqueeze(2)
+        .and_then(|m| m.broadcast_as(embeddings.shape()))
+        .and_then(|m| m.to_dtype(embeddings.dtype()))
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let masked = embeddings.mul(&mask).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let sum = masked.sum(1).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let count = mask
+        .sum(1)
+        .and_then(|c| c.to_dtype(embeddings.dtype()))
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let pooled = sum.broadcast_div(&count).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let norm = pooled
+        .sqr()
+        .and_then(|s| s.sum_keepdim(1))
+        .and_then(|s| s.sqrt())
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let normalized = pooled.broadcast_div(&norm).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    normalized
+        .squeeze(0)
+        .and_then(|t| t.to_vec1())
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })
+}
+
+fn mean_pool_and_normalize_batch(
+    embeddings: &Tensor,
+    attention_mask: &Tensor,
+) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    let mask = attention_mask
+        .unsqueeze(2)
+        .and_then(|m| m.broadcast_as(embeddings.shape()))
+        .and_then(|m| m.to_dtype(embeddings.dtype()))
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let masked = embeddings.mul(&mask).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let sum = masked.sum(1).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let count = mask
+        .sum(1)
+        .and_then(|c| c.to_dtype(embeddings.dtype()))
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let pooled = sum.broadcast_div(&count).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    let norm = pooled
+        .sqr()
+        .and_then(|s| s.sum_keepdim(1))
+        .and_then(|s| s.sqrt())
+        .map_err(|e| {
+            embedding_error::EmbeddingGenerationFailedSnafu
+                .into_error(Box::new(std::io::Error::other(e.to_string())))
+        })?;
+
+    let normalized = pooled.broadcast_div(&norm).map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })?;
+
+    normalized.to_vec2().map_err(|e| {
+        embedding_error::EmbeddingGenerationFailedSnafu
+            .into_error(Box::new(std::io::Error::other(e.to_string())))
+    })
 }
 
 fn validate_dimension(embedding: &[f32], expected: usize) -> Result<(), EmbeddingError> {

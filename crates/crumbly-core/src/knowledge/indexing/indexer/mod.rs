@@ -14,8 +14,10 @@
 
 mod batch;
 mod operations;
+mod pipeline;
 mod strategies;
 mod types;
+mod worker;
 
 pub use types::{BatchConfig, IndexResult, IndexingError};
 
@@ -47,7 +49,7 @@ pub struct Indexer<R: ChunkRepository> {
     scanner: FileScanner,
     dispatcher: ChunkingDispatcher,
     repository: R,
-    provider: Box<dyn IndexDataProvider>,
+    provider: Arc<dyn IndexDataProvider>,
     progress: Option<Arc<dyn ProgressReporter>>,
     batch_config: BatchConfig,
     context_id: ContextId,
@@ -63,7 +65,7 @@ impl<R: ChunkRepository> Indexer<R> {
         index_root: impl AsRef<Path>,
         repository: R,
         config: &EmbeddingModelConfig,
-        provider: Box<dyn IndexDataProvider>,
+        provider: Arc<dyn IndexDataProvider>,
         scan_config: ScanConfig,
         filter: IndexingFilter,
         progress: Option<Arc<dyn ProgressReporter>>,

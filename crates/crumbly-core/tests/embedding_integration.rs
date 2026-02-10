@@ -1,6 +1,6 @@
 //! Integration tests for embedding model loading and generation
 //!
-//! These tests verify the concrete fastembed implementation works correctly.
+//! These tests verify the concrete candle-based embedding implementation works correctly.
 //! They are marked with `#[ignore]` because they:
 //! - Download models from the internet (slow, network-dependent)
 //! - Require significant disk space for model caching
@@ -9,12 +9,10 @@
 //! Run with: `cargo test --test embedding_integration -- --ignored`
 
 use crumbly_core::knowledge::search::embeddings::{EmbeddingModel, EmbeddingProvider, VectorOps};
-use serial_test::serial;
 use tempfile::TempDir;
 
 #[test]
 #[ignore]
-#[serial]
 fn test_load_model_downloads_and_caches() {
     // Given A fresh cache directory
     let cache_dir = TempDir::new().unwrap();
@@ -38,7 +36,6 @@ fn test_load_model_downloads_and_caches() {
 
 #[test]
 #[ignore]
-#[serial]
 fn test_embed_generates_correct_dimension() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
@@ -60,7 +57,6 @@ fn test_embed_generates_correct_dimension() {
 
 #[test]
 #[ignore]
-#[serial]
 fn test_embed_batch_generates_multiple_embeddings() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
@@ -91,7 +87,6 @@ fn test_embed_batch_generates_multiple_embeddings() {
 
 #[test]
 #[ignore]
-#[serial]
 fn test_embed_similar_texts_have_high_similarity() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
@@ -118,7 +113,6 @@ fn test_embed_similar_texts_have_high_similarity() {
 
 #[test]
 #[ignore]
-#[serial]
 fn test_embed_dissimilar_texts_have_low_similarity() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
@@ -145,7 +139,6 @@ fn test_embed_dissimilar_texts_have_low_similarity() {
 
 #[test]
 #[ignore]
-#[serial]
 fn test_unsupported_model_name_fails() {
     // Given An unsupported model name
     let cache_dir = TempDir::new().unwrap();

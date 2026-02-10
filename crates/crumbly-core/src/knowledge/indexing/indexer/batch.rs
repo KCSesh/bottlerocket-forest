@@ -1,18 +1,19 @@
 //! Batch processing for chunk indexing and storage.
 
-use super::operations;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
+use super::pipeline::EmbeddingPipeline;
+use super::types::IndexingError;
 use super::*;
-use crate::knowledge::domain::{IndexRelativePath, Timestamp};
+use crate::knowledge::domain::{Chunk, ChunkHash, FileHash, IndexRelativePath, Timestamp};
 use crate::knowledge::indexing::IndexableFile;
 
 impl<R: ChunkRepository> Indexer<R> {
     /// Generate embeddings and store indexed chunks
     ///
-    /// For each file's chunks, checks which already have embeddings in the
-    /// repository and only generates embeddings for new chunks. Stores
-    /// results in batches.
-    #[expect(clippy::excessive_nesting)]
+    /// Uses a producer-consumer pipeline for consistent CPU utilization
+    /// regardless of file sizes.
     pub(super) fn index_and_store_chunks<'a>(
         &mut self,
         results: impl Iterator<Item = (&'a IndexableFile, FileResult)>,
@@ -20,66 +21,87 @@ impl<R: ChunkRepository> Indexer<R> {
     ) -> Result<(usize, usize, usize), IndexingError> {
         use types::indexing_error::*;
 
-        let mut files_added = 0;
+        // Phase 1: Collect files and filter chunks that need embeddings
+        let mut all_chunks: Vec<Chunk> = Vec::new();
         let mut files_skipped = 0;
-        let mut chunks_affected = 0;
-        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size.into_inner());
+        let mut files_added = 0;
 
         for (file, result) in results {
-            match result {
-                Ok(chunks) => {
-                    files_added += 1;
-                    if modified_paths.contains(&&file.relative_path) {
-                        self.repository
-                            .remove_indexed_file_from_context(&file.relative_path, &self.context_id)
-                            .context(StorageFailedSnafu)?;
-                    }
-
-                    if chunks.is_empty() {
-                        continue;
-                    }
-
-                    let file_hash = chunks[0].file_hash;
-
-                    let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
-                    let indexed_chunks = operations::index_chunks_with_reuse(
-                        chunks,
-                        &self.repository,
-                        &*self.provider,
-                        progress_ref,
-                    )?;
-
-                    self.repository
-                        .track_indexed_file(
-                            &file.relative_path,
-                            &file_hash,
-                            Timestamp::from_secs(file.last_modified.as_secs()),
-                            &self.context_id,
-                        )
-                        .context(StorageFailedSnafu)?;
-
-                    if indexed_chunks.is_empty() {
-                        continue;
-                    }
-
-                    chunks_affected += indexed_chunks.len();
-
-                    for chunk in indexed_chunks {
-                        batch_buffer.push(chunk);
-                        if batch_buffer.len() >= self.batch_config.batch_size.into_inner() {
-                            self.repository
-                                .save_batch(&batch_buffer)
-                                .context(StorageFailedSnafu)?;
-                            batch_buffer.clear();
-                        }
-                    }
-                }
+            let chunks = match result {
+                Ok(chunks) => chunks,
                 Err(Ok(())) => {
                     files_skipped += 1;
+                    continue;
                 }
-                Err(Err(e)) => {
-                    return Err(e);
-                }
+                Err(Err(e)) => return Err(e),
+            };
+
+            files_added += 1;
+            if modified_paths.contains(&&file.relative_path) {
+                self.repository
+                    .remove_indexed_file_from_context(&file.relative_path, &self.context_id)
+                    .context(StorageFailedSnafu)?;
+            }
+
+            if chunks.is_empty() {
+                continue;
+            }
+
+            // Filter to only chunks that need embeddings
+            let chunk_hashes: Vec<ChunkHash> = chunks.iter().map(|c| c.chunk_hash).collect();
+            let existing = self
+                .repository
+                .has_embedding_batch(&chunk_hashes)
+                .context(StorageFailedSnafu)?;
+
+            let chunks_needing_embeddings: Vec<Chunk> = chunks
+                .into_iter()
+                .filter(|c| !existing.contains(&c.chunk_hash))
+                .collect();
+
+            let file_hash = chunks_needing_embeddings
+                .first()
+                .map(|c| c.file_hash)
+                .unwrap_or(FileHash::new([0u8; 32]));
+
+            self.repository
+                .track_indexed_file(
+                    &file.relative_path,
+                    &file_hash,
+                    Timestamp::from_secs(file.last_modified.as_secs()),
+                    &self.context_id,
+                )
+                .context(StorageFailedSnafu)?;
+
+            all_chunks.extend(chunks_needing_embeddings);
+        }
+
+        // Phase 2: Generate embeddings via pipeline
+        let indexed_chunks = if all_chunks.is_empty() {
+            Vec::new()
+        } else {
+            let worker_count = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
+
+            let pipeline = EmbeddingPipeline::builder()
+                .provider(Arc::clone(&self.provider))
+                .worker_count(worker_count)
+                .maybe_progress(self.progress.clone())
+                .build();
+
+            pipeline.run(all_chunks.into_iter())?
+        };
+
+        // Phase 3: Store results
+        let chunks_affected = indexed_chunks.len();
+        let mut batch_buffer = Vec::with_capacity(self.batch_config.batch_size.into_inner());
+
+        for chunk in indexed_chunks {
+            batch_buffer.push(chunk);
+            if batch_buffer.len() >= self.batch_config.batch_size.into_inner() {
+                self.repository
+                    .save_batch(&batch_buffer)
+                    .context(StorageFailedSnafu)?;
+                batch_buffer.clear();
             }
         }
 

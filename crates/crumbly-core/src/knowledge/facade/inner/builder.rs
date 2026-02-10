@@ -8,7 +8,7 @@ use crate::knowledge::domain::{BatchSize, Context, ContextId, IndexMetadata};
 use crate::knowledge::facade::KnowledgeIndex;
 use crate::knowledge::facade::types::IndexError;
 use crate::knowledge::indexing::{
-    BatchConfig, IndexDataProvider, IndexResult, IndexStrategy, Indexer, ProgressReporter,
+    BatchConfig, IndexResult, IndexStrategy, Indexer, ProgressReporter,
 };
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
 use crate::knowledge::storage::{ChunkRepository, ContextRepository};
@@ -47,7 +47,7 @@ pub(in crate::knowledge::facade) fn build(
         .insert_context(&context)
         .context(ContextRegistrationFailedSnafu)?;
 
-    let provider = Box::new(super::create_provider(index)?) as Box<dyn IndexDataProvider>;
+    let provider = super::create_provider(index)?;
     let scan_config = super::load_scan_config_for_context(index, &context_id)?;
     let filter = super::load_indexing_filter(index)?;
     let repository = super::repository(index)?;
@@ -58,7 +58,7 @@ pub(in crate::knowledge::facade) fn build(
         .index_root(&index.index_root)
         .repository(repository)
         .config(&index.config)
-        .provider(provider)
+        .provider(provider.into())
         .scan_config(scan_config)
         .filter(filter)
         .maybe_progress(progress)
@@ -161,7 +161,7 @@ pub(in crate::knowledge::facade) fn rebuild(
             .context(ContextRegistrationFailedSnafu)?;
     }
 
-    let provider = Box::new(super::create_provider(index)?) as Box<dyn IndexDataProvider>;
+    let provider = super::create_provider(index)?;
     let scan_config = super::load_scan_config_for_context(index, &context_id)?;
     let filter = super::load_indexing_filter(index)?;
     let repository = super::repository(index)?;
@@ -172,7 +172,7 @@ pub(in crate::knowledge::facade) fn rebuild(
         .index_root(&index.index_root)
         .repository(repository)
         .config(&index.config)
-        .provider(provider)
+        .provider(provider.into())
         .scan_config(scan_config)
         .filter(filter)
         .maybe_progress(progress)

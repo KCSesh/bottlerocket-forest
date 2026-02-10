@@ -3,6 +3,7 @@
 //! Wraps [`FileScanner`] to provide content from the local filesystem.
 
 use std::fs;
+use std::time::{Duration, UNIX_EPOCH};
 
 use snafu::{ResultExt, Snafu};
 
@@ -25,11 +26,14 @@ impl FilesystemSource {
 }
 
 fn to_content_entry(file: IndexableFile) -> ContentEntry<AbsolutePath> {
+    let last_modified =
+        UNIX_EPOCH.checked_add(Duration::from_secs(file.last_modified.as_secs() as u64));
     ContentEntry::builder()
         .id(file.absolute_path)
         .relative_path(file.relative_path)
         .repo_name(file.repo_name)
         .file_type(file.file_type)
+        .maybe_last_modified(last_modified)
         .build()
 }
 
@@ -69,4 +73,37 @@ pub enum FilesystemSourceError {
         /// Underlying I/O error.
         source: std::io::Error,
     },
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::knowledge::indexing::scanner::FileScanner;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_indexer_with_filesystem_source() {
+        // Given a directory with markdown files
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        fs::write(&file_path, "# Hello World").unwrap();
+
+        // And a FilesystemSource wrapping a scanner for that directory
+        let scanner = FileScanner::new(temp_dir.path()).unwrap();
+        let source = FilesystemSource::new(scanner);
+
+        // When we scan for content entries
+        let entries = source.scan().unwrap();
+
+        // Then we should find the markdown file
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].relative_path.to_string().ends_with("test.md"));
+
+        // And when we fetch its content
+        let content = source.fetch(&entries[0]).unwrap();
+
+        // Then we should get the file contents
+        assert_eq!(content, "# Hello World");
+    }
 }

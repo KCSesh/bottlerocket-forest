@@ -32,7 +32,12 @@ check: check-fmt clippy deny lint-loc test
 
 .PHONY: integ
 integ: check
-	cargo test --workspace --locked --quiet -- --ignored
+	# Integration tests require --release on ARM64 Linux.
+	# The candle ML framework depends on gemm, which uses f16 SIMD instructions.
+	# In debug mode, gemm-f16 emits fullfp16 instructions that aren't available
+	# on all ARM64 CPUs (e.g., Graviton). Release mode optimizes these away.
+	# See: https://github.com/sarah-quinones/gemm/issues/31
+	cargo test --workspace --release --locked --quiet -- --ignored
 
 .PHONY: build
 build:

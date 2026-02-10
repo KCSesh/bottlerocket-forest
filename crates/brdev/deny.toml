@@ -30,20 +30,31 @@ exceptions = [
 multiple-versions = "deny"
 wildcards = "deny"
 
-skip-tree = [
-    # fastembed has many dependencies that clash with other dependencies of itself
-    { name = "fastembed", reason = "fastembed's transitive dependencies have many version conflicts within its own dependency tree" },
-]
-
 skip = [
     # Allow duplicate versions of these crates due to transitive dependencies
+    # from candle, hf-hub, tokenizers ecosystem
+    { name = "base64", version = "*" },
+    { name = "console", version = "*" },
+    { name = "core-foundation", version = "*" },
+    { name = "darling", version = "*" },
+    { name = "darling_core", version = "*" },
+    { name = "darling_macro", version = "*" },
+    { name = "dirs", version = "*" },
+    { name = "dirs-sys", version = "*" },
     { name = "getrandom", version = "*" },
+    { name = "indicatif", version = "*" },
+    { name = "redox_users", version = "*" },
+    { name = "reqwest", version = "*" },
+    { name = "thiserror", version = "*" },
+    { name = "thiserror-impl", version = "*" },
     { name = "unicode-width", version = "*" },
+    { name = "webpki-roots", version = "*" },
     { name = "windows-sys", version = "*" },
     { name = "windows-targets", version = "*" },
     { name = "windows_aarch64_gnullvm", version = "*" },
     { name = "windows_aarch64_msvc", version = "*" },
     { name = "windows_i686_gnu", version = "*" },
+    { name = "windows_i686_gnullvm", version = "*" },
     { name = "windows_i686_msvc", version = "*" },
     { name = "windows_x86_64_gnu", version = "*" },
     { name = "windows_x86_64_gnullvm", version = "*" },

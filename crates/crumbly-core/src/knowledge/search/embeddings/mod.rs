@@ -12,7 +12,12 @@
 pub mod error;
 pub mod model;
 pub mod operations;
+pub mod pool;
 
 pub use error::EmbeddingError;
 pub use model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel};
 pub use operations::VectorOps;
+pub use pool::{
+    BorrowModelError, CreatePoolError, EmbeddingModelPool, PoolConfig, PooledEmbeddingProvider,
+    PooledModel,
+};

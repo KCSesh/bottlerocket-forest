@@ -1,0 +1,348 @@
+[meta]
+feature = "throttlesys"
+feature_dir = "docs/features/0007-throttlesys"
+workspace = "twoliter/tools/throttlesys"
+
+[dependencies]
+1 = []
+2 = [1]
+3 = [1]
+4 = [2, 3]
+5 = [4]
+6 = [5]
+7 = [1, 3]
+8 = [7]
+9 = [8]
+10 = [6, 8]
+11 = [10]
+
+[[commits]]
+id = 1
+title = "throttlesys: Add crate skeleton and protocol types"
+message = """feat(throttlesys): add crate skeleton and wire protocol
+
+Implements protocol message encoding/decoding per design.md wire protocol spec.
+All multi-byte integers use big-endian (network byte order) per CC-4.
+
+Message types: AcquireRequest, AcquireResponse, ReleaseRequest,
+ReleaseResponse, Disconnect, Error."""
+files = [
+    "twoliter/tools/throttlesys/Cargo.toml",
+    "twoliter/tools/throttlesys/src/lib.rs",
+    "twoliter/tools/throttlesys/src/protocol.rs",
+]
+acceptance = [
+    "Cargo.toml with tokio, jobserver, thiserror dependencies",
+    "Protocol Message enum with all 6 variants",
+    "encode() and decode() functions for wire format",
+    "Big-endian encoding for Length field (CC-4)",
+    "Version byte = 0x01",
+]
+anti_patterns = [
+    "Using native endianness instead of big-endian",
+    "Missing version field in wire format",
+    "Incomplete error handling in decode",
+]
+tests = [
+    "test_protocol_big_endian",
+    "test_protocol_encode_acquire_request",
+    "test_protocol_encode_acquire_response",
+    "test_protocol_encode_release_request",
+    "test_protocol_encode_disconnect",
+    "test_protocol_encode_error",
+    "test_protocol_decode_roundtrip",
+    "test_protocol_invalid_version",
+    "test_protocol_invalid_type",
+]
+
+[[commits]]
+id = 2
+title = "throttlesys: Add token ownership tracking with FIFO queue"
+message = """feat(throttlesys): add ownership module for token tracking
+
+Implements CC-7 (FIFO ordering) via PendingRequest queue.
+TokenOwnership tracks client_id -> tokens mapping for recovery (THR-6, THR-20)."""
+files = [
+    "twoliter/tools/throttlesys/src/ownership.rs",
+    "twoliter/tools/throttlesys/src/lib.rs",
+]
+acceptance = [
+    "TokenOwnership struct tracking client->tokens mapping",
+    "PendingRequest with client_id, requested_at, response channel",
+    "FIFO queue for pending requests",
+    "Methods: track_acquire, track_release, recover_client_tokens",
+    "O(clients) memory usage",
+]
+anti_patterns = [
+    "LIFO or random ordering instead of FIFO",
+    "Not tracking ownership per-client",
+    "Memory growing with transactions instead of clients",
+]
+tests = [
+    "test_ownership_tracks_client_tokens",
+    "test_fifo_ordering",
+]
+
+[[commits]]
+id = 3
+title = "throttlesys: Add ThrottleConfig and error types"
+message = """feat(throttlesys): add configuration and error types
+
+ThrottleConfig handles BUILDSYS_JOBS parsing with defaults (THR-1).
+Error types cover all failure modes from design.md."""
+files = [
+    "twoliter/tools/throttlesys/src/lib.rs",
+]
+acceptance = [
+    "ThrottleConfig with tokens (default 8, min 1) and socket_name",
+    "ThrottleConfig::from_env() parsing BUILDSYS_JOBS",
+    "ServerStartError: SocketCollision, JobserverCreate",
+    "ClientConnectError: SocketNotSet, ConnectionFailed, ConnectionTimeout, VersionMismatch",
+    "AcquireError and ReleaseError types",
+]
+anti_patterns = [
+    "Allowing 0 tokens",
+    "Missing SocketNotSet error variant (CC-6)",
+    "Generic error types instead of specific variants",
+]
+tests = [
+    "test_config_default_tokens",
+    "test_config_zero_becomes_one",
+    "test_config_respects_env",
+]
+
+[[commits]]
+id = 4
+title = "throttlesys: Implement ThrottleServer core"
+message = """feat(throttlesys): implement ThrottleServer wrapping jobserver
+
+Server binds to abstract UDS, handles token acquire/release via protocol.
+Uses spawn_blocking for jobserver crate calls (CC-5).
+Wraps jobserver::Client, not custom pool (CC-1)."""
+files = [
+    "twoliter/tools/throttlesys/src/server.rs",
+    "twoliter/tools/throttlesys/src/lib.rs",
+]
+acceptance = [
+    "ThrottleServer::start() creates jobserver::Client with N tokens",
+    "Binds to abstract socket @{socket_name}",
+    "acquire_token() uses spawn_blocking for jobserver.acquire()",
+    "release_token() uses spawn_blocking for jobserver.release()",
+    "Socket collision returns clear error",
+]
+anti_patterns = [
+    "Custom token pool instead of jobserver::Client (CC-1)",
+    "Blocking async runtime with jobserver calls (CC-5)",
+    "Non-abstract socket path",
+]
+tests = [
+    "test_server_uses_jobserver_protocol",
+    "test_server_binds_abstract_socket",
+    "test_server_unique_socket_name",
+    "test_server_socket_collision_error",
+    "test_spawn_blocking_for_jobserver",
+    "test_startup_sequence_order",
+]
+
+[[commits]]
+id = 5
+title = "throttlesys: Add server connection handling and token flow"
+message = """feat(throttlesys): add client connection handling and token flow
+
+Integrates ownership tracking for token recovery.
+Implements FIFO grant ordering (CC-7) and recovery on disconnect (CC-2)."""
+files = [
+    "twoliter/tools/throttlesys/src/server.rs",
+]
+acceptance = [
+    "Accept loop spawns task per client connection",
+    "Protocol message handling for Acquire/Release/Disconnect",
+    "Token recovery within 1 second on disconnect (CC-2)",
+    "FIFO ordering via ownership module (CC-7)",
+    "Logging at appropriate levels (THR-33)",
+]
+anti_patterns = [
+    "Slow token recovery (>1 second)",
+    "Not using FIFO queue for pending requests",
+    "Missing disconnect handling",
+]
+tests = [
+    "test_acquire_blocks_until_available",
+    "test_acquire_returns_token",
+    "test_release_returns_token_to_pool",
+    "test_token_recovery_on_disconnect",
+    "test_graceful_disconnect_releases",
+    "test_build_continues_after_crash",
+    "test_logs_acquire_release_debug",
+    "test_logs_recovery_info",
+    "test_logs_errors_warning",
+]
+
+[[commits]]
+id = 6
+title = "throttlesys: Add server shutdown and signal handling"
+message = """feat(throttlesys): implement graceful shutdown and signal handling
+
+Waits for in-flight requests, closes connections, logs final state (THR-18, THR-19)."""
+files = [
+    "twoliter/tools/throttlesys/src/server.rs",
+]
+acceptance = [
+    "shutdown(timeout) waits up to 5s for in-flight ops",
+    "All connections closed on shutdown",
+    "SIGINT/SIGTERM handling terminates within 5s",
+    "Final token state logged on signal",
+    "Completion report with peak concurrent and totals (THR-34)",
+]
+anti_patterns = [
+    "Immediate termination without drain",
+    "Not logging final state",
+    "Hanging on shutdown",
+]
+tests = [
+    "test_shutdown_waits_for_inflight",
+    "test_shutdown_closes_connections",
+    "test_signal_terminates_connections",
+    "test_signal_logs_final_state",
+    "test_completion_report",
+]
+
+[[commits]]
+id = 7
+title = "throttlesys: Implement ThrottleClient"
+message = """feat(throttlesys): implement ThrottleClient for container-side proxying
+
+Connects to server via abstract socket, creates local pipe jobserver,
+sets CARGO_MAKEFLAGS and MAKEFLAGS (CC-3). Fails if server unavailable (CC-6)."""
+files = [
+    "twoliter/tools/throttlesys/src/client.rs",
+    "twoliter/tools/throttlesys/src/lib.rs",
+]
+acceptance = [
+    "connect() reads THROTTLE_SOCKET, connects to abstract socket",
+    "Creates local pipe for cargo/make",
+    "Sets both CARGO_MAKEFLAGS and MAKEFLAGS (CC-3)",
+    "Fails with SocketNotSet if THROTTLE_SOCKET empty (CC-6)",
+    "30 second connection timeout",
+    "Protocol version check on connect",
+]
+anti_patterns = [
+    "Setting only one of CARGO_MAKEFLAGS/MAKEFLAGS (CC-3)",
+    "Fallback to local jobserver (CC-6)",
+    "Missing timeout on connect",
+]
+tests = [
+    "test_client_connects_to_socket",
+    "test_client_connection_timeout",
+    "test_client_sets_cargo_makeflags",
+    "test_client_sets_makeflags",
+    "test_missing_socket_fails",
+    "test_no_fallback_to_uncoordinated",
+    "test_protocol_version_mismatch",
+]
+
+[[commits]]
+id = 8
+title = "throttlesys: Add client token proxying"
+message = """feat(throttlesys): implement token proxying between pipe and server
+
+Local pipe reads forward to server acquire, writes forward to release.
+Handles server disconnect gracefully (THR-23)."""
+files = [
+    "twoliter/tools/throttlesys/src/client.rs",
+]
+acceptance = [
+    "Pipe read triggers AcquireRequest to server",
+    "Pipe write triggers ReleaseRequest to server",
+    "Server disconnect causes clear error, no deadlock",
+    "Proper cleanup on client shutdown",
+]
+anti_patterns = [
+    "Deadlock on server disconnect",
+    "Not forwarding all pipe operations",
+    "Resource leaks on error paths",
+]
+tests = [
+    "test_client_proxies_acquire",
+    "test_client_proxies_release",
+    "test_client_fails_if_server_gone",
+]
+
+[[commits]]
+id = 9
+title = "throttlesys: Add throttle-client CLI binary"
+message = """feat(throttlesys): add throttle-client binary for container use
+
+CLI parses --socket and --daemonize args, initializes client,
+sets environment for child processes."""
+files = [
+    "twoliter/tools/throttlesys/src/bin/throttle-client.rs",
+]
+acceptance = [
+    "--socket arg for socket name",
+    "--daemonize to background the process",
+    "Sets CARGO_MAKEFLAGS and MAKEFLAGS before exit",
+    "Clear error messages on failure",
+]
+anti_patterns = [
+    "Missing --daemonize support",
+    "Not setting env vars for parent shell",
+]
+tests = [
+    "test_cargo_jobserver_compat",
+    "test_make_pipe_protocol",
+    "test_make_fifo_protocol",
+]
+
+[[commits]]
+id = 10
+title = "throttlesys: Add integration tests for server-client flow"
+message = """test(throttlesys): add integration tests for end-to-end token flow
+
+Tests use real sockets, no mocks. Verify protocol modes, concurrent clients,
+and multiple independent servers."""
+files = [
+    "twoliter/tools/throttlesys/tests/integration.rs",
+]
+acceptance = [
+    "Real ThrottleServer + ThrottleClient over UDS",
+    "Test pipe and FIFO protocol modes",
+    "Test 64 concurrent clients",
+    "Test multiple independent servers",
+]
+anti_patterns = [
+    "Mocking socket layer",
+    "Flaky timing-dependent tests",
+]
+tests = [
+    "test_server_pipe_protocol_mode",
+    "test_server_fifo_protocol_mode",
+    "test_64_concurrent_clients",
+    "test_multiple_servers_independent",
+]
+
+[[commits]]
+id = 11
+title = "throttlesys: Add benchmarks"
+message = """perf(throttlesys): add criterion benchmarks for performance requirements
+
+Measures token acquisition latency and server overhead per THR-27, THR-28, THR-30."""
+files = [
+    "twoliter/tools/throttlesys/benches/token_flow.rs",
+    "twoliter/tools/throttlesys/Cargo.toml",
+]
+acceptance = [
+    "bench_token_acquisition_latency measures p99 < 10ms",
+    "bench_server_overhead measures < 1ms typical",
+    "Memory scaling test verifies O(clients)",
+    "Criterion setup with warmup",
+]
+anti_patterns = [
+    "No warmup period",
+    "Missing statistical analysis",
+]
+tests = [
+    "bench_token_acquisition_latency",
+    "bench_server_overhead",
+    "test_memory_scales_with_clients",
+]

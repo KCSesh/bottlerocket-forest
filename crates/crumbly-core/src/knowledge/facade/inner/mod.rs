@@ -22,9 +22,10 @@ use super::KnowledgeIndex;
 use crate::knowledge::constants::{KNOWLEDGE_DB, MODEL_CACHE_DIR, SEMBLY_DIR};
 use crate::knowledge::domain::{ContextId, ScanConfig};
 use crate::knowledge::facade::types::IndexError;
-use crate::knowledge::indexing::provider::EmbeddingDataProvider;
+use crate::knowledge::indexing::IndexDataProvider;
 use crate::knowledge::indexing::{self, IndexingFilter, load_crumbly_config};
 use crate::knowledge::scoring::ScoreBooster;
+use crate::knowledge::search::embeddings::PooledEmbeddingProvider;
 use crate::knowledge::search::{EmbeddingModel, LoadedEmbeddingModel, SemanticSearchEngine};
 use crate::knowledge::storage::ChunkRepository;
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
@@ -63,9 +64,15 @@ pub(super) fn create_search_engine(
     ))
 }
 
-pub(super) fn create_provider(index: &KnowledgeIndex) -> Result<EmbeddingDataProvider, IndexError> {
-    let embedding_model = create_embedding_model(index)?;
-    Ok(EmbeddingDataProvider::new(Box::new(embedding_model)))
+pub(super) fn create_provider(
+    _index: &KnowledgeIndex,
+) -> Result<Box<dyn IndexDataProvider>, IndexError> {
+    use super::types::index_error::*;
+    Ok(Box::new(
+        PooledEmbeddingProvider::new()
+            .map_err(Box::new)
+            .context(PoolCreationFailedSnafu)?,
+    ))
 }
 
 pub(super) fn create_embedding_model(
