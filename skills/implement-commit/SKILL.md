@@ -141,7 +141,11 @@ def execute_spawn(action: dict) -> dict:
         isolate_to=Cwd(workspace) if not action.get("style_review") else None,
     )
     
-    return result.parsed.model_dump()
+    result_dict = result.parsed.model_dump()
+    # Preserve action flags for driver state machine
+    if action.get("arbiter"):
+        result_dict["arbiter"] = True
+    return result_dict
 ```
 
 ## Handling Escalation
