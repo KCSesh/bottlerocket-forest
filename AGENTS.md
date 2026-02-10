@@ -30,19 +30,6 @@ Guidelines:
 - Focus on impact/behavior, not implementation details
 - Use active voice describing what the commit does
 
-Examples:
-```
-# Good - describes impact
-feat(crumbly): adapt fs to ContentSource trait
-feat(crumbly): add bare git repository indexing
-fix(api): reject invalid revision formats
-
-# Bad - describes implementation
-feat(crumbly-core): add FilesystemSource content backend
-feat(crumbly-core): add BareGitSource for bare git repository indexing
-fix(api): add validation check to parse_revision function
-```
-
 The subject should answer "what does this change do?" not "what code did I write?"
 
 ## Important Reference Docs
@@ -50,28 +37,6 @@ If you do not have these files in context, read them:
 
 - [ ] `./docs/ARCHITECTURE.md` (overview of Bottlerocket's architecture)
 - [ ] `./docs/build-system.md` (overview of Bottlerocket's build system)
-- [ ] `./skills/README.md` (contains skill protocol and skill index)
-
-## Using Skills
-
-**Before responding to a user message, check if a skill exists for your task.**
-
-Using the index in skills/README.md:
-1. Determine if a skill applies to the user's request
-2. If yes: You MUST announce it to the user before executing (see protocol in skills/README.md)
-3. If no: Proceed with the appropriate approach (e.g., `crumbly search` for research)
-
-**If you skip this:**
-- ❌ Will reinvent tested procedures
-- ❌ Will miss validation steps
-- ❌ May produce inconsistent results
-
-**⚠️ STOP: If a skill applies, announce it to the user before executing.**
-
-Tell the user which skill you're using with `USING SKILL "skill-name"` before proceeding.
-This is a user-facing checkpoint, not an internal process step.
-
-## Documentation Research
 
 **ANY question about how Bottlerocket works requires research.**
 
