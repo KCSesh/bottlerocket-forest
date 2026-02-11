@@ -1,8 +1,38 @@
 //! Types for file scanning
 
+use std::path::PathBuf;
+
 use crate::knowledge::domain::{AbsolutePath, FileType, IndexRelativePath, RepoName, Timestamp};
 use bon::Builder;
 use snafu::Snafu;
+
+/// Controls which files are scanned during indexing.
+#[derive(Debug, Clone, Builder)]
+#[builder(on(_, into))]
+#[non_exhaustive]
+pub struct ScanConfig {
+    /// Whether to respect .gitignore rules.
+    #[builder(default = true)]
+    pub respect_gitignore: bool,
+
+    /// Whether to use .crumblyignore rules.
+    #[builder(default = true)]
+    pub use_crumblyignore: bool,
+
+    /// Empty means scan entire forest root; non-empty restricts to specified paths.
+    #[builder(default)]
+    pub targets: Vec<PathBuf>,
+}
+
+impl Default for ScanConfig {
+    fn default() -> Self {
+        Self {
+            respect_gitignore: true,
+            use_crumblyignore: true,
+            targets: Vec::new(),
+        }
+    }
+}
 
 /// Metadata for a file discovered during scanning
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]

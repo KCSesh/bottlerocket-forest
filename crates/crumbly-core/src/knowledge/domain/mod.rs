@@ -16,7 +16,6 @@ pub mod search;
 use bon::Builder;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::knowledge::constants;
@@ -33,34 +32,6 @@ pub use indexed_file::IndexedFile;
 pub use search::{
     DEFAULT_RESULT_LIMIT, FileSearchResult, SearchQuery, SearchResult, SearchResults,
 };
-
-/// Controls which files are scanned during indexing.
-#[derive(Debug, Clone, Builder)]
-#[builder(on(_, into))]
-#[non_exhaustive]
-pub struct ScanConfig {
-    /// Whether to respect .gitignore rules.
-    #[builder(default = true)]
-    pub respect_gitignore: bool,
-
-    /// Whether to use .crumblyignore rules.
-    #[builder(default = true)]
-    pub use_crumblyignore: bool,
-
-    /// Empty means scan entire forest root; non-empty restricts to specified paths.
-    #[builder(default)]
-    pub targets: Vec<PathBuf>,
-}
-
-impl Default for ScanConfig {
-    fn default() -> Self {
-        Self {
-            respect_gitignore: true,
-            use_crumblyignore: true,
-            targets: Vec::new(),
-        }
-    }
-}
 
 /// Unique identifier for a documentation chunk
 #[nutype(derive(Debug, Clone, Copy, Display, Serialize, Deserialize, PartialEq, Eq))]

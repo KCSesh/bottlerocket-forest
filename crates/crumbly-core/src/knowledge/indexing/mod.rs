@@ -46,7 +46,7 @@ pub use filter::{
 pub use indexer::{BatchConfig, IndexResult, IndexStrategy, Indexer, IndexingError};
 pub use progress::{ProgressReporter, SilentReporter};
 pub use provider::{IndexDataError, IndexDataProvider};
-pub use scanner::{FileScanner, IndexableFile, ScanError};
+pub use scanner::{FileScanner, IndexableFile, ScanConfig, ScanError};
 pub use source::{
     BareGitSource, BareGitSourceError, ContentEntry, ContentSource, GitBlobRef, GitRev,
 };

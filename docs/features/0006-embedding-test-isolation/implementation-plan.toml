@@ -1,0 +1,70 @@
+[meta]
+feature = "embedding-test-isolation"
+feature_dir = "docs/features/0006-embedding-test-isolation"
+workspace = "."
+
+[dependencies]
+1 = []
+2 = [1]
+
+[[commits]]
+id = 1
+title = "Add embedding factory injection for test isolation"
+message = """feat(crumbly-core): add embedding factory injection for test isolation
+
+Add dependency injection for embedding providers to KnowledgeIndex, enabling
+unit tests to run without network access or model downloads.
+
+- Add embedding_factory field to KnowledgeIndex
+- Add #[cfg(test)] open_with_mock() constructor
+- Update create_search_engine()/create_provider() to use injected factory
+- Add create_mock_provider() helper in test_helpers
+- Add unit tests verifying mock injection works"""
+files = [
+  "crates/crumbly-core/src/knowledge/facade/mod.rs",
+  "crates/crumbly-core/src/knowledge/facade/inner/mod.rs",
+  "crates/crumbly-core/src/knowledge/facade/test_helpers.rs"
+]
+acceptance = [
+  "CC-1: open()/open_with_config() signatures unchanged",
+  "CC-3: Mock returns 384-dim vectors matching EmbeddingModelConfig.embedding_dim",
+  "CC-4: Mock implements embed_batch() and model_name()",
+  "test_open_with_mock_uses_injected_provider passes",
+  "test_mock_provider_dimension_matches_config passes",
+  "test_facade_build_with_mock_no_network passes",
+  "test_facade_search_with_mock_no_network passes"
+]
+anti_patterns = [
+  "Adding required parameters to public constructors",
+  "Hardcoding dimension different from 384",
+  "Partial mock that panics on unused methods"
+]
+tests = [
+  "test_open_with_mock_uses_injected_provider",
+  "test_mock_provider_dimension_matches_config",
+  "test_facade_build_with_mock_no_network",
+  "test_facade_search_with_mock_no_network"
+]
+
+[[commits]]
+id = 2
+title = "Add HF_HOME cache for integration tests"
+message = """build(makefile): add HF_HOME cache for embedding integration tests
+
+Set HF_HOME environment variable in integ target to cache downloaded
+models, ensuring integration tests use real embeddings per CC-2."""
+files = [
+  "Makefile"
+]
+acceptance = [
+  "CC-2: tests/embedding_integration.rs continues using real embeddings",
+  "HF_HOME set to .crumbly/hf_cache or similar",
+  "test_real_embedding_integration passes with real model"
+]
+anti_patterns = [
+  "Mocking in integration tests",
+  "Disabling real embedding tests"
+]
+tests = [
+  "test_real_embedding_integration"
+]

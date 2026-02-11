@@ -79,7 +79,8 @@ impl FileScanner {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::domain::{FileType, IndexRelativePath, ScanConfig};
+    use crate::knowledge::ScanConfig;
+    use crate::knowledge::domain::{FileType, IndexRelativePath};
     use std::fs;
     use std::path::{Path, PathBuf};
     use tempfile::TempDir;

@@ -12,7 +12,7 @@ pub mod engine;
 pub mod semantic;
 
 // Re-export embeddings from top-level for backward compatibility
-pub use crate::knowledge::embeddings as embeddings;
+pub use crate::knowledge::embeddings;
 pub use crate::knowledge::embeddings::{
     EmbeddingError, EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel, VectorOps,
 };

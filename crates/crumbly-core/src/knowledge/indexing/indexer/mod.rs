@@ -26,8 +26,9 @@ use snafu::ResultExt;
 use std::path::Path;
 use std::sync::Arc;
 
+use super::scanner::ScanConfig;
 use crate::knowledge::chunking::ChunkingDispatcher;
-use crate::knowledge::domain::{ContextId, EmbeddingModelConfig, ScanConfig};
+use crate::knowledge::domain::{ContextId, EmbeddingModelConfig};
 use crate::knowledge::storage::ChunkRepository;
 
 use super::{FileScanner, IndexDataProvider, IndexingFilter, ProgressReporter};

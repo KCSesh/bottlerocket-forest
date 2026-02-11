@@ -20,9 +20,10 @@ use std::path::{Path, PathBuf};
 
 use super::KnowledgeIndex;
 use crate::knowledge::constants::{KNOWLEDGE_DB, MODEL_CACHE_DIR, SEMBLY_DIR};
-use crate::knowledge::domain::{ContextId, ScanConfig};
+use crate::knowledge::domain::ContextId;
 use crate::knowledge::facade::types::IndexError;
 use crate::knowledge::indexing::IndexDataProvider;
+use crate::knowledge::indexing::ScanConfig;
 use crate::knowledge::indexing::{self, IndexingFilter, load_crumbly_config};
 use crate::knowledge::scoring::ScoreBooster;
 use crate::knowledge::search::embeddings::PooledEmbeddingProvider;

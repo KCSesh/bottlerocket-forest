@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::{IndexingFilter, ProgressReporter};
-use crate::knowledge::domain::{RepoName, ScanConfig};
+use crate::knowledge::domain::RepoName;
 
 /// Discovers indexable files in the forest directory structure
 pub struct FileScanner {
@@ -131,4 +131,4 @@ impl FileScanner {
     }
 }
 
-pub use types::{IndexableFile, ScanError};
+pub use types::{IndexableFile, ScanConfig, ScanError};
