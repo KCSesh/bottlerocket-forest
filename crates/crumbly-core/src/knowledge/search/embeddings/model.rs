@@ -114,6 +114,7 @@ impl EmbeddingModel {
         })?;
 
         let device = Device::Cpu;
+        // SAFETY: The safetensors model files are read-only and not modified during execution.
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&[weights_path], DTYPE, &device).map_err(|e| {
                 embedding_error::ModelLoadFailedSnafu {
@@ -338,6 +339,7 @@ fn mean_pool_and_normalize(
     let count = mask
         .sum(1)
         .and_then(|c| c.to_dtype(embeddings.dtype()))
+        .and_then(|c| c.clamp(1.0, f64::INFINITY))
         .map_err(|e| {
             embedding_error::EmbeddingGenerationFailedSnafu
                 .into_error(Box::new(std::io::Error::other(e.to_string())))
@@ -397,6 +399,7 @@ fn mean_pool_and_normalize_batch(
     let count = mask
         .sum(1)
         .and_then(|c| c.to_dtype(embeddings.dtype()))
+        .and_then(|c| c.clamp(1.0, f64::INFINITY))
         .map_err(|e| {
             embedding_error::EmbeddingGenerationFailedSnafu
                 .into_error(Box::new(std::io::Error::other(e.to_string())))
