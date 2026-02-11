@@ -165,7 +165,8 @@ pub struct SourceIndexConfig<'a, R> {
 }
 
 /// Build index from a ContentSource.
-pub fn build_from_source<S, R>(
+#[allow(dead_code)]
+pub(crate) fn build_from_source<S, R>(
     _source: &S,
     _config: SourceIndexConfig<'_, R>,
 ) -> Result<IndexResult, IndexingError>
@@ -177,7 +178,8 @@ where
 }
 
 /// Incremental update from a ContentSource.
-pub fn incremental_from_source<S, R>(
+#[allow(dead_code)]
+pub(crate) fn incremental_from_source<S, R>(
     _source: &S,
     _config: SourceIndexConfig<'_, R>,
 ) -> Result<IndexResult, IndexingError>
