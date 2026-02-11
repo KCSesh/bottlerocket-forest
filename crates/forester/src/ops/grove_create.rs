@@ -63,6 +63,17 @@ impl<'a> GroveCreateOperation<'a> {
             path: grove_root.marker_dir(),
         })?;
 
+        std::fs::write(
+            grove_path.join(".git"),
+            "# This file prevents git from searching parent directories.
+# Each grove member has its own .git directory.
+gitdir: /dev/null
+",
+        )
+        .context(WriteGitFileSnafu {
+            path: grove_path.join(".git"),
+        })?;
+
         for member in &self.config.forest.member {
             self.create_member_clone(member, &grove_path, name, branch)?;
         }
@@ -194,6 +205,15 @@ pub enum GroveCreateError {
     #[snafu(display("Failed to create directory"))]
     CreateDir {
         /// Path that could not be created.
+        path: PathBuf,
+        /// Underlying IO error.
+        source: std::io::Error,
+    },
+
+    /// Failed to write .git barrier file.
+    #[snafu(display("Failed to write .git barrier file"))]
+    WriteGitFile {
+        /// Path that could not be written.
         path: PathBuf,
         /// Underlying IO error.
         source: std::io::Error,
