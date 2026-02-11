@@ -146,50 +146,6 @@ impl<R: ChunkRepository> Indexer<R> {
     }
 }
 
-use crate::knowledge::indexing::source::ContentSource;
-
-/// Configuration for source-based indexing operations.
-pub struct SourceIndexConfig<'a, R> {
-    /// Chunking dispatcher for content processing.
-    pub dispatcher: &'a ChunkingDispatcher,
-    /// Repository for storing indexed chunks.
-    pub repository: &'a mut R,
-    /// Provider for generating embeddings.
-    pub provider: &'a dyn IndexDataProvider,
-    /// Context identifier for the index.
-    pub context_id: &'a ContextId,
-    /// Optional progress reporter.
-    pub progress: Option<&'a dyn ProgressReporter>,
-    /// Batch processing configuration.
-    pub batch_config: &'a BatchConfig,
-}
-
-/// Build index from a ContentSource.
-#[allow(dead_code)]
-pub(crate) fn build_from_source<S, R>(
-    _source: &S,
-    _config: SourceIndexConfig<'_, R>,
-) -> Result<IndexResult, IndexingError>
-where
-    S: ContentSource,
-    R: ChunkRepository,
-{
-    todo!("build_from_source not yet implemented")
-}
-
-/// Incremental update from a ContentSource.
-#[allow(dead_code)]
-pub(crate) fn incremental_from_source<S, R>(
-    _source: &S,
-    _config: SourceIndexConfig<'_, R>,
-) -> Result<IndexResult, IndexingError>
-where
-    S: ContentSource,
-    R: ChunkRepository,
-{
-    todo!("incremental_from_source not yet implemented")
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

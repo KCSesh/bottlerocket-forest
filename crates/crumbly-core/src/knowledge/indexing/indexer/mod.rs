@@ -19,7 +19,6 @@ mod strategies;
 mod types;
 mod worker;
 
-pub use strategies::SourceIndexConfig;
 pub use types::{BatchConfig, IndexResult, IndexingError};
 
 use snafu::ResultExt;
