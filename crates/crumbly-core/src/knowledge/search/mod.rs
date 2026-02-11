@@ -6,13 +6,14 @@
 //!
 //! * [`engine`]: Core search engine trait and error types
 //! * [`semantic`]: Semantic search implementation using embeddings
-//! * [`embeddings`]: Embedding generation and vector operations
+//! * [`embeddings`]: Re-exported from `crate::knowledge::embeddings`
 
-pub mod embeddings;
 pub mod engine;
 pub mod semantic;
 
-pub use embeddings::{
+// Re-export embeddings from top-level for backward compatibility
+pub use crate::knowledge::embeddings as embeddings;
+pub use crate::knowledge::embeddings::{
     EmbeddingError, EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel, VectorOps,
 };
 pub use engine::{SearchEngine, SearchError};

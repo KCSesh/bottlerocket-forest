@@ -41,6 +41,7 @@ pub mod chunking;
 pub mod constants;
 pub mod context;
 pub mod domain;
+pub mod embeddings;
 pub mod error;
 pub mod facade;
 pub mod indexing;

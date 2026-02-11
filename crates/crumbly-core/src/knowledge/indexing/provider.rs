@@ -9,7 +9,7 @@ use snafu::{IntoError, Snafu};
 
 use super::ProgressReporter;
 use crate::knowledge::domain::Embedding;
-use crate::knowledge::search::embeddings::EmbeddingProvider;
+use crate::knowledge::embeddings::EmbeddingProvider;
 
 /// Generates embeddings from text content for semantic search
 #[cfg_attr(test, mockall::automock)]
@@ -109,7 +109,7 @@ impl IndexDataProvider for EmbeddingDataProvider {
 mod test {
     use super::*;
     use crate::knowledge::domain::Embedding;
-    use crate::knowledge::search::embeddings::model::MockEmbeddingProvider;
+    use crate::knowledge::embeddings::model::MockEmbeddingProvider;
 
     #[test]
     fn test_embedding_provider_generates_embedding() {
@@ -154,7 +154,7 @@ mod test {
         let mut mock = MockEmbeddingProvider::new();
         mock.expect_embed().returning(|_| {
             Err(
-                crate::knowledge::search::embeddings::EmbeddingError::EmbeddingGenerationFailed {
+                crate::knowledge::embeddings::EmbeddingError::EmbeddingGenerationFailed {
                     source: Box::new(std::io::Error::other("test error")),
                 },
             )
