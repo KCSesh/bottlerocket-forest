@@ -54,15 +54,16 @@ impl<R: ChunkRepository> Indexer<R> {
                 .has_embedding_batch(&chunk_hashes)
                 .context(StorageFailedSnafu)?;
 
+            // Extract file_hash before filtering - chunks may all be cached
+            let file_hash = chunks
+                .first()
+                .map(|c| c.file_hash)
+                .unwrap_or(FileHash::new([0u8; 32]));
+
             let chunks_needing_embeddings: Vec<Chunk> = chunks
                 .into_iter()
                 .filter(|c| !existing.contains(&c.chunk_hash))
                 .collect();
-
-            let file_hash = chunks_needing_embeddings
-                .first()
-                .map(|c| c.file_hash)
-                .unwrap_or(FileHash::new([0u8; 32]));
 
             self.repository
                 .track_indexed_file(
