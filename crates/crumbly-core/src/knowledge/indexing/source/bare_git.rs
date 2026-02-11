@@ -14,6 +14,9 @@ use std::process::{Command, Stdio};
 
 use super::{ContentEntry, ContentSource, FetchError, FetchResult};
 
+/// Indexed entries grouped by repository for batch processing.
+type IndexedEntryGroup<'a> = (&'a RepoName, Vec<(usize, &'a ContentEntry<GitBlobRef>)>);
+
 /// Git revision reference (branch, tag, or commit SHA).
 #[nutype(
     validate(not_empty),
@@ -304,27 +307,35 @@ impl ContentSource for BareGitSource {
         &self,
         entries: &[ContentEntry<Self::EntryId>],
     ) -> Vec<FetchResult<Self::EntryId>> {
-        // Group entries by repository using Vec to avoid Hash requirement
-        let mut groups: Vec<(&RepoName, Vec<&ContentEntry<GitBlobRef>>)> = Vec::new();
-        for entry in entries {
+        // Group entries by repository, tracking original indices
+        let mut groups: Vec<IndexedEntryGroup<'_>> = Vec::new();
+        for (idx, entry) in entries.iter().enumerate() {
             if let Some((_, group)) = groups
                 .iter_mut()
                 .find(|(name, _)| *name == &entry.repo_name)
             {
-                group.push(entry);
+                group.push((idx, entry));
             } else {
-                groups.push((&entry.repo_name, vec![entry]));
+                groups.push((&entry.repo_name, vec![(idx, entry)]));
             }
         }
 
-        // Process each repo with a single git cat-file --batch process
-        let mut results = Vec::with_capacity(entries.len());
+        // Process each repo and collect results with their original indices
+        let mut indexed_results: Vec<(usize, FetchResult<GitBlobRef>)> =
+            Vec::with_capacity(entries.len());
         for (repo_name, repo_entries) in groups {
             let git_dir = self.bare_repos_dir.join(format!("{}.git", repo_name));
-            results.extend(self.batch_fetch_for_repo(&git_dir, &repo_entries));
+            let just_entries: Vec<&ContentEntry<GitBlobRef>> =
+                repo_entries.iter().map(|(_, e)| *e).collect();
+            let results = self.batch_fetch_for_repo(&git_dir, &just_entries);
+            for ((idx, _), result) in repo_entries.into_iter().zip(results) {
+                indexed_results.push((idx, result));
+            }
         }
 
-        results
+        // Reorder results to match input order
+        indexed_results.sort_by_key(|(idx, _)| *idx);
+        indexed_results.into_iter().map(|(_, r)| r).collect()
     }
 }
 
