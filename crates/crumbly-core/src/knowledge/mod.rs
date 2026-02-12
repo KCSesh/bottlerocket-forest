@@ -56,7 +56,7 @@ pub use domain::{
     EmbeddingModelConfig, FileType, IndexMetadata, IndexRelativePath, IndexedChunk,
     MarkdownContext, RepoName, RustDocContext, SearchQuery, SearchResult, SearchResults, Timestamp,
 };
-pub use facade::{IndexError, IndexStatus, KnowledgeIndex};
+pub use facade::{CacheResult, CacheSource, IndexError, IndexStatus, KnowledgeIndex};
 pub use indexing::{
     CrumblyConfig, CrumblyConfigError, FileScanner, IndexResult, IndexStrategy, IndexableFile,
     Indexer, IndexingError, ScanConfig, ScanError, load_crumbly_config,

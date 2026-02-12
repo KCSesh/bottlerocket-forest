@@ -12,7 +12,26 @@ use bon::Builder;
 use snafu::Snafu;
 use std::time::SystemTime;
 
+use std::path::PathBuf;
+
 use crate::knowledge::domain::{ContextId, EmbeddingModelConfig};
+
+/// Source backend for cache operations.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum CacheSource {
+    /// Cache from local filesystem path.
+    Filesystem(PathBuf),
+    /// Cache from bare git repositories.
+    BareGit {
+        /// Directory containing bare git repositories.
+        bare_repos_dir: PathBuf,
+        /// Git revision to read (branch, tag, or SHA).
+        rev: String,
+    },
+}
+
+pub use crate::knowledge::indexing::CacheResult;
 
 /// Statistics from a garbage collection operation.
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
@@ -255,6 +274,28 @@ pub enum IndexError {
     ContextDoesNotExist {
         /// ID of the missing context.
         context_id: String,
+    },
+
+    /// Invalid git revision specified.
+    #[snafu(display("Invalid git revision: {rev}"))]
+    #[diagnostic(
+        code(crumbly::index::invalid_revision),
+        help("Revision must be a non-empty string (branch, tag, or commit SHA)")
+    )]
+    InvalidRevision {
+        /// The invalid revision string.
+        rev: String,
+    },
+
+    /// Cache operation failed.
+    #[snafu(display("Cache operation failed"))]
+    #[diagnostic(
+        code(crumbly::index::cache_failed),
+        help("Check source path and index permissions")
+    )]
+    CacheFailed {
+        /// Error message from cache operation.
+        message: String,
     },
 
     /// Database schema version does not match expected version.

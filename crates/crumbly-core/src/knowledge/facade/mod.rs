@@ -33,12 +33,13 @@
 //! ```
 
 mod build;
+mod cache;
 mod inner;
 mod test_helpers;
 mod types;
 mod update;
 
-pub use types::{GcStats, IndexError, IndexStatus};
+pub use types::{CacheResult, CacheSource, GcStats, IndexError, IndexStatus};
 
 use snafu::ResultExt;
 use std::path::{Path, PathBuf};
