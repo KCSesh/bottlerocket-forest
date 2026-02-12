@@ -9,7 +9,7 @@ use crate::knowledge::facade::KnowledgeIndex;
 use crate::knowledge::facade::types::{CacheSource, IndexError, index_error::*};
 use crate::knowledge::indexing::source::FilesystemSource;
 use crate::knowledge::indexing::{
-    BareGitSource, CacheResult, ChunkCacher, FileScanner, GitRev, ProgressReporter,
+    BareGitSource, CacheResult, ChunkCacher, FileScanner, ProgressReporter,
 };
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
 
@@ -44,11 +44,8 @@ pub(in crate::knowledge::facade) fn cache(
             bare_repos_dir,
             rev,
         } => {
-            let git_rev =
-                GitRev::try_new(&rev).context(InvalidRevisionSnafu { rev: rev.clone() })?;
-
             let filter = super::load_indexing_filter(index)?;
-            let git_source = BareGitSource::new(&bare_repos_dir, git_rev, filter);
+            let git_source = BareGitSource::new(&bare_repos_dir, rev, filter);
 
             let mut cacher: ChunkCacher<BareGitSource, SqliteChunkRepository> =
                 ChunkCacher::builder()

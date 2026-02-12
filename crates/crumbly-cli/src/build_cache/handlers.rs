@@ -3,7 +3,7 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 
 use crumbly_core::knowledge::ProgressReporter;
-use crumbly_core::knowledge::{CacheSource, KnowledgeIndex};
+use crumbly_core::knowledge::{CacheSource, GitRev, KnowledgeIndex};
 
 use super::{BareGitArgs, BuildCacheArgs, FilesystemArgs, SourceBackend, UpdateCacheArgs};
 use crate::index::progress::CliProgressReporter;
@@ -20,7 +20,7 @@ pub fn handle_build_cache(args: BuildCacheArgs) -> Result<(), BuildCacheError> {
     let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
     index.build_cache().context(BuildCacheSnafu)?;
 
-    let source = to_cache_source(args.source);
+    let source = to_cache_source(args.source)?;
     let progress: Arc<dyn ProgressReporter> = Arc::new(CliProgressReporter::default());
 
     let result = index
@@ -45,7 +45,7 @@ pub fn handle_update_cache(args: UpdateCacheArgs) -> Result<(), BuildCacheError>
     let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
     index.ensure_cache().context(BuildCacheSnafu)?;
 
-    let source = to_cache_source(args.source);
+    let source = to_cache_source(args.source)?;
     let progress: Arc<dyn ProgressReporter> = Arc::new(CliProgressReporter::default());
 
     let result = index
@@ -59,16 +59,20 @@ pub fn handle_update_cache(args: UpdateCacheArgs) -> Result<(), BuildCacheError>
     Ok(())
 }
 
-fn to_cache_source(backend: SourceBackend) -> CacheSource {
+fn to_cache_source(backend: SourceBackend) -> Result<CacheSource, BuildCacheError> {
     match backend {
-        SourceBackend::Filesystem(FilesystemArgs { path }) => CacheSource::Filesystem(path),
+        SourceBackend::Filesystem(FilesystemArgs { path }) => Ok(CacheSource::Filesystem(path)),
         SourceBackend::BareGit(BareGitArgs {
             bare_repos_dir,
             rev,
-        }) => CacheSource::BareGit {
-            bare_repos_dir,
-            rev,
-        },
+        }) => {
+            let git_rev = GitRev::try_new(&rev)
+                .map_err(|_| BuildCacheError::InvalidRevision { rev: rev.clone() })?;
+            Ok(CacheSource::BareGit {
+                bare_repos_dir,
+                rev: git_rev,
+            })
+        }
     }
 }
 
@@ -134,4 +138,11 @@ pub enum BuildCacheError {
     Cache {
         source: crumbly_core::knowledge::IndexError,
     },
+
+    #[snafu(display("Invalid git revision: {rev}"))]
+    #[diagnostic(
+        code(crumbly::cli::build_cache::invalid_revision),
+        help("Revision must be a non-empty string (branch, tag, or commit SHA)")
+    )]
+    InvalidRevision { rev: String },
 }

@@ -59,8 +59,8 @@ pub use domain::{
 pub use facade::{CacheResult, CacheSource, IndexError, IndexStatus, KnowledgeIndex};
 pub use indexing::ProgressReporter;
 pub use indexing::{
-    CrumblyConfig, CrumblyConfigError, FileScanner, IndexResult, IndexStrategy, IndexableFile,
-    Indexer, IndexingError, ScanConfig, ScanError, load_crumbly_config,
+    CrumblyConfig, CrumblyConfigError, FileScanner, GitRev, IndexResult, IndexStrategy,
+    IndexableFile, Indexer, IndexingError, ScanConfig, ScanError, load_crumbly_config,
 };
 pub use scoring::{BoostMultiplier, BoostPattern, BoostRule, ScoreBooster, default_boost_rules};
 pub use search::{SearchEngine, SearchError, SemanticSearchEngine};

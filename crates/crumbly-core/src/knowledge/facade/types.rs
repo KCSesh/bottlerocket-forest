@@ -15,6 +15,7 @@ use std::time::SystemTime;
 use std::path::PathBuf;
 
 use crate::knowledge::domain::{ContextId, EmbeddingModelConfig};
+use crate::knowledge::indexing::GitRev;
 
 /// Source backend for cache operations.
 #[derive(Debug, Clone)]
@@ -27,7 +28,7 @@ pub enum CacheSource {
         /// Directory containing bare git repositories.
         bare_repos_dir: PathBuf,
         /// Git revision to read (branch, tag, or SHA).
-        rev: String,
+        rev: GitRev,
     },
 }
 
