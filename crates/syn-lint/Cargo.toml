@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 clap = { workspace = true }
 clap-cargo = { workspace = true }
-inventory = "0.3"
+inventory.workspace = true
 owo-colors = { workspace = true }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 syn = { workspace = true }
