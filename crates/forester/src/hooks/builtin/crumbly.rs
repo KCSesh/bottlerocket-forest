@@ -65,11 +65,11 @@ impl Hook for CrumblyHook {
         }
 
         match self.command.as_str() {
-            "build-cache" => {
+            "build-cache" | "update-cache" => {
                 ctx.emit(&ForesterEvent::Info(
-                    "Building crumbly cache from bare repositories...".into(),
+                    "Updating crumbly cache from bare repositories...".into(),
                 ));
-                cmd.args(["build-cache", "bare-git"])
+                cmd.args(["update-cache", "bare-git"])
                     .arg(ctx.forest_root.bare_dir())
                     .current_dir(ctx.forest_root.path());
             }

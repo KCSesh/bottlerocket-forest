@@ -34,6 +34,14 @@ impl KnowledgeIndex {
         inner::build_cache(self)
     }
 
+    /// Ensure database and metadata exist, creating if missing.
+    ///
+    /// Unlike build_cache(), this is idempotent - it succeeds whether the
+    /// database exists or not. Use for cache warming in idempotent workflows.
+    pub fn ensure_cache(&self) -> Result<(), IndexError> {
+        inner::ensure_cache(self)
+    }
+
     /// Delete the index and rebuild from scratch
     ///
     /// Deletes the existing index database and creates a new one by scanning all files.

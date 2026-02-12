@@ -59,6 +59,8 @@ enum Command {
     Cache(cache::CacheArgs),
     /// Create database and warm chunk cache.
     BuildCache(build_cache::BuildCacheArgs),
+    /// Update cache idempotently (create if missing, add new content).
+    UpdateCache(build_cache::UpdateCacheArgs),
 }
 
 fn main() -> Result<()> {
@@ -86,5 +88,6 @@ fn main() -> Result<()> {
         Command::Gc(args) => Ok(gc::handle_gc(args)?),
         Command::Cache(args) => Ok(cache::handle_cache(args)?),
         Command::BuildCache(args) => Ok(build_cache::handle_build_cache(args)?),
+        Command::UpdateCache(args) => Ok(build_cache::handle_update_cache(args)?),
     }
 }

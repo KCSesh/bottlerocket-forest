@@ -12,7 +12,7 @@ use crumbly_core::knowledge::indexing::{
 use crumbly_core::knowledge::search::embeddings::PooledEmbeddingProvider;
 use crumbly_core::knowledge::storage::sqlite::SqliteChunkRepository;
 
-use super::{BareGitArgs, BuildCacheArgs, FilesystemArgs, SourceBackend};
+use super::{BareGitArgs, BuildCacheArgs, FilesystemArgs, SourceBackend, UpdateCacheArgs};
 use crate::index::progress::CliProgressReporter;
 use crate::theme;
 
@@ -26,6 +26,26 @@ pub fn handle_build_cache(args: BuildCacheArgs) -> Result<(), BuildCacheError> {
 
     let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
     index.build_cache().context(BuildCacheSnafu)?;
+
+    let result = match args.source {
+        SourceBackend::Filesystem(fs_args) => cache_filesystem(&index, fs_args)?,
+        SourceBackend::BareGit(git_args) => cache_bare_git(&index, git_args)?,
+    };
+
+    format_cache_result(&result);
+    Ok(())
+}
+
+pub fn handle_update_cache(args: UpdateCacheArgs) -> Result<(), BuildCacheError> {
+    use build_cache_error::*;
+
+    let index_root = match args.index_root {
+        Some(p) => p,
+        None => std::env::current_dir().context(CurrentDirSnafu)?,
+    };
+
+    let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
+    index.ensure_cache().context(BuildCacheSnafu)?;
 
     let result = match args.source {
         SourceBackend::Filesystem(fs_args) => cache_filesystem(&index, fs_args)?,

@@ -5,10 +5,19 @@ mod handlers;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-pub use handlers::handle_build_cache;
+pub use handlers::{handle_build_cache, handle_update_cache};
 
 #[derive(Parser)]
 pub struct BuildCacheArgs {
+    #[command(subcommand)]
+    pub source: SourceBackend,
+
+    #[arg(long, global = true)]
+    pub index_root: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct UpdateCacheArgs {
     #[command(subcommand)]
     pub source: SourceBackend,
 
