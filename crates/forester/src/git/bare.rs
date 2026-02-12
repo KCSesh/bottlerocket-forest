@@ -94,7 +94,7 @@ impl BareRepository {
     /// Fetches from a remote into this bare repository.
     pub fn fetch(&self, remote: &str, quiet: bool) -> Result<(), GitCommandError> {
         GitCommand::new("fetch")
-            .args([remote, "+refs/heads/*:refs/remotes/origin/*", "--prune"])
+            .args([remote, "+refs/heads/*:refs/heads/*", "--prune"])
             .cwd(&self.path)
             .quiet(quiet)
             .run()
