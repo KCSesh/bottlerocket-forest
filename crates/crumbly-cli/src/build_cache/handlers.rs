@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 
-use crumbly_core::knowledge::indexing::ProgressReporter;
+use crumbly_core::knowledge::ProgressReporter;
 use crumbly_core::knowledge::{CacheSource, KnowledgeIndex};
 
 use super::{BareGitArgs, BuildCacheArgs, FilesystemArgs, SourceBackend, UpdateCacheArgs};
