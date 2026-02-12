@@ -84,7 +84,7 @@ impl KnowledgeIndex {
 
         if !index_root.exists() {
             return Err(IndexError::IndexRootNotFound {
-                path: index_root.display().to_string(),
+                path: index_root.to_path_buf(),
             });
         }
 

@@ -84,10 +84,9 @@ fn handle_remove(args: RemoveArgs) -> Result<(), ContextError> {
     let index = KnowledgeIndex::open(&index_root).context(KnowledgeIndexSnafu)?;
 
     let context_id = crumbly_core::knowledge::domain::ContextId::from_path(&args.context_id)
-        .map_err(|_| ContextError::KnowledgeIndex {
-            source: crumbly_core::knowledge::facade::IndexError::ContextDoesNotExist {
-                context_id: args.context_id.clone(),
-            },
+        .map_err(|e| ContextError::InvalidContextId {
+            context_id: args.context_id.clone(),
+            source: e,
         })?;
 
     index
@@ -137,6 +136,16 @@ pub enum ContextError {
     )]
     KnowledgeIndex {
         source: crumbly_core::knowledge::facade::IndexError,
+    },
+
+    #[snafu(display("Invalid context ID: {context_id}"))]
+    #[diagnostic(
+        code(crumbly::cli::context::invalid_context_id),
+        help("Context IDs must be relative paths that don't escape the workspace root")
+    )]
+    InvalidContextId {
+        context_id: String,
+        source: crumbly_core::knowledge::domain::ContextIdError,
     },
 }
 

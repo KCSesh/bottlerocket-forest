@@ -186,7 +186,7 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
 
     if !index.db_path().exists() {
         return Err(crumbly_core::knowledge::facade::IndexError::IndexNotFound {
-            path: index.db_path().display().to_string(),
+            path: index.db_path().to_path_buf(),
         })
         .context(KnowledgeIndexSnafu);
     }

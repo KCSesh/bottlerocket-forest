@@ -57,7 +57,7 @@ pub(in crate::knowledge::facade) fn remove_context(
     snafu::ensure!(
         context.is_some(),
         ContextDoesNotExistSnafu {
-            context_id: context_id.as_str().to_string()
+            context_id: context_id.clone()
         }
     );
 

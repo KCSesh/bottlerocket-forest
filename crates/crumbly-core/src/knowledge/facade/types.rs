@@ -74,14 +74,14 @@ pub struct IndexStatus {
 #[non_exhaustive]
 pub enum IndexError {
     /// Forest root directory does not exist or is inaccessible.
-    #[snafu(display("Forest root directory not found: {path}"))]
+    #[snafu(display("Forest root directory not found: {}", path.display()))]
     #[diagnostic(
         code(crumbly::index::index_root_not_found),
         help("Ensure you're running the command from within a Bottlerocket forest directory")
     )]
     IndexRootNotFound {
         /// Path that was not found.
-        path: String,
+        path: PathBuf,
     },
 
     /// Failed to create the .crumbly directory.
@@ -206,25 +206,25 @@ pub enum IndexError {
     },
 
     /// Index already exists at the specified path.
-    #[snafu(display("Index already exists at {path}"))]
+    #[snafu(display("Index already exists at {}", path.display()))]
     #[diagnostic(
         code(crumbly::index::already_exists),
         help("Use 'crumbly rebuild' to recreate the index or 'crumbly update' to refresh it")
     )]
     IndexAlreadyExists {
         /// Path where index exists.
-        path: String,
+        path: PathBuf,
     },
 
     /// No index exists at the specified path.
-    #[snafu(display("Index does not exist at {path}"))]
+    #[snafu(display("Index does not exist at {}", path.display()))]
     #[diagnostic(
         code(crumbly::index::not_found),
         help("Use 'crumbly build' to create the index")
     )]
     IndexNotFound {
         /// Path where index was expected.
-        path: String,
+        path: PathBuf,
     },
 
     /// Index database deletion failed.
@@ -289,14 +289,14 @@ pub enum IndexError {
     CannotRemoveDefaultContext,
 
     /// Specified context does not exist.
-    #[snafu(display("Context does not exist: {context_id}"))]
+    #[snafu(display("Context does not exist: {}", context_id.as_str()))]
     #[diagnostic(
         code(crumbly::index::context_does_not_exist),
         help("Use 'crumbly context list' to see available contexts")
     )]
     ContextDoesNotExist {
         /// ID of the missing context.
-        context_id: String,
+        context_id: ContextId,
     },
 
     /// Invalid git revision specified.
