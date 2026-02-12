@@ -116,6 +116,28 @@ pub enum IndexError {
         source: crate::knowledge::indexing::IndexingError,
     },
 
+    /// Chunking dispatcher initialization failed.
+    #[snafu(display("Failed to initialize chunking dispatcher"))]
+    #[diagnostic(
+        code(crumbly::index::chunking_failed),
+        help("Check embedding model configuration")
+    )]
+    ChunkingFailed {
+        /// Underlying dispatch error.
+        source: crate::knowledge::chunking::DispatchError,
+    },
+
+    /// File scanner initialization failed.
+    #[snafu(display("Failed to initialize file scanner"))]
+    #[diagnostic(
+        code(crumbly::index::scanner_failed),
+        help("Check that the source path exists and is readable")
+    )]
+    ScannerFailed {
+        /// Underlying scan error.
+        source: crate::knowledge::indexing::ScanError,
+    },
+
     /// Search query execution failed.
     #[snafu(display("Search operation failed"))]
     #[diagnostic(
@@ -285,17 +307,33 @@ pub enum IndexError {
     InvalidRevision {
         /// The invalid revision string.
         rev: String,
+        /// Underlying validation error.
+        source: crate::knowledge::indexing::GitRevError,
     },
 
-    /// Cache operation failed.
-    #[snafu(display("Cache operation failed"))]
+    /// Filesystem cache operation failed.
+    #[snafu(display("Filesystem cache operation failed"))]
     #[diagnostic(
-        code(crumbly::index::cache_failed),
+        code(crumbly::index::filesystem_cache_failed),
         help("Check source path and index permissions")
     )]
-    CacheFailed {
-        /// Error message from cache operation.
-        message: String,
+    FilesystemCacheFailed {
+        /// Underlying cache error.
+        source: crate::knowledge::indexing::CacheError<
+            crate::knowledge::indexing::FilesystemSourceError,
+        >,
+    },
+
+    /// Bare git cache operation failed.
+    #[snafu(display("Bare git cache operation failed"))]
+    #[diagnostic(
+        code(crumbly::index::bare_git_cache_failed),
+        help("Check bare repository path and git revision")
+    )]
+    BareGitCacheFailed {
+        /// Underlying cache error.
+        source:
+            crate::knowledge::indexing::CacheError<crate::knowledge::indexing::BareGitSourceError>,
     },
 
     /// Database schema version does not match expected version.

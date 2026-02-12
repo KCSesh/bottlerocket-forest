@@ -13,7 +13,7 @@
 mod bare_git;
 mod filesystem;
 
-pub use bare_git::{BareGitSource, BareGitSourceError, GitBlobRef, GitRev};
+pub use bare_git::{BareGitSource, BareGitSourceError, GitBlobRef, GitRev, GitRevError};
 pub use filesystem::{FilesystemSource, FilesystemSourceError};
 
 use std::path::PathBuf;

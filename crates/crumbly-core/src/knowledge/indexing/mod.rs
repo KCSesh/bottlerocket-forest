@@ -48,7 +48,8 @@ pub use progress::{ProgressReporter, SilentReporter};
 pub use provider::{IndexDataError, IndexDataProvider};
 pub use scanner::{FileScanner, IndexableFile, ScanConfig, ScanError};
 pub use source::{
-    BareGitSource, BareGitSourceError, ContentEntry, ContentSource, GitBlobRef, GitRev,
+    BareGitSource, BareGitSourceError, ContentEntry, ContentSource, FilesystemSourceError,
+    GitBlobRef, GitRev, GitRevError,
 };
 
 // Re-export for indexer module
