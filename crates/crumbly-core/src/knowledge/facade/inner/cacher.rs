@@ -7,9 +7,10 @@ use snafu::ResultExt;
 use crate::knowledge::chunking::ChunkingDispatcher;
 use crate::knowledge::facade::KnowledgeIndex;
 use crate::knowledge::facade::types::{CacheSource, IndexError, index_error::*};
-use crate::knowledge::indexing::source::FilesystemSource;
+use crate::knowledge::indexing::source::{ContentSource, FilesystemSource};
 use crate::knowledge::indexing::{
-    BareGitSource, CacheResult, ChunkCacher, FileScanner, ProgressReporter,
+    BareGitSource, CacheError, CacheResult, ChunkCacher, FileScanner, IndexDataProvider,
+    ProgressReporter,
 };
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
 
@@ -18,27 +19,13 @@ pub(in crate::knowledge::facade) fn cache(
     source: CacheSource,
     progress: Option<Arc<dyn ProgressReporter>>,
 ) -> Result<CacheResult, IndexError> {
-    let dispatcher =
-        ChunkingDispatcher::with_defaults(&index.config).context(ChunkingFailedSnafu)?;
-    let repository = SqliteChunkRepository::open(&index.db_path, &index.config)
-        .context(DatabaseAccessFailedSnafu)?;
     let provider = super::create_provider(index)?;
 
     match source {
         CacheSource::Filesystem(path) => {
             let scanner = FileScanner::new(&path).context(ScannerFailedSnafu)?;
             let fs_source = FilesystemSource::new(scanner);
-
-            let mut cacher: ChunkCacher<FilesystemSource, SqliteChunkRepository> =
-                ChunkCacher::builder()
-                    .source(fs_source)
-                    .dispatcher(dispatcher)
-                    .repository(repository)
-                    .provider(provider)
-                    .maybe_progress(progress)
-                    .build();
-
-            cacher.cache().context(FilesystemCacheFailedSnafu)
+            run_cacher(index, fs_source, provider, progress).context(FilesystemCacheFailedSnafu)
         }
         CacheSource::BareGit {
             bare_repos_dir,
@@ -46,17 +33,31 @@ pub(in crate::knowledge::facade) fn cache(
         } => {
             let filter = super::load_indexing_filter(index)?;
             let git_source = BareGitSource::new(&bare_repos_dir, rev, filter);
-
-            let mut cacher: ChunkCacher<BareGitSource, SqliteChunkRepository> =
-                ChunkCacher::builder()
-                    .source(git_source)
-                    .dispatcher(dispatcher)
-                    .repository(repository)
-                    .provider(provider)
-                    .maybe_progress(progress)
-                    .build();
-
-            cacher.cache().context(BareGitCacheFailedSnafu)
+            run_cacher(index, git_source, provider, progress).context(BareGitCacheFailedSnafu)
         }
     }
+}
+
+fn run_cacher<S>(
+    index: &KnowledgeIndex,
+    source: S,
+    provider: Box<dyn IndexDataProvider>,
+    progress: Option<Arc<dyn ProgressReporter>>,
+) -> Result<CacheResult, CacheError<S::Error>>
+where
+    S: ContentSource,
+{
+    let dispatcher = ChunkingDispatcher::with_defaults(&index.config)
+        .map_err(|e| CacheError::DispatcherInit { source: e })?;
+    let repository = SqliteChunkRepository::open(&index.db_path, &index.config)
+        .map_err(|e| CacheError::StorageFailed { source: e })?;
+
+    ChunkCacher::<S, SqliteChunkRepository>::builder()
+        .source(source)
+        .dispatcher(dispatcher)
+        .repository(repository)
+        .provider(provider)
+        .maybe_progress(progress)
+        .build()
+        .cache()
 }
