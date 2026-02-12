@@ -1,5 +1,6 @@
 use miette::Diagnostic;
 use snafu::{ResultExt, Snafu};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crumbly_core::knowledge::ProgressReporter;
@@ -10,42 +11,40 @@ use crate::index::progress::CliProgressReporter;
 use crate::theme;
 
 pub fn handle_build_cache(args: BuildCacheArgs) -> Result<(), BuildCacheError> {
-    use build_cache_error::*;
-
-    let index_root = match args.index_root {
-        Some(p) => p,
-        None => std::env::current_dir().context(CurrentDirSnafu)?,
-    };
-
-    let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
-    index.build_cache().context(BuildCacheSnafu)?;
-
-    let source = to_cache_source(args.source)?;
-    let progress: Arc<dyn ProgressReporter> = Arc::new(CliProgressReporter::default());
-
-    let result = index
-        .cache()
-        .source(source)
-        .progress(progress)
-        .call()
-        .context(CacheSnafu)?;
-
-    format_cache_result(&result);
-    Ok(())
+    run_cache_operation(args.index_root, args.source, |index| {
+        index
+            .build_cache()
+            .context(build_cache_error::BuildCacheSnafu)
+    })
 }
 
 pub fn handle_update_cache(args: UpdateCacheArgs) -> Result<(), BuildCacheError> {
+    run_cache_operation(args.index_root, args.source, |index| {
+        index
+            .ensure_cache()
+            .context(build_cache_error::BuildCacheSnafu)
+    })
+}
+
+fn run_cache_operation<F>(
+    index_root: Option<PathBuf>,
+    source: SourceBackend,
+    setup: F,
+) -> Result<(), BuildCacheError>
+where
+    F: FnOnce(&KnowledgeIndex) -> Result<(), BuildCacheError>,
+{
     use build_cache_error::*;
 
-    let index_root = match args.index_root {
+    let index_root = match index_root {
         Some(p) => p,
         None => std::env::current_dir().context(CurrentDirSnafu)?,
     };
 
     let index = KnowledgeIndex::open(&index_root).context(IndexOpenSnafu)?;
-    index.ensure_cache().context(BuildCacheSnafu)?;
+    setup(&index)?;
 
-    let source = to_cache_source(args.source)?;
+    let source = to_cache_source(source)?;
     let progress: Arc<dyn ProgressReporter> = Arc::new(CliProgressReporter::default());
 
     let result = index
