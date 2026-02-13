@@ -235,11 +235,10 @@ pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crumbly_core::knowledge::chunking::markdown::MarkdownContext;
     use crumbly_core::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, EmbeddingModelConfig,
-        FileSearchResult, IndexRelativePath, RelevanceScore, RepoName, SearchQuery, SearchResult,
-        SearchResults, TokenCount,
+        FileSearchResult, IndexRelativePath, MarkdownContext, RelevanceScore, RepoName,
+        SearchResult, TokenCount,
     };
     use crumbly_core::knowledge::facade::IndexStatus;
     use crumbly_core::knowledge::indexing::IndexResult;
@@ -368,29 +367,6 @@ mod test {
     }
 
     #[test]
-    fn test_format_search_results_json_success() {
-        // Given SearchResults with results
-        let chunk = create_test_chunk();
-        let results = SearchResults::builder()
-            .query(create_test_query())
-            .results(vec![
-                SearchResult::builder()
-                    .chunk(chunk)
-                    .score(RelevanceScore::try_new(0.95).unwrap())
-                    .build(),
-            ])
-            .total_chunks_searched(100usize)
-            .search_duration(Duration::from_millis(50))
-            .build();
-
-        // When Grouping and formatting as file results
-        let file_results = group_results_by_file(&results);
-
-        // Then It should succeed
-        assert!(file_results.len() > 0);
-    }
-
-    #[test]
     fn test_format_file_results_json_success() {
         // Given FileSearchResults
         let chunk = create_test_chunk();
@@ -474,24 +450,9 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(
-                ChunkContext::new(
-                    "markdown",
-                    &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-                )
-                .unwrap(),
-            )
-            .build()
-    }
-
-    fn create_test_query() -> SearchQuery {
-        use crumbly_core::knowledge::domain::{
-            ContextId, DEFAULT_RESULT_LIMIT, QueryText, ResultLimit,
-        };
-        SearchQuery::builder()
-            .text(QueryText::try_new("test query").unwrap())
-            .limit(ResultLimit::try_new(DEFAULT_RESULT_LIMIT).unwrap())
-            .context_id(ContextId::default())
+            .context(ChunkContext::Markdown(
+                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+            ))
             .build()
     }
 }

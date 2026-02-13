@@ -81,7 +81,7 @@ pub struct SearchArgs {
     #[arg(long)]
     context: Option<PathBuf>,
 
-    /// Maximum number of results to return (1-100, defaults to 20)
+    /// Maximum number of files to return (1-100, defaults to 20)
     #[arg(short = 'n', long)]
     limit: Option<usize>,
 
