@@ -176,7 +176,11 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
     let limit = ResultLimit::try_new(args.limit.unwrap_or(DEFAULT_RESULT_LIMIT))
         .context(InvalidResultLimitSnafu)?;
 
-    let format = parse_output_format(args.format.as_deref())?;
+    let format = if args.json {
+        OutputFormat::Json
+    } else {
+        parse_output_format(args.format.as_deref())?
+    };
 
     let index = match args.index_root {
         Some(root) => KnowledgeIndex::open(&root).context(KnowledgeIndexSnafu)?,

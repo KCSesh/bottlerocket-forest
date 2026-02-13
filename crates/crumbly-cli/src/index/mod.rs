@@ -89,6 +89,10 @@ pub struct SearchArgs {
     #[arg(short = 'f', long)]
     format: Option<String>,
 
+    /// Output as JSON (shorthand for --format json)
+    #[arg(long)]
+    json: bool,
+
     /// Show individual chunk matches under each file
     #[arg(long)]
     show_chunks: bool,
