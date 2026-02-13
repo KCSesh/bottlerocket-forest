@@ -8,11 +8,9 @@ use snafu::ResultExt;
 use crate::knowledge::constants::EMBEDDING_DIM;
 
 const UUID_BYTE_LENGTH: usize = 16;
-use crate::knowledge::domain::chunk::{GoDocContext, JavaDocContext};
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-    IndexRelativePath, IndexedChunk, MarkdownContext, RepoName, RustDocContext, Timestamp,
-    TokenCount, UnknownContext,
+    IndexRelativePath, IndexedChunk, RepoName, Timestamp, TokenCount,
 };
 use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 
@@ -126,94 +124,33 @@ pub fn serialize_embedding(embedding: &[f32]) -> Vec<u8> {
     embedding.iter().flat_map(|f| f.to_le_bytes()).collect()
 }
 
-/// Converts ChunkContext to database-storable type and JSON representation
+/// Converts ChunkContext to database-storable type and JSON representation.
+///
+/// Trivial since ChunkContext already carries type_name and raw_json.
 pub fn serialize_context(context: &ChunkContext) -> Result<(String, String), StorageError> {
-    let (context_type, context_data) = match context {
-        ChunkContext::Markdown(ctx) => (
-            "markdown",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-        ChunkContext::RustDoc(ctx) => (
-            "rust_doc",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-        ChunkContext::GoDoc(ctx) => (
-            "go_doc",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-        ChunkContext::JavaDoc(ctx) => (
-            "java_doc",
-            serde_json::to_string(ctx).map_err(|e| {
-                InvalidDataSnafu {
-                    message: e.to_string(),
-                }
-                .build()
-            })?,
-        ),
-        ChunkContext::Unknown(ctx) => (ctx.type_name.as_str(), ctx.raw_data.clone()),
-    };
-
-    Ok((context_type.to_string(), context_data))
+    Ok((
+        context.type_name().to_string(),
+        context.raw_json().to_string(),
+    ))
 }
 
-/// Reconstructs ChunkContext from database type and JSON fields
+/// Reconstructs ChunkContext from database type and JSON fields.
+///
+/// Trivial reconstruction - no need to know the concrete type.
 pub fn deserialize_context(
     context_type: &str,
     context_data: &str,
 ) -> Result<ChunkContext, StorageError> {
-    match context_type {
-        "" => Err(InvalidDataSnafu {
+    if context_type.is_empty() {
+        return Err(InvalidDataSnafu {
             message: "empty context type".to_string(),
         }
-        .build()),
-        "markdown" => {
-            let ctx: MarkdownContext =
-                serde_json::from_str(context_data).context(SerializationSnafu)?;
-            Ok(ChunkContext::Markdown(ctx))
-        }
-        "rust_doc" => {
-            let ctx: RustDocContext =
-                serde_json::from_str(context_data).context(SerializationSnafu)?;
-            Ok(ChunkContext::RustDoc(ctx))
-        }
-        "go_doc" => {
-            let ctx: GoDocContext =
-                serde_json::from_str(context_data).context(SerializationSnafu)?;
-            Ok(ChunkContext::GoDoc(ctx))
-        }
-        "java_doc" => {
-            let ctx: JavaDocContext =
-                serde_json::from_str(context_data).context(SerializationSnafu)?;
-            Ok(ChunkContext::JavaDoc(ctx))
-        }
-        unknown => {
-            tracing::warn!(
-                "Unknown context type '{}', preserving as Unknown variant",
-                unknown
-            );
-            Ok(ChunkContext::Unknown(
-                UnknownContext::builder()
-                    .type_name(unknown)
-                    .raw_data(context_data)
-                    .build(),
-            ))
-        }
+        .build());
     }
+    Ok(ChunkContext::from_stored(
+        context_type.to_string(),
+        context_data.to_string(),
+    ))
 }
 
 // Tests for these serialization functions are in the parent module's integration tests,

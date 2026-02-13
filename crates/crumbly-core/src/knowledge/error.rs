@@ -9,15 +9,14 @@
 ///
 /// # Example
 ///
-/// ```ignore
-/// use snafu::ResultExt;
-/// use crate::knowledge::error::box_err;
-///
-/// // Instead of:
+/// Instead of:
+/// ```text
 /// value.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
 ///     .context(SomeSnafu)?;
+/// ```
 ///
-/// // Write:
+/// Write:
+/// ```text
 /// value.map_err(box_err).context(SomeSnafu)?;
 /// ```
 pub fn box_err<E: std::error::Error + Send + Sync + 'static>(

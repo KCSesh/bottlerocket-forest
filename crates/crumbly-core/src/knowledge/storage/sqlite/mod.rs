@@ -302,7 +302,7 @@ mod test {
     }
 
     fn default_context() -> ChunkContext {
-        ChunkContext::Markdown(MarkdownContext::builder().heading_hierarchy(vec![]).build())
+        ChunkContext::markdown(&MarkdownContext::builder().heading_hierarchy(vec![]).build())
     }
 
     fn build_indexed_chunk(
@@ -435,12 +435,14 @@ mod test {
     }
 
     #[test_case(
-        ChunkContext::Markdown(MarkdownContext::builder().heading_hierarchy(vec![]).build())
+        ChunkContext::markdown(
+            &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+        )
         ; "markdown context with empty hierarchy"
     )]
     #[test_case(
-        ChunkContext::Markdown(
-            MarkdownContext::builder()
+        ChunkContext::markdown(
+            &MarkdownContext::builder()
                 .heading_hierarchy(vec![
                     HeadingText::try_new("Architecture").unwrap(),
                     HeadingText::try_new("Boot Process").unwrap(),
@@ -450,8 +452,8 @@ mod test {
         ; "markdown context with hierarchy"
     )]
     #[test_case(
-        ChunkContext::RustDoc(
-            RustDocContext::builder()
+        ChunkContext::rust_doc(
+            &RustDocContext::builder()
                 .item_name(ItemName::try_new("build_variant").unwrap())
                 .visibility(Visibility::Public)
                 .signature(Signature::try_new("pub fn build_variant()").unwrap())
@@ -461,8 +463,8 @@ mod test {
         ; "rustdoc context with signature"
     )]
     #[test_case(
-        ChunkContext::RustDoc(
-            RustDocContext::builder()
+        ChunkContext::rust_doc(
+            &RustDocContext::builder()
                 .item_name(ItemName::try_new("Config").unwrap())
                 .visibility(Visibility::Private)
                 .item_type(crate::knowledge::indexing::RustItemType::Struct)

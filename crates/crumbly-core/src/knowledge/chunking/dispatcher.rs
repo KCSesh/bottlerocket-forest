@@ -147,8 +147,8 @@ mod test {
                     .token_count(TokenCount::try_new(2).unwrap())
                     .build(),
             )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+            .context(ChunkContext::markdown(
+                &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
             ))
             .build()
     }

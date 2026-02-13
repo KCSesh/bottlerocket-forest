@@ -21,8 +21,8 @@ use uuid::Uuid;
 use crate::knowledge::constants;
 
 pub use chunk::{
-    Chunk, ChunkContent, ChunkContext, ChunkSource, GoDocContext, GoItemType, GoVisibility,
-    JavaDocContext, JavaItemType, JavaVisibility, MarkdownContext, RustDocContext, UnknownContext,
+    Chunk, ChunkContent, ChunkContext, ChunkContextError, ChunkSource, GoDocContext, GoItemType,
+    GoVisibility, JavaDocContext, JavaItemType, JavaVisibility, MarkdownContext, RustDocContext,
     Visibility,
 };
 pub use context::{Context, ContextId, ContextIdError};

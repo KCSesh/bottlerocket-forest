@@ -117,8 +117,8 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::Markdown(
-                MarkdownContext::builder()
+            .context(ChunkContext::markdown(
+                &MarkdownContext::builder()
                     .heading_hierarchy(vec![HeadingText::try_new("Test").unwrap()])
                     .build(),
             ))

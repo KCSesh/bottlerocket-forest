@@ -166,8 +166,8 @@ impl ChunkingStrategy for MarkdownChunker {
                             })
                             .build(),
                     )
-                    .context(ChunkContext::Markdown(
-                        MarkdownContext::builder()
+                    .context(ChunkContext::markdown(
+                        &MarkdownContext::builder()
                             .heading_hierarchy(hierarchy.clone())
                             .build(),
                     ))
@@ -299,12 +299,14 @@ mod test {
 
         // Then All chunks under same heading should have same hierarchy
         for chunk in &chunks {
-            if let ChunkContext::Markdown(ctx) = &chunk.context {
-                assert!(
-                    !ctx.heading_hierarchy.is_empty(),
-                    "Chunks should preserve heading hierarchy"
-                );
-            }
+            let ctx: MarkdownContext = chunk
+                .context
+                .deserialize_as()
+                .expect("should be MarkdownContext");
+            assert!(
+                !ctx.heading_hierarchy.is_empty(),
+                "Chunks should preserve heading hierarchy"
+            );
         }
     }
 
@@ -353,11 +355,11 @@ mod test {
         assert!(!chunks.is_empty());
 
         // And Chunk should have empty heading hierarchy
-        if let ChunkContext::Markdown(ctx) = &chunks[0].context {
-            assert_eq!(ctx.heading_hierarchy.len(), 0);
-        } else {
-            panic!("Expected Markdown context");
-        }
+        let ctx: MarkdownContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be MarkdownContext");
+        assert_eq!(ctx.heading_hierarchy.len(), 0);
     }
 
     #[test]
@@ -389,11 +391,10 @@ Third section content."#;
         let headings: Vec<_> = chunks
             .iter()
             .filter_map(|c| {
-                if let ChunkContext::Markdown(ctx) = &c.context {
-                    ctx.heading_hierarchy.first().cloned()
-                } else {
-                    None
-                }
+                c.context
+                    .deserialize_as::<MarkdownContext>()
+                    .ok()
+                    .and_then(|ctx| ctx.heading_hierarchy.first().cloned())
             })
             .collect();
 
@@ -422,23 +423,23 @@ Content at level 3."#;
 
         // Then Last chunk should have full hierarchy
         let last_chunk = chunks.last().expect("Should have at least one chunk");
-        if let ChunkContext::Markdown(ctx) = &last_chunk.context {
-            assert_eq!(ctx.heading_hierarchy.len(), 3);
-            assert_eq!(
-                ctx.heading_hierarchy[0],
-                HeadingText::try_new("Level 1").unwrap()
-            );
-            assert_eq!(
-                ctx.heading_hierarchy[1],
-                HeadingText::try_new("Level 2").unwrap()
-            );
-            assert_eq!(
-                ctx.heading_hierarchy[2],
-                HeadingText::try_new("Level 3").unwrap()
-            );
-        } else {
-            panic!("Expected Markdown context");
-        }
+        let ctx: MarkdownContext = last_chunk
+            .context
+            .deserialize_as()
+            .expect("should be MarkdownContext");
+        assert_eq!(ctx.heading_hierarchy.len(), 3);
+        assert_eq!(
+            ctx.heading_hierarchy[0],
+            HeadingText::try_new("Level 1").unwrap()
+        );
+        assert_eq!(
+            ctx.heading_hierarchy[1],
+            HeadingText::try_new("Level 2").unwrap()
+        );
+        assert_eq!(
+            ctx.heading_hierarchy[2],
+            HeadingText::try_new("Level 3").unwrap()
+        );
     }
 
     #[test]

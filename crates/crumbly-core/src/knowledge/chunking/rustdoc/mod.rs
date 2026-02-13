@@ -138,8 +138,8 @@ mod test {
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
-        ChunkContext, ChunkSource, ChunkableContent, FileHash, IndexRelativePath, ItemName,
-        RepoName,
+        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, ItemName, RepoName,
+        RustDocContext,
     };
     use test_case::test_case;
 
@@ -255,11 +255,10 @@ pub fn third() {}
         let names: Vec<_> = chunks
             .iter()
             .filter_map(|c| {
-                if let ChunkContext::RustDoc(ctx) = &c.context {
-                    Some(ctx.item_name.clone())
-                } else {
-                    None
-                }
+                c.context
+                    .deserialize_as::<RustDocContext>()
+                    .ok()
+                    .map(|ctx| ctx.item_name.clone())
             })
             .collect();
 

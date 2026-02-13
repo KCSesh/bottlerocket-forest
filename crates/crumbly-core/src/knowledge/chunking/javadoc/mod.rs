@@ -180,8 +180,8 @@ impl JavaDocChunker {
                         .token_count(token_count)
                         .build(),
                 )
-                .context(ChunkContext::JavaDoc(
-                    JavaDocContext::builder()
+                .context(ChunkContext::java_doc(
+                    &JavaDocContext::builder()
                         .item_name(metadata.item_name.clone())
                         .visibility(metadata.visibility)
                         .maybe_signature(metadata.signature.clone())
@@ -294,7 +294,7 @@ mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkContext, ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, JavaDocContext, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {
@@ -338,10 +338,10 @@ public class Sample {
         );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::JavaDoc(ctx) => ctx,
-            _ => panic!("Expected JavaDoc context"),
-        };
+        let ctx: JavaDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be JavaDocContext");
         assert_eq!(ctx.item_name.to_string().as_str(), "Sample");
         assert_eq!(ctx.visibility, JavaVisibility::Public);
         assert_eq!(ctx.item_type, JavaItemType::Class);
@@ -364,13 +364,18 @@ public class Sample {
         );
         let chunks = chunker.chunk(&input).unwrap();
         let method_chunk = chunks.iter().find(|c| {
-            matches!(&c.context, ChunkContext::JavaDoc(ctx) if ctx.item_type == JavaItemType::Method)
+            c.context
+                .deserialize_as::<JavaDocContext>()
+                .ok()
+                .map(|ctx| ctx.item_type == JavaItemType::Method)
+                .unwrap_or(false)
         });
         assert!(method_chunk.is_some());
-        let ctx = match &method_chunk.unwrap().context {
-            ChunkContext::JavaDoc(ctx) => ctx,
-            _ => panic!("Expected JavaDoc context"),
-        };
+        let ctx: JavaDocContext = method_chunk
+            .unwrap()
+            .context
+            .deserialize_as()
+            .expect("should be JavaDocContext");
         assert_eq!(ctx.item_name.to_string().as_str(), "doSomething");
     }
 
@@ -404,10 +409,10 @@ public class Foo {}
         );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::JavaDoc(ctx) => ctx,
-            _ => panic!("Expected JavaDoc context"),
-        };
+        let ctx: JavaDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be JavaDocContext");
         assert_eq!(
             ctx.package_name.as_ref().map(|p| p.to_string()).as_deref(),
             Some("com.example.mypackage")
@@ -430,10 +435,10 @@ class Internal {
         );
         let chunks = chunker.chunk(&input).unwrap();
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::JavaDoc(ctx) => ctx,
-            _ => panic!("Expected JavaDoc context"),
-        };
+        let ctx: JavaDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be JavaDocContext");
         assert_eq!(ctx.visibility, JavaVisibility::PackagePrivate);
     }
 }

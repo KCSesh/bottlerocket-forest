@@ -223,8 +223,8 @@ impl GoDocChunker {
                         .token_count(token_count)
                         .build(),
                 )
-                .context(ChunkContext::GoDoc(
-                    GoDocContext::builder()
+                .context(ChunkContext::go_doc(
+                    &GoDocContext::builder()
                         .item_name(metadata.item_name.clone())
                         .visibility(metadata.visibility)
                         .maybe_signature(metadata.signature.clone())
@@ -335,7 +335,7 @@ mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkContext, ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, GoDocContext, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {
@@ -387,10 +387,10 @@ func Hello(name string) {
 
         // Then the function doc is extracted with correct metadata
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::GoDoc(ctx) => ctx,
-            _ => panic!("Expected GoDoc context"),
-        };
+        let ctx: GoDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be GoDocContext");
         assert_eq!(ctx.item_name.to_string().as_str(), "Hello");
         assert_eq!(ctx.visibility, GoVisibility::Exported);
         assert_eq!(ctx.item_type, GoItemType::Function);
@@ -414,10 +414,10 @@ func helper() {}
 
         // Then the function is marked as unexported
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::GoDoc(ctx) => ctx,
-            _ => panic!("Expected GoDoc context"),
-        };
+        let ctx: GoDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be GoDocContext");
         assert_eq!(ctx.item_name.to_string().as_str(), "helper");
         assert_eq!(ctx.visibility, GoVisibility::Unexported);
     }
@@ -442,10 +442,10 @@ type Config struct {
 
         // Then the struct doc is extracted with correct type
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::GoDoc(ctx) => ctx,
-            _ => panic!("Expected GoDoc context"),
-        };
+        let ctx: GoDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be GoDocContext");
         assert_eq!(ctx.item_name.to_string().as_str(), "Config");
         assert_eq!(ctx.item_type, GoItemType::Struct);
     }
@@ -487,10 +487,10 @@ func Foo() {}
 
         // Then the package name is captured in chunk context
         assert!(!chunks.is_empty());
-        let ctx = match &chunks[0].context {
-            ChunkContext::GoDoc(ctx) => ctx,
-            _ => panic!("Expected GoDoc context"),
-        };
+        let ctx: GoDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be GoDocContext");
         assert_eq!(
             ctx.package_name.as_ref().map(|p| p.to_string()).as_deref(),
             Some("mypackage")

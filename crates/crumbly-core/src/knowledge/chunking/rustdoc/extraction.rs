@@ -290,7 +290,7 @@ impl<'a> DocExtractor<'a> {
                             .token_count(token_count)
                             .build(),
                     )
-                    .context(ChunkContext::RustDoc(context))
+                    .context(ChunkContext::rust_doc(&context))
                     .build())
             })
             .collect()
@@ -303,8 +303,8 @@ mod test {
     use crate::knowledge::chunking::{ChunkingStrategy, RustDocChunker};
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
-        ChunkContext, ChunkSource, ChunkableContent, DocLineCount, FileHash, IndexRelativePath,
-        ItemName, RepoName, Visibility,
+        ChunkSource, ChunkableContent, DocLineCount, FileHash, IndexRelativePath, ItemName,
+        RepoName, Visibility,
     };
     use test_case::test_case;
 
@@ -342,12 +342,12 @@ mod test {
     }
 
     fn assert_rustdoc_context(chunk: &Chunk, expected_name: &str, expected_vis: Visibility) {
-        if let ChunkContext::RustDoc(ctx) = &chunk.context {
-            assert_eq!(ctx.item_name, ItemName::try_new(expected_name).unwrap());
-            assert_eq!(ctx.visibility, expected_vis);
-        } else {
-            panic!("Expected RustDoc context");
-        }
+        let ctx: RustDocContext = chunk
+            .context
+            .deserialize_as()
+            .expect("should be RustDocContext");
+        assert_eq!(ctx.item_name, ItemName::try_new(expected_name).unwrap());
+        assert_eq!(ctx.visibility, expected_vis);
     }
 
     #[test_case(r#"
@@ -397,11 +397,11 @@ pub trait Repository {
         let chunks = chunk_test_content(&content);
         // Then: Chunk captures correct visibility
         assert!(!chunks.is_empty());
-        if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
-            assert_eq!(ctx.visibility, expected_visibility);
-        } else {
-            panic!("Expected RustDoc context");
-        }
+        let ctx: RustDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be RustDocContext");
+        assert_eq!(ctx.visibility, expected_visibility);
     }
 
     #[test]
@@ -417,15 +417,15 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
         let chunks = chunk_test_content(content);
         // Then: Chunk captures signature with parameters
         assert!(!chunks.is_empty());
-        if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
-            assert!(ctx.signature.is_some());
-            let sig = ctx.signature.as_ref().unwrap();
-            assert!(sig.to_string().contains("process"));
-            assert!(sig.to_string().contains("input"));
-            assert!(sig.to_string().contains("count"));
-        } else {
-            panic!("Expected RustDoc context");
-        }
+        let ctx: RustDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be RustDocContext");
+        assert!(ctx.signature.is_some());
+        let sig = ctx.signature.as_ref().unwrap();
+        assert!(sig.to_string().contains("process"));
+        assert!(sig.to_string().contains("input"));
+        assert!(sig.to_string().contains("count"));
     }
 
     #[test]
@@ -475,18 +475,17 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
         let chunks = chunk_test_content(&content);
         // Then: All chunks preserve same metadata
         if chunks.len() > 1 {
-            let first_ctx = if let ChunkContext::RustDoc(ctx) = &chunks[0].context {
-                ctx
-            } else {
-                panic!("Expected RustDoc context");
-            };
+            let first_ctx: RustDocContext = chunks[0]
+                .context
+                .deserialize_as()
+                .expect("should be RustDocContext");
             for chunk in &chunks[1..] {
-                if let ChunkContext::RustDoc(ctx) = &chunk.context {
-                    assert_eq!(ctx.item_name, first_ctx.item_name);
-                    assert_eq!(ctx.visibility, first_ctx.visibility);
-                } else {
-                    panic!("Expected RustDoc context");
-                }
+                let ctx: RustDocContext = chunk
+                    .context
+                    .deserialize_as()
+                    .expect("should be RustDocContext");
+                assert_eq!(ctx.item_name, first_ctx.item_name);
+                assert_eq!(ctx.visibility, first_ctx.visibility);
             }
         }
     }
