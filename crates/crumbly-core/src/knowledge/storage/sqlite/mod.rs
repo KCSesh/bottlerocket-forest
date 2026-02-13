@@ -280,7 +280,8 @@ impl ChunkRepository for SqliteChunkRepository {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::{MarkdownContext, RustDocContext};
+    use crate::knowledge::chunking::markdown::MarkdownContext;
+    use crate::knowledge::chunking::rustdoc::RustDocContext;
     use crate::knowledge::constants::EMBEDDING_DIM;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkSource, Embedding, FileHash,
@@ -466,7 +467,7 @@ mod test {
                 .item_name(ItemName::try_new("build_variant").unwrap())
                 .visibility(Visibility::Public)
                 .signature(Signature::try_new("pub fn build_variant()").unwrap())
-                .item_type(crate::knowledge::chunking::RustItemType::Function)
+                .item_type(crate::knowledge::chunking::rustdoc::RustItemType::Function)
                 .build(),
         )
         .unwrap()
@@ -478,7 +479,7 @@ mod test {
             &RustDocContext::builder()
                 .item_name(ItemName::try_new("Config").unwrap())
                 .visibility(Visibility::Private)
-                .item_type(crate::knowledge::chunking::RustItemType::Struct)
+                .item_type(crate::knowledge::chunking::rustdoc::RustItemType::Struct)
                 .build(),
         )
         .unwrap()

@@ -73,7 +73,7 @@ impl Default for IndexingFilter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::{RustFilter, RustItemType};
+    use crate::knowledge::chunking::rustdoc::{RustFilter, RustItemType};
     use crate::knowledge::domain::{DocLineCount, Visibility};
 
     #[test]

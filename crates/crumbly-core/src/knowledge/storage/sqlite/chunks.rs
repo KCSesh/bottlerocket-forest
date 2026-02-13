@@ -84,7 +84,7 @@ pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::MarkdownContext;
+    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, Embedding, EmbeddingModelConfig,
         HeadingText, IndexRelativePath, RepoName, Timestamp, TokenCount,

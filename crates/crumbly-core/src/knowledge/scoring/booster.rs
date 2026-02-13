@@ -76,7 +76,7 @@ pub enum RelevanceScoreError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::MarkdownContext;
+    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, FileHash,
         IndexRelativePath, RepoName, TokenCount,

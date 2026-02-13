@@ -96,7 +96,7 @@ pub enum DispatchError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::MarkdownContext;
+    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::chunking::strategy::MockChunkingStrategy;
     use crate::knowledge::domain::{
         ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, ChunkableContent, FileHash,

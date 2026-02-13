@@ -307,7 +307,7 @@ impl<'a> DocExtractor<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::{ChunkingStrategy, RustDocChunker};
+    use crate::knowledge::chunking::{ChunkingStrategy, rustdoc::RustDocChunker};
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
         ChunkSource, ChunkableContent, DocLineCount, FileHash, IndexRelativePath, ItemName,
@@ -342,7 +342,7 @@ mod test {
         types: Vec<super::RustItemType>,
         min_lines: usize,
     ) -> RustDocChunker {
-        use crate::knowledge::chunking::RustFilter;
+        use crate::knowledge::chunking::rustdoc::RustFilter;
         let config = test_config();
         let filter = RustFilter::new(vis, types, DocLineCount::new(min_lines));
         RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap()

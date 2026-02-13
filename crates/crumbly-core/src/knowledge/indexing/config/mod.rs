@@ -195,7 +195,7 @@ pub enum CrumblyConfigError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::RustItemType;
+    use crate::knowledge::chunking::rustdoc::RustItemType;
     use crate::knowledge::domain::{FileType, Visibility};
     use std::fs;
     use tempfile::TempDir;

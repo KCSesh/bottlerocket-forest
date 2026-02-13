@@ -13,11 +13,5 @@ pub mod rustdoc;
 pub mod strategy;
 
 pub use dispatcher::{ChunkingDispatcher, DispatchError};
-pub use godoc::{
-    GoConfig, GoDocChunker, GoDocContext, GoDocSupport, GoFilter, GoItemType, GoVisibility,
-};
-pub use javadoc::{JavaDocChunker, JavaDocContext, JavaFilter, JavaItemType, JavaVisibility};
 pub use language::{LanguageConfig, LanguageSupport};
-pub use markdown::{MarkdownChunker, MarkdownContext, MarkdownSupport};
-pub use rustdoc::{RustDocChunker, RustDocContext, RustDocSupport, RustFilter, RustItemType};
 pub use strategy::{ChunkingError, ChunkingInput, ChunkingStrategy};

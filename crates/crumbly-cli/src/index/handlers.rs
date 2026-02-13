@@ -238,7 +238,7 @@ pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crumbly_core::knowledge::chunking::MarkdownContext;
+    use crumbly_core::knowledge::chunking::markdown::MarkdownContext;
     use crumbly_core::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, EmbeddingModelConfig,
         FileSearchResult, IndexRelativePath, RelevanceScore, RepoName, SearchQuery, SearchResult,

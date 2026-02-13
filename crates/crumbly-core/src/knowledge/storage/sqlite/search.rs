@@ -151,7 +151,7 @@ fn get_context_file_paths(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::MarkdownContext;
+    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::constants::EMBEDDING_DIM;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding,

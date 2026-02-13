@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::knowledge::chunking::RustItemType;
+use crate::knowledge::chunking::rustdoc::RustItemType;
 use crate::knowledge::domain::Visibility;
 
 /// Configuration for indexing Rust source files.

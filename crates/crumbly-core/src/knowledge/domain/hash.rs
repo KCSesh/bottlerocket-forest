@@ -95,7 +95,7 @@ mod test {
     use uuid::Uuid;
 
     use super::*;
-    use crate::knowledge::chunking::MarkdownContext;
+    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::domain::{
         ChunkContent, ChunkContext, ChunkId, ChunkSource, HeadingText, IndexRelativePath, RepoName,
         TokenCount,
