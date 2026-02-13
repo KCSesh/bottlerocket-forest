@@ -24,9 +24,9 @@
 //! #         .text("test")
 //! #         .token_count(TokenCount::try_new(10)?)
 //! #         .build())
-//! #     .context(ChunkContext::Markdown(MarkdownContext::builder()
-//! #         .heading_hierarchy(vec![])
-//! #         .build()))
+//! #     .context(ChunkContext::new("markdown", &serde_json::json!({
+//! #         "heading_hierarchy": []
+//! #     })))
 //! #     .build();
 //! let booster = ScoreBooster::default();
 //! let score = RelevanceScore::try_new(0.8)?;
