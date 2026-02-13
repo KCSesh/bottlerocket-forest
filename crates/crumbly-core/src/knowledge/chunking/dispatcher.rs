@@ -19,40 +19,26 @@ impl ChunkingDispatcher {
         Self::with_defaults_and_filter(config, &IndexingFilter::default())
     }
 
-    /// Initializes dispatcher with markdown and Rust file strategies and applies filtering rules.
+    /// Initializes dispatcher with strategies for all enabled languages.
     #[must_use = "dispatcher must be used or initialization error handled"]
     pub fn with_defaults_and_filter(
         config: &EmbeddingModelConfig,
         filter: &IndexingFilter,
     ) -> Result<Self, DispatchError> {
+        use super::LanguageSupport;
         use dispatch_error::*;
 
-        let markdown_chunker = super::markdown::MarkdownChunker::from_config(config)
-            .context(StrategyInitFailedSnafu)?;
-        let rustdoc_chunker = super::rustdoc::RustDocChunker::from_config_with_filter(
-            config,
-            filter.rust_filter().cloned(),
-        )
-        .context(StrategyInitFailedSnafu)?;
-        let godoc_chunker = super::godoc::GoDocChunker::from_config_with_filter(
-            config,
-            filter.go_filter().cloned(),
-        )
-        .context(StrategyInitFailedSnafu)?;
-        let javadoc_chunker = super::javadoc::JavaDocChunker::from_config_with_filter(
-            config,
-            filter.java_filter().cloned(),
-        )
-        .context(StrategyInitFailedSnafu)?;
+        let strategies: Vec<Box<dyn ChunkingStrategy>> = inventory::iter::<&dyn LanguageSupport>
+            .into_iter()
+            .filter(|lang| filter.is_enabled(lang.context_type_name()))
+            .map(|lang| {
+                let lang_config = filter.language_config(lang.context_type_name());
+                lang.create_chunker(config, lang_config)
+                    .context(StrategyInitFailedSnafu)
+            })
+            .collect::<Result<_, _>>()?;
 
-        Ok(Self {
-            strategies: vec![
-                Box::new(markdown_chunker),
-                Box::new(rustdoc_chunker),
-                Box::new(godoc_chunker),
-                Box::new(javadoc_chunker),
-            ],
-        })
+        Ok(Self { strategies })
     }
 
     /// Chunks a file using the appropriate strategy.

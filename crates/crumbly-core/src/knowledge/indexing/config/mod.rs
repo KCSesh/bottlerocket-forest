@@ -46,6 +46,8 @@ pub struct CrumblyConfig {
 impl CrumblyConfig {
     /// Convert configuration to an IndexingFilter for use during scanning
     pub fn to_indexing_filter(&self) -> Result<IndexingFilter, CrumblyConfigError> {
+        use crate::knowledge::chunking::LanguageConfig;
+
         // Map user-facing config names to context_type_names
         let enabled_types: HashSet<String> = self
             .enabled_file_types
@@ -53,30 +55,31 @@ impl CrumblyConfig {
             .map(|name| map_config_name_to_context_type(name))
             .collect();
 
-        let rust_filter = if self.enabled_file_types.iter().any(|n| n == "rust") {
-            Some(self.file_types.rust.to_rust_filter()?)
-        } else {
-            None
-        };
+        // Build language configs from file_types config
+        let mut language_configs = std::collections::HashMap::new();
 
-        let go_filter = if self.enabled_file_types.iter().any(|n| n == "go") {
-            Some(self.file_types.go.to_go_filter()?)
-        } else {
-            None
-        };
+        if self.enabled_file_types.iter().any(|n| n == "rust") {
+            let filter = self.file_types.rust.to_rust_filter()?;
+            if let Ok(cfg) = LanguageConfig::new(&filter) {
+                language_configs.insert("rust_doc".to_string(), cfg);
+            }
+        }
 
-        let java_filter = if self.enabled_file_types.iter().any(|n| n == "java") {
-            Some(self.file_types.java.to_java_filter()?)
-        } else {
-            None
-        };
+        if self.enabled_file_types.iter().any(|n| n == "go") {
+            // Go uses GoConfig directly, not GoFilter
+            if let Ok(cfg) = LanguageConfig::new(&self.file_types.go) {
+                language_configs.insert("go_doc".to_string(), cfg);
+            }
+        }
 
-        Ok(IndexingFilter::new(
-            enabled_types,
-            rust_filter,
-            go_filter,
-            java_filter,
-        ))
+        if self.enabled_file_types.iter().any(|n| n == "java") {
+            let filter = self.file_types.java.to_java_filter()?;
+            if let Ok(cfg) = LanguageConfig::new(&filter) {
+                language_configs.insert("java_doc".to_string(), cfg);
+            }
+        }
+
+        Ok(IndexingFilter::new(enabled_types, language_configs))
     }
 }
 
@@ -345,7 +348,7 @@ min-doc-lines = 30
         let filter = result.unwrap();
         assert!(filter.should_index_file_type(&FileType::new("markdown")));
         assert!(filter.should_index_file_type(&FileType::new("rust_doc")));
-        assert!(filter.rust_filter().is_some());
+        assert!(filter.language_config("rust_doc").is_some());
     }
 
     #[test]

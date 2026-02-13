@@ -77,7 +77,7 @@ pub enum GoItemType {
 }
 
 /// Filtering rules for Java source code indexing
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct JavaFilter {
     visibility: Vec<Visibility>,
     items: Vec<JavaItemType>,
@@ -148,26 +148,24 @@ impl GoFilter {
 
 /// Combined filtering rules for file types and language-specific criteria
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct IndexingFilter {
     enabled_types: std::collections::HashSet<String>,
-    rust_filter: Option<RustFilter>,
-    go_filter: Option<GoFilter>,
-    java_filter: Option<JavaFilter>,
+    language_configs: std::collections::HashMap<String, crate::knowledge::chunking::LanguageConfig>,
 }
 
 impl IndexingFilter {
-    /// Create a filter with enabled file types and optional language-specific rules
+    /// Create a filter with enabled file types and language-specific configurations
     pub fn new(
         enabled_types: std::collections::HashSet<String>,
-        rust_filter: Option<RustFilter>,
-        go_filter: Option<GoFilter>,
-        java_filter: Option<JavaFilter>,
+        language_configs: std::collections::HashMap<
+            String,
+            crate::knowledge::chunking::LanguageConfig,
+        >,
     ) -> Self {
         Self {
             enabled_types,
-            rust_filter,
-            go_filter,
-            java_filter,
+            language_configs,
         }
     }
 
@@ -176,70 +174,46 @@ impl IndexingFilter {
         self.enabled_types.contains(file_type.context_type_name())
     }
 
-    /// Access the Rust-specific filter if configured
-    pub fn rust_filter(&self) -> Option<&RustFilter> {
-        self.rust_filter.as_ref()
+    /// Access the language-specific configuration for a given type
+    pub fn language_config(
+        &self,
+        type_name: &str,
+    ) -> Option<&crate::knowledge::chunking::LanguageConfig> {
+        self.language_configs.get(type_name)
     }
 
-    /// Access the Go-specific filter if configured
-    pub fn go_filter(&self) -> Option<&GoFilter> {
-        self.go_filter.as_ref()
-    }
-
-    /// Access the Java-specific filter if configured
-    pub fn java_filter(&self) -> Option<&JavaFilter> {
-        self.java_filter.as_ref()
+    /// Check if a language type is enabled
+    pub fn is_enabled(&self, type_name: &str) -> bool {
+        self.enabled_types.contains(type_name)
     }
 }
 
 impl Default for IndexingFilter {
     fn default() -> Self {
-        Self {
-            enabled_types: ["markdown", "rust_doc"]
+        use crate::knowledge::chunking::LanguageSupport;
+
+        // Default to all registered languages enabled
+        let enabled_types: std::collections::HashSet<String> =
+            inventory::iter::<&dyn LanguageSupport>
                 .into_iter()
-                .map(String::from)
-                .collect(),
-            rust_filter: Some(RustFilter::new(
-                vec![Visibility::Public],
-                vec![
-                    RustItemType::Module,
-                    RustItemType::Function,
-                    RustItemType::Struct,
-                    RustItemType::Enum,
-                    RustItemType::Trait,
-                    RustItemType::Impl,
-                    RustItemType::TypeAlias,
-                    RustItemType::Constant,
-                ],
-                DocLineCount::new(0),
-            )),
-            go_filter: Some(GoFilter::new(
-                vec![Visibility::Public, Visibility::Private],
-                vec![
-                    GoItemType::Function,
-                    GoItemType::Method,
-                    GoItemType::Struct,
-                    GoItemType::Interface,
-                    GoItemType::Type,
-                    GoItemType::Const,
-                    GoItemType::Var,
-                ],
-                DocLineCount::new(0),
-            )),
-            java_filter: Some(JavaFilter::new(
-                vec![Visibility::Public, Visibility::Private],
-                vec![
-                    JavaItemType::Class,
-                    JavaItemType::Interface,
-                    JavaItemType::Enum,
-                    JavaItemType::Record,
-                    JavaItemType::Method,
-                    JavaItemType::Field,
-                    JavaItemType::Constructor,
-                    JavaItemType::Annotation,
-                ],
-                DocLineCount::new(0),
-            )),
+                .map(|lang| lang.context_type_name().to_string())
+                .collect();
+
+        // Collect default configs from all registered languages
+        let language_configs: std::collections::HashMap<
+            String,
+            crate::knowledge::chunking::LanguageConfig,
+        > = inventory::iter::<&dyn LanguageSupport>
+            .into_iter()
+            .filter_map(|lang| {
+                lang.default_config()
+                    .map(|cfg| (lang.context_type_name().to_string(), cfg))
+            })
+            .collect();
+
+        Self {
+            enabled_types,
+            language_configs,
         }
     }
 }
@@ -332,9 +306,7 @@ mod test {
         use crate::knowledge::domain::FileType;
         let filter = IndexingFilter::new(
             ["markdown"].into_iter().map(String::from).collect(),
-            None,
-            None,
-            None,
+            std::collections::HashMap::new(),
         );
 
         // When Checking different file types
@@ -347,18 +319,17 @@ mod test {
     }
 
     #[test]
-    fn test_indexing_filter_rust_filter_returns_reference() {
-        // Given A filter with Rust filter configured
+    fn test_indexing_filter_language_config_returns_reference() {
+        // Given A filter with Rust config
+        use crate::knowledge::chunking::LanguageConfig;
         let rust_filter = RustFilter::new(vec![Visibility::Public], vec![], DocLineCount::new(0));
-        let filter = IndexingFilter::new(
-            std::collections::HashSet::new(),
-            Some(rust_filter),
-            None,
-            None,
-        );
+        let rust_config = LanguageConfig::new(&rust_filter).unwrap();
+        let mut configs = std::collections::HashMap::new();
+        configs.insert("rust_doc".to_string(), rust_config);
+        let filter = IndexingFilter::new(std::collections::HashSet::new(), configs);
 
-        // When Getting the Rust filter
-        let result = filter.rust_filter();
+        // When Getting the language config
+        let result = filter.language_config("rust_doc");
 
         // Then It should return a reference
         assert!(result.is_some());
