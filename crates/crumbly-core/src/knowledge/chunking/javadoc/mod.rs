@@ -11,8 +11,10 @@
 //!
 //! Each chunk preserves metadata including item name, visibility, and signatures.
 
+mod config;
 mod extraction;
 
+use std::any::Any;
 use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
@@ -21,6 +23,7 @@ use tree_sitter::Parser;
 use self::extraction::{
     extract_doc_comment, extract_identifier, get_visibility, node_kinds, to_filter_type,
 };
+use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
@@ -28,6 +31,9 @@ use crate::knowledge::domain::{
     JavaItemType, JavaVisibility, PackageName, Signature, TokenCount,
 };
 use crate::knowledge::indexing::JavaFilter;
+use crate::knowledge::storage::StorageError;
+
+pub use config::{JavaFilterConfig, JavaFilterItemType};
 
 /// Metadata for creating a chunk from a Java declaration.
 struct ChunkMetadata {
@@ -260,6 +266,67 @@ impl ChunkingStrategy for JavaDocChunker {
         process_node(self, root, &ctx, &mut chunks)?;
 
         Ok(chunks)
+    }
+}
+
+/// Language support registration for Java.
+pub struct JavaDocSupport;
+
+inventory::submit!(&JavaDocSupport as &dyn LanguageSupport);
+
+impl LanguageSupport for JavaDocSupport {
+    fn context_type_name(&self) -> &'static str {
+        "java_doc"
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["java"]
+    }
+
+    fn create_chunker(
+        &self,
+        embedding_config: &EmbeddingModelConfig,
+        language_config: Option<&LanguageConfig>,
+    ) -> Result<Box<dyn ChunkingStrategy>, ChunkingError> {
+        use super::strategy::chunking_error::*;
+        use snafu::ResultExt;
+
+        let filter = language_config
+            .map(|cfg| cfg.deserialize_as::<JavaFilterConfig>())
+            .transpose()
+            .map_err(crate::knowledge::error::box_err)
+            .context(ParseSnafu {
+                file_path: "java config".to_string(),
+            })?
+            .map(|cfg| cfg.to_filter());
+        Ok(Box::new(JavaDocChunker::from_config_with_filter(
+            embedding_config,
+            filter,
+        )?))
+    }
+
+    fn serialize_context(&self, context: &dyn Any) -> Result<String, StorageError> {
+        use crate::knowledge::storage::repository::storage_error::*;
+        use serde::ser::Error as _;
+        use snafu::ResultExt;
+
+        let ctx = context
+            .downcast_ref::<JavaDocContext>()
+            .ok_or_else(|| serde_json::Error::custom("Expected JavaDocContext"))
+            .context(SerializationSnafu)?;
+        serde_json::to_string(ctx).context(SerializationSnafu)
+    }
+
+    fn deserialize_context(&self, json: &str) -> Result<Box<dyn Any + Send + Sync>, StorageError> {
+        use crate::knowledge::storage::repository::storage_error::*;
+        use snafu::ResultExt;
+
+        let ctx: JavaDocContext = serde_json::from_str(json).context(SerializationSnafu)?;
+        Ok(Box::new(ctx))
+    }
+
+    fn default_config(&self) -> Option<LanguageConfig> {
+        LanguageConfig::new(&JavaFilterConfig::default()).ok()
     }
 }
 
