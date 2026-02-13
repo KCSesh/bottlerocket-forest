@@ -13,7 +13,7 @@ pub struct ChunkingDispatcher {
 }
 
 impl ChunkingDispatcher {
-    /// Initializes dispatcher with markdown and Rust file strategies.
+    /// Initializes dispatcher with all registered language strategies.
     #[must_use = "dispatcher must be used or initialization error handled"]
     pub fn with_defaults(config: &EmbeddingModelConfig) -> Result<Self, DispatchError> {
         Self::with_defaults_and_filter(config, &IndexingFilter::default())
@@ -66,9 +66,7 @@ pub enum DispatchError {
     #[snafu(display("No chunking strategy available for this file type"))]
     #[diagnostic(
         code(crumbly::chunking::no_strategy_found),
-        help(
-            "Only Markdown (.md), Rust (.rs), Go (.go), and Java (.java) files are currently supported"
-        )
+        help("Check that the file extension is supported by a registered language")
     )]
     NoStrategyFound,
 
