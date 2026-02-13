@@ -3,7 +3,7 @@
 //! Defines the interface for generating embeddings from text and provides
 //! a builder for configuring and loading embedding models.
 
-use std::path::PathBuf;
+use std::sync::Arc;
 
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
@@ -14,6 +14,7 @@ use tokenizers::Tokenizer;
 
 use crate::knowledge::domain::Embedding;
 
+use super::cache::ModelCacheResolver;
 use super::error::{EmbeddingError, embedding_error};
 
 /// Generates embeddings from text content
@@ -35,28 +36,27 @@ pub trait EmbeddingProvider: Send + Sync {
 /// Embedding model configuration
 ///
 /// Configure model parameters using the builder, then call `load()` to initialize
-/// the model for generating embeddings. Models are downloaded and cached in the
-/// configured cache directory (defaults to `$XDG_CACHE_HOME/crumbly/model` or
-/// `~/.cache/crumbly/model` on Linux).
+/// the model for generating embeddings. The cache resolver handles model file
+/// resolution and caching.
 #[derive(bon::Builder)]
-#[builder(on(_, into))]
 #[non_exhaustive]
 pub struct EmbeddingModel {
-    #[builder(default = crate::knowledge::constants::DEFAULT_TOKENIZER_MODEL.to_string())]
+    #[builder(into, default = crate::knowledge::constants::DEFAULT_TOKENIZER_MODEL.to_string())]
     model_name: String,
     #[builder(default = crate::knowledge::constants::EMBEDDING_DIM)]
     dimension: usize,
-    #[builder(default = default_cache_dir())]
-    cache_dir: PathBuf,
+    cache_resolver: Arc<dyn ModelCacheResolver>,
 }
 
 impl EmbeddingModel {
     /// Load the embedding model
     ///
-    /// Downloads and caches the model if not already present in the cache directory.
+    /// Uses the cache resolver to locate model files, then loads them.
     pub fn load(self) -> Result<LoadedEmbeddingModel, EmbeddingError> {
+        let cache_dir = self.cache_resolver.resolve(&self.model_name)?;
+
         let api = ApiBuilder::new()
-            .with_cache_dir(self.cache_dir)
+            .with_cache_dir(cache_dir)
             .build()
             .map_err(|e| {
                 embedding_error::ModelLoadFailedSnafu {
@@ -303,14 +303,6 @@ impl EmbeddingProvider for LoadedEmbeddingModel {
     fn model_name(&self) -> &str {
         &self.model_name
     }
-}
-
-/// Returns the default cache directory for embedding models.
-pub fn default_cache_dir() -> PathBuf {
-    dirs::cache_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("crumbly")
-        .join("model")
 }
 
 fn mean_pool_and_normalize(

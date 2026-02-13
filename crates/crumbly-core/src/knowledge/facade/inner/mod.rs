@@ -28,7 +28,9 @@ use crate::knowledge::indexing::IndexDataProvider;
 use crate::knowledge::indexing::ScanConfig;
 use crate::knowledge::indexing::{self, IndexingFilter, load_crumbly_config};
 use crate::knowledge::scoring::ScoreBooster;
-use crate::knowledge::search::embeddings::PooledEmbeddingProvider;
+use crate::knowledge::search::embeddings::{
+    PooledEmbeddingProvider, TieredModelCache, default_l2_dir,
+};
 use crate::knowledge::search::{EmbeddingModel, LoadedEmbeddingModel, SemanticSearchEngine};
 use crate::knowledge::storage::ChunkRepository;
 use crate::knowledge::storage::sqlite::SqliteChunkRepository;
@@ -72,10 +74,14 @@ pub(super) fn create_provider(
 ) -> Result<Box<dyn IndexDataProvider>, IndexError> {
     use super::types::index_error::*;
     use crate::knowledge::search::embeddings::PoolConfig;
+    use std::sync::Arc;
 
-    let config = PoolConfig::builder()
-        .cache_dir(index.index_root.join(SEMBLY_DIR).join(MODEL_CACHE_DIR))
-        .build();
+    let resolver = Arc::new(TieredModelCache::new(
+        index.index_root.join(SEMBLY_DIR).join(MODEL_CACHE_DIR),
+        default_l2_dir(),
+    ));
+
+    let config = PoolConfig::builder().cache_resolver(resolver).build();
 
     Ok(Box::new(
         PooledEmbeddingProvider::with_config(config)
@@ -88,11 +94,17 @@ pub(super) fn create_embedding_model(
     index: &KnowledgeIndex,
 ) -> Result<LoadedEmbeddingModel, IndexError> {
     use super::types::index_error::*;
+    use std::sync::Arc;
+
+    let resolver = Arc::new(TieredModelCache::new(
+        index.index_root.join(SEMBLY_DIR).join(MODEL_CACHE_DIR),
+        default_l2_dir(),
+    ));
 
     EmbeddingModel::builder()
         .model_name(index.config.model_name.clone())
         .dimension(index.config.embedding_dim)
-        .cache_dir(index.index_root.join(SEMBLY_DIR).join(MODEL_CACHE_DIR))
+        .cache_resolver(resolver)
         .build()
         .load()
         .context(EmbeddingProviderCreationFailedSnafu)

@@ -7,10 +7,11 @@
 use crossbeam_channel::{Receiver, Sender};
 use snafu::{ResultExt, Snafu};
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::sync::Arc;
 
 use super::EmbeddingError;
-use super::model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel, default_cache_dir};
+use super::cache::ModelCacheResolver;
+use super::model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel};
 use crate::knowledge::domain::Embedding;
 use crate::knowledge::indexing::{IndexDataError, IndexDataProvider};
 
@@ -18,15 +19,23 @@ const MODEL_SIZE_ESTIMATE_MB: u64 = 100;
 const ENV_POOL_SIZE: &str = "CRUMBLY_MODEL_POOL_SIZE";
 
 /// Configuration for the embedding model pool
-#[derive(Debug, Clone, bon::Builder)]
+#[derive(Clone, bon::Builder)]
 #[non_exhaustive]
 pub struct PoolConfig {
     /// Number of model instances in the pool
     #[builder(default = compute_default_pool_size())]
     pool_size: NonZeroUsize,
-    /// Cache directory for model downloads
-    #[builder(default = default_cache_dir())]
-    cache_dir: PathBuf,
+    /// Cache resolver for model downloads
+    cache_resolver: Arc<dyn ModelCacheResolver>,
+}
+
+impl std::fmt::Debug for PoolConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PoolConfig")
+            .field("pool_size", &self.pool_size)
+            .field("cache_resolver", &"<dyn ModelCacheResolver>")
+            .finish()
+    }
 }
 
 fn compute_default_pool_size() -> NonZeroUsize {
@@ -75,7 +84,7 @@ impl EmbeddingModelPool {
 
         for _ in 0..config.pool_size.get() {
             let model = EmbeddingModel::builder()
-                .cache_dir(config.cache_dir.clone())
+                .cache_resolver(Arc::clone(&config.cache_resolver))
                 .build()
                 .load()
                 .context(ModelLoadSnafu)?;
@@ -158,12 +167,6 @@ impl std::fmt::Debug for PooledEmbeddingProvider {
 }
 
 impl PooledEmbeddingProvider {
-    /// Create a new pooled provider with default configuration
-    #[allow(clippy::result_large_err)]
-    pub fn new() -> Result<Self, CreatePoolError> {
-        Self::with_config(PoolConfig::builder().build())
-    }
-
     /// Create a new pooled provider with custom configuration
     #[allow(clippy::result_large_err)]
     pub fn with_config(config: PoolConfig) -> Result<Self, CreatePoolError> {

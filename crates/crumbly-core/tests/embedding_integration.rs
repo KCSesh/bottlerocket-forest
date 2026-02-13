@@ -8,8 +8,16 @@
 //!
 //! Run with: `cargo test --test embedding_integration -- --ignored`
 
-use crumbly_core::knowledge::search::embeddings::{EmbeddingModel, EmbeddingProvider, VectorOps};
+use std::sync::Arc;
+
+use crumbly_core::knowledge::search::embeddings::{
+    EmbeddingModel, EmbeddingProvider, TieredModelCache, VectorOps, default_l2_dir,
+};
 use tempfile::TempDir;
+
+fn create_resolver(l1_dir: &std::path::Path) -> Arc<TieredModelCache> {
+    Arc::new(TieredModelCache::new(l1_dir, default_l2_dir()))
+}
 
 #[test]
 #[ignore]
@@ -19,7 +27,7 @@ fn test_load_model_downloads_and_caches() {
 
     // When Loading the default model
     let model = EmbeddingModel::builder()
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load();
 
@@ -40,7 +48,7 @@ fn test_embed_generates_correct_dimension() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
     let model = EmbeddingModel::builder()
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load()
         .unwrap();
@@ -61,7 +69,7 @@ fn test_embed_batch_generates_multiple_embeddings() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
     let model = EmbeddingModel::builder()
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load()
         .unwrap();
@@ -91,7 +99,7 @@ fn test_embed_similar_texts_have_high_similarity() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
     let model = EmbeddingModel::builder()
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load()
         .unwrap();
@@ -117,7 +125,7 @@ fn test_embed_dissimilar_texts_have_low_similarity() {
     // Given A loaded embedding model
     let cache_dir = TempDir::new().unwrap();
     let model = EmbeddingModel::builder()
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load()
         .unwrap();
@@ -146,7 +154,7 @@ fn test_unsupported_model_name_fails() {
     // When Attempting to load the model
     let result = EmbeddingModel::builder()
         .model_name("unsupported/model-name")
-        .cache_dir(cache_dir.path())
+        .cache_resolver(create_resolver(cache_dir.path()))
         .build()
         .load();
 

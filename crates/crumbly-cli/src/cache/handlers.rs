@@ -4,12 +4,15 @@ use std::sync::Arc;
 
 use crumbly_core::knowledge::KnowledgeIndex;
 use crumbly_core::knowledge::chunking::{ChunkingDispatcher, DispatchError};
+use crumbly_core::knowledge::constants::{MODEL_CACHE_DIR, SEMBLY_DIR};
 use crumbly_core::knowledge::indexing::load_crumbly_config;
 use crumbly_core::knowledge::indexing::source::FilesystemSource;
 use crumbly_core::knowledge::indexing::{
     BareGitSource, CacheResult, ChunkCacher, FileScanner, GitRev, ProgressReporter,
 };
-use crumbly_core::knowledge::search::embeddings::PooledEmbeddingProvider;
+use crumbly_core::knowledge::search::embeddings::{
+    PoolConfig, PooledEmbeddingProvider, TieredModelCache, default_l2_dir,
+};
 use crumbly_core::knowledge::storage::sqlite::SqliteChunkRepository;
 
 use super::{BareGitArgs, CacheArgs, FilesystemArgs, SourceBackend};
@@ -93,11 +96,19 @@ fn cache_bare_git(index: &KnowledgeIndex, args: BareGitArgs) -> Result<CacheResu
 }
 
 fn create_provider(
-    _index: &KnowledgeIndex,
+    index: &KnowledgeIndex,
 ) -> Result<Box<dyn crumbly_core::knowledge::indexing::IndexDataProvider>, CacheError> {
     use cache_error::*;
+
+    let resolver = Arc::new(TieredModelCache::new(
+        index.index_root().join(SEMBLY_DIR).join(MODEL_CACHE_DIR),
+        default_l2_dir(),
+    ));
+
+    let config = PoolConfig::builder().cache_resolver(resolver).build();
+
     Ok(Box::new(
-        PooledEmbeddingProvider::new()
+        PooledEmbeddingProvider::with_config(config)
             .map_err(Box::new)
             .context(PoolCreationSnafu)?,
     ))
