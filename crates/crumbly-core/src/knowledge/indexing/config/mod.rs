@@ -4,14 +4,10 @@
 //! behavior. Configuration includes file type filtering, Rust-specific options,
 //! scan targets, and search result boosting rules.
 
-mod languages;
-
 use path_clean::PathClean;
 use serde::Deserialize;
 use snafu::{ResultExt, Snafu};
 use std::path::{Path, PathBuf};
-
-pub use languages::RustConfig;
 
 use super::filter::IndexingFilter;
 use crate::knowledge::constants::SEMBLY_CONFIG;
@@ -195,8 +191,8 @@ pub enum CrumblyConfigError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::rustdoc::RustItemType;
-    use crate::knowledge::domain::{FileType, Visibility};
+    use crate::knowledge::chunking::rustdoc::{RustFilter, RustItemType};
+    use crate::knowledge::domain::{DocLineCount, FileType, Visibility};
     use std::fs;
     use tempfile::TempDir;
 
@@ -319,11 +315,11 @@ min-doc-lines = 30
         let mut languages = std::collections::HashMap::new();
         languages.insert(
             "rust".to_string(),
-            toml::Value::try_from(&RustConfig {
-                visibility: vec![Visibility::Public],
-                items: vec![RustItemType::Struct],
-                min_doc_lines: 20,
-            })
+            toml::Value::try_from(&RustFilter::new(
+                vec![Visibility::Public],
+                vec![RustItemType::Struct],
+                DocLineCount::new(20),
+            ))
             .unwrap(),
         );
 
