@@ -10,10 +10,6 @@ use bon::Builder;
 use serde::{Deserialize, Serialize};
 
 use super::{ChunkHash, ChunkId, FileHash, IndexRelativePath, RepoName, TokenCount};
-use crate::knowledge::chunking::godoc::GoDocContext;
-use crate::knowledge::chunking::javadoc::JavaDocContext;
-use crate::knowledge::chunking::markdown::MarkdownContext;
-use crate::knowledge::chunking::rustdoc::RustDocContext;
 
 /// Searchable documentation unit with source and context metadata.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
@@ -93,30 +89,6 @@ impl ChunkContext {
             type_name,
             raw_json,
         }
-    }
-
-    /// Create a markdown context.
-    #[expect(clippy::expect_used)]
-    pub fn markdown(ctx: &MarkdownContext) -> Self {
-        Self::new("markdown", ctx).expect("MarkdownContext is always serializable")
-    }
-
-    /// Create a rust_doc context.
-    #[expect(clippy::expect_used)]
-    pub fn rust_doc(ctx: &RustDocContext) -> Self {
-        Self::new("rust_doc", ctx).expect("RustDocContext is always serializable")
-    }
-
-    /// Create a go_doc context.
-    #[expect(clippy::expect_used)]
-    pub fn go_doc(ctx: &GoDocContext) -> Self {
-        Self::new("go_doc", ctx).expect("GoDocContext is always serializable")
-    }
-
-    /// Create a java_doc context.
-    #[expect(clippy::expect_used)]
-    pub fn java_doc(ctx: &JavaDocContext) -> Self {
-        Self::new("java_doc", ctx).expect("JavaDocContext is always serializable")
     }
 
     /// Returns the context type name (e.g. "rust_doc", "markdown").

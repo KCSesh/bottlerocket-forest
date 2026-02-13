@@ -302,7 +302,11 @@ mod test {
     }
 
     fn default_context() -> ChunkContext {
-        ChunkContext::markdown(&MarkdownContext::builder().heading_hierarchy(vec![]).build())
+        ChunkContext::new(
+            "markdown",
+            &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+        )
+        .unwrap()
     }
 
     fn build_indexed_chunk(
@@ -435,41 +439,49 @@ mod test {
     }
 
     #[test_case(
-        ChunkContext::markdown(
+        ChunkContext::new(
+            "markdown",
             &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
         )
+        .unwrap()
         ; "markdown context with empty hierarchy"
     )]
     #[test_case(
-        ChunkContext::markdown(
+        ChunkContext::new(
+            "markdown",
             &MarkdownContext::builder()
                 .heading_hierarchy(vec![
                     HeadingText::try_new("Architecture").unwrap(),
                     HeadingText::try_new("Boot Process").unwrap(),
                 ])
-                .build()
+                .build(),
         )
+        .unwrap()
         ; "markdown context with hierarchy"
     )]
     #[test_case(
-        ChunkContext::rust_doc(
+        ChunkContext::new(
+            "rust_doc",
             &RustDocContext::builder()
                 .item_name(ItemName::try_new("build_variant").unwrap())
                 .visibility(Visibility::Public)
                 .signature(Signature::try_new("pub fn build_variant()").unwrap())
                 .item_type(crate::knowledge::chunking::RustItemType::Function)
-                .build()
+                .build(),
         )
+        .unwrap()
         ; "rustdoc context with signature"
     )]
     #[test_case(
-        ChunkContext::rust_doc(
+        ChunkContext::new(
+            "rust_doc",
             &RustDocContext::builder()
                 .item_name(ItemName::try_new("Config").unwrap())
                 .visibility(Visibility::Private)
                 .item_type(crate::knowledge::chunking::RustItemType::Struct)
-                .build()
+                .build(),
         )
+        .unwrap()
         ; "rustdoc context without signature"
     )]
     fn test_context_roundtrip(context: ChunkContext) {

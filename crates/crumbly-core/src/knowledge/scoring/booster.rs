@@ -100,9 +100,13 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::markdown(
-                &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-            ))
+            .context(
+                ChunkContext::new(
+                    "markdown",
+                    &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+                )
+                .unwrap(),
+            )
             .build()
     }
 

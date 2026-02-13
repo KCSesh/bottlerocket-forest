@@ -230,15 +230,22 @@ impl GoDocChunker {
                         .token_count(token_count)
                         .build(),
                 )
-                .context(ChunkContext::go_doc(
-                    &GoDocContext::builder()
-                        .item_name(metadata.item_name.clone())
-                        .visibility(metadata.visibility)
-                        .maybe_signature(metadata.signature.clone())
-                        .item_type(metadata.item_type)
-                        .maybe_package_name(package_name.as_ref().cloned())
-                        .build(),
-                ))
+                .context(
+                    ChunkContext::new(
+                        "go_doc",
+                        &GoDocContext::builder()
+                            .item_name(metadata.item_name.clone())
+                            .visibility(metadata.visibility)
+                            .maybe_signature(metadata.signature.clone())
+                            .item_type(metadata.item_type)
+                            .maybe_package_name(package_name.as_ref().cloned())
+                            .build(),
+                    )
+                    .map_err(crate::knowledge::error::box_err)
+                    .context(ParseSnafu {
+                        file_path: input.source.file_path.to_string(),
+                    })?,
+                )
                 .build();
 
             result.push(chunk);

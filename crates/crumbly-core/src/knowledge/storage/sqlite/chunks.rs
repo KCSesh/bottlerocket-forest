@@ -133,11 +133,15 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::markdown(
-                &MarkdownContext::builder()
-                    .heading_hierarchy(vec![HeadingText::try_new("Test").unwrap()])
-                    .build(),
-            ))
+            .context(
+                ChunkContext::new(
+                    "markdown",
+                    &MarkdownContext::builder()
+                        .heading_hierarchy(vec![HeadingText::try_new("Test").unwrap()])
+                        .build(),
+                )
+                .unwrap(),
+            )
             .build()
     }
 
@@ -166,11 +170,15 @@ mod test {
                     .token_count(TokenCount::try_new(10).unwrap())
                     .build(),
             )
-            .context(ChunkContext::markdown(
-                &MarkdownContext::builder()
-                    .heading_hierarchy(vec![HeadingText::try_new("Test").unwrap()])
-                    .build(),
-            ))
+            .context(
+                ChunkContext::new(
+                    "markdown",
+                    &MarkdownContext::builder()
+                        .heading_hierarchy(vec![HeadingText::try_new("Test").unwrap()])
+                        .build(),
+                )
+                .unwrap(),
+            )
             .build();
 
         IndexedChunk::builder()

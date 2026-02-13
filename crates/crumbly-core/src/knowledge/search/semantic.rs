@@ -115,6 +115,14 @@ mod test {
         Embedding::try_new(values).unwrap()
     }
 
+    fn default_markdown_context() -> ChunkContext {
+        ChunkContext::new(
+            "markdown",
+            &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
+        )
+        .unwrap()
+    }
+
     fn create_test_chunk(id: &str, content: &str, embedding: Embedding) -> IndexedChunk {
         IndexedChunk::builder()
             .chunk(
@@ -136,9 +144,7 @@ mod test {
                             .token_count(TokenCount::try_new(10).unwrap())
                             .build(),
                     )
-                    .context(ChunkContext::markdown(
-                        &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-                    ))
+                    .context(default_markdown_context())
                     .build(),
             )
             .embedding(embedding)
@@ -468,9 +474,7 @@ mod test {
                             .token_count(TokenCount::try_new(10).unwrap())
                             .build(),
                     )
-                    .context(ChunkContext::markdown(
-                        &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-                    ))
+                    .context(default_markdown_context())
                     .build(),
             )
             .embedding(create_test_embedding(vec![0.9; 384]))
@@ -495,9 +499,7 @@ mod test {
                             .token_count(TokenCount::try_new(10).unwrap())
                             .build(),
                     )
-                    .context(ChunkContext::markdown(
-                        &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-                    ))
+                    .context(default_markdown_context())
                     .build(),
             )
             .embedding(create_test_embedding(vec![0.7; 384]))

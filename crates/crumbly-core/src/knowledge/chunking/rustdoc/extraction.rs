@@ -291,7 +291,13 @@ impl<'a> DocExtractor<'a> {
                             .token_count(token_count)
                             .build(),
                     )
-                    .context(ChunkContext::rust_doc(&context))
+                    .context(
+                        ChunkContext::new("rust_doc", &context)
+                            .map_err(crate::knowledge::error::box_err)
+                            .context(ParseSnafu {
+                                file_path: file_path.clone(),
+                            })?,
+                    )
                     .build())
             })
             .collect()

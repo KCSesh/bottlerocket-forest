@@ -16,6 +16,7 @@ use std::path::Path;
 use text_splitter::{ChunkConfig, MarkdownSplitter};
 use tokenizers::Tokenizer;
 
+use super::strategy::chunking_error::ParseSnafu;
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
@@ -180,11 +181,18 @@ impl ChunkingStrategy for MarkdownChunker {
                             })
                             .build(),
                     )
-                    .context(ChunkContext::markdown(
-                        &MarkdownContext::builder()
-                            .heading_hierarchy(hierarchy.clone())
-                            .build(),
-                    ))
+                    .context(
+                        ChunkContext::new(
+                            "markdown",
+                            &MarkdownContext::builder()
+                                .heading_hierarchy(hierarchy.clone())
+                                .build(),
+                        )
+                        .map_err(crate::knowledge::error::box_err)
+                        .context(ParseSnafu {
+                            file_path: input.source.file_path.to_string(),
+                        })?,
+                    )
                     .build();
 
                 chunks.push(chunk);
