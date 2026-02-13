@@ -7,6 +7,10 @@
 //! Each chunk maintains the full heading hierarchy from the document structure,
 //! enabling context-aware semantic search.
 
+mod support;
+
+pub use support::MarkdownSupport;
+
 use snafu::ResultExt;
 use std::path::Path;
 use text_splitter::{ChunkConfig, MarkdownSplitter};
