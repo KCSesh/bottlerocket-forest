@@ -5,17 +5,17 @@ use syn::{Attribute, Item, ItemImpl};
 use text_splitter::TextSplitter;
 use tokenizers::Tokenizer;
 
+use super::{RustFilter, RustItemType};
 use crate::knowledge::chunking::{ChunkingError, ChunkingInput};
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, DocLineCount, ItemName, RustDocContext,
     Signature, TokenCount, Visibility,
 };
-use crate::knowledge::indexing::RustItemType;
 
 pub(crate) struct DocExtractor<'a> {
     pub(super) splitter: &'a TextSplitter<Tokenizer>,
     pub(super) tokenizer: &'a Tokenizer,
-    pub(super) filter: Option<&'a crate::knowledge::indexing::RustFilter>,
+    pub(super) filter: Option<&'a RustFilter>,
 }
 
 impl<'a> DocExtractor<'a> {

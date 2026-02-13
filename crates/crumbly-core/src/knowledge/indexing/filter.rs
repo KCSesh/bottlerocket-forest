@@ -9,35 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::knowledge::domain::{DocLineCount, Visibility};
 
-/// Categories of Rust language items that can be filtered during indexing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum RustItemType {
-    /// Module declarations.
-    #[serde(rename = "modules")]
-    Module,
-    /// Function definitions.
-    #[serde(rename = "functions")]
-    Function,
-    /// Struct definitions.
-    #[serde(rename = "structs")]
-    Struct,
-    /// Enum definitions.
-    #[serde(rename = "enums")]
-    Enum,
-    /// Trait definitions.
-    #[serde(rename = "traits")]
-    Trait,
-    /// Impl blocks.
-    #[serde(rename = "impls")]
-    Impl,
-    /// Type alias definitions.
-    #[serde(rename = "type-aliases")]
-    TypeAlias,
-    /// Constant definitions.
-    #[serde(rename = "constants")]
-    Constant,
-}
+// Re-export RustItemType and RustFilter from the rustdoc chunking module
+pub use crate::knowledge::chunking::rustdoc::{RustFilter, RustItemType};
 
 /// Categories of Java language items that can be filtered during indexing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,41 +74,6 @@ pub enum GoItemType {
     /// Variable definitions.
     #[serde(rename = "variables")]
     Var,
-}
-
-/// Filtering rules for Rust source code indexing
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RustFilter {
-    visibility: Vec<Visibility>,
-    items: Vec<RustItemType>,
-    min_doc_lines: DocLineCount,
-}
-
-impl RustFilter {
-    /// Create a filter with visibility, item types, and minimum documentation length
-    pub fn new(
-        visibility: Vec<Visibility>,
-        items: Vec<RustItemType>,
-        min_doc_lines: DocLineCount,
-    ) -> Self {
-        Self {
-            visibility,
-            items,
-            min_doc_lines,
-        }
-    }
-
-    /// Determine whether a Rust item should be indexed based on filter criteria
-    pub fn should_index(
-        &self,
-        visibility: &Visibility,
-        item_type: &RustItemType,
-        doc_lines: DocLineCount,
-    ) -> bool {
-        doc_lines >= self.min_doc_lines
-            && self.visibility.contains(visibility)
-            && self.items.contains(item_type)
-    }
 }
 
 /// Filtering rules for Java source code indexing

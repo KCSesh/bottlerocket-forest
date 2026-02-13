@@ -17,15 +17,105 @@
 
 mod extraction;
 
+use std::any::Any;
 use std::path::Path;
+
+use serde::{Deserialize, Serialize};
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 
+use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
-use crate::knowledge::domain::{Chunk, ItemName, Visibility};
+use crate::knowledge::domain::{Chunk, DocLineCount, ItemName, RustDocContext, Visibility};
+use crate::knowledge::storage::StorageError;
 
 pub(crate) use extraction::DocExtractor;
+
+/// Categories of Rust language items that can be filtered during indexing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RustItemType {
+    /// Module declarations.
+    #[serde(rename = "modules")]
+    Module,
+    /// Function definitions.
+    #[serde(rename = "functions")]
+    Function,
+    /// Struct definitions.
+    #[serde(rename = "structs")]
+    Struct,
+    /// Enum definitions.
+    #[serde(rename = "enums")]
+    Enum,
+    /// Trait definitions.
+    #[serde(rename = "traits")]
+    Trait,
+    /// Impl blocks.
+    #[serde(rename = "impls")]
+    Impl,
+    /// Type alias definitions.
+    #[serde(rename = "type-aliases")]
+    TypeAlias,
+    /// Constant definitions.
+    #[serde(rename = "constants")]
+    Constant,
+}
+
+/// Filtering rules for Rust source code indexing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct RustFilter {
+    visibility: Vec<Visibility>,
+    items: Vec<RustItemType>,
+    min_doc_lines: DocLineCount,
+}
+
+impl RustFilter {
+    /// Create a filter with visibility, item types, and minimum documentation length.
+    pub fn new(
+        visibility: Vec<Visibility>,
+        items: Vec<RustItemType>,
+        min_doc_lines: DocLineCount,
+    ) -> Self {
+        Self {
+            visibility,
+            items,
+            min_doc_lines,
+        }
+    }
+
+    /// Determine whether a Rust item should be indexed based on filter criteria.
+    pub fn should_index(
+        &self,
+        visibility: &Visibility,
+        item_type: &RustItemType,
+        doc_lines: DocLineCount,
+    ) -> bool {
+        doc_lines >= self.min_doc_lines
+            && self.visibility.contains(visibility)
+            && self.items.contains(item_type)
+    }
+}
+
+impl Default for RustFilter {
+    fn default() -> Self {
+        Self {
+            visibility: vec![Visibility::Public],
+            items: vec![
+                RustItemType::Module,
+                RustItemType::Function,
+                RustItemType::Struct,
+                RustItemType::Enum,
+                RustItemType::Trait,
+                RustItemType::Impl,
+                RustItemType::TypeAlias,
+                RustItemType::Constant,
+            ],
+            min_doc_lines: DocLineCount::new(0),
+        }
+    }
+}
 
 /// Extracts and chunks Rust documentation comments.
 ///
@@ -34,7 +124,7 @@ pub(crate) use extraction::DocExtractor;
 pub struct RustDocChunker {
     splitter: TextSplitter<Tokenizer>,
     tokenizer: Tokenizer,
-    filter: Option<crate::knowledge::indexing::RustFilter>,
+    filter: Option<RustFilter>,
 }
 
 impl RustDocChunker {
@@ -46,7 +136,7 @@ impl RustDocChunker {
     /// Initializes chunker with tokenizer, splitter, and filtering rules for Rust items.
     pub fn from_config_with_filter(
         config: &EmbeddingModelConfig,
-        filter: Option<crate::knowledge::indexing::RustFilter>,
+        filter: Option<RustFilter>,
     ) -> Result<Self, ChunkingError> {
         use super::strategy::chunking_error::*;
         use snafu::ResultExt;
@@ -118,7 +208,7 @@ impl ChunkingStrategy for RustDocChunker {
                         })?,
                     Visibility::Public,
                     None,
-                    crate::knowledge::indexing::RustItemType::Module,
+                    RustItemType::Module,
                     input,
                 )?,
             );
@@ -129,6 +219,64 @@ impl ChunkingStrategy for RustDocChunker {
         }
 
         Ok(chunks)
+    }
+}
+
+/// Self-registering Rust language support.
+pub struct RustDocSupport;
+
+inventory::submit! {
+    &RustDocSupport as &dyn LanguageSupport
+}
+
+impl LanguageSupport for RustDocSupport {
+    fn context_type_name(&self) -> &'static str {
+        "rust_doc"
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["rs"]
+    }
+
+    fn create_chunker(
+        &self,
+        embedding_config: &EmbeddingModelConfig,
+        language_config: Option<&LanguageConfig>,
+    ) -> Result<Box<dyn ChunkingStrategy>, ChunkingError> {
+        let filter = language_config
+            .map(|cfg| cfg.deserialize_as::<RustFilter>())
+            .transpose()
+            .map_err(|e| ChunkingError::ConfigError {
+                message: e.to_string(),
+            })?;
+        Ok(Box::new(RustDocChunker::from_config_with_filter(
+            embedding_config,
+            filter,
+        )?))
+    }
+
+    fn serialize_context(&self, context: &dyn Any) -> Result<String, StorageError> {
+        let ctx =
+            context
+                .downcast_ref::<RustDocContext>()
+                .ok_or_else(|| StorageError::InvalidData {
+                    message: "Expected RustDocContext".to_string(),
+                })?;
+        serde_json::to_string(ctx).map_err(|e| StorageError::InvalidData {
+            message: format!("Failed to serialize RustDocContext: {e}"),
+        })
+    }
+
+    fn deserialize_context(&self, json: &str) -> Result<Box<dyn Any + Send + Sync>, StorageError> {
+        let ctx: RustDocContext =
+            serde_json::from_str(json).map_err(|e| StorageError::InvalidData {
+                message: format!("Failed to deserialize RustDocContext: {e}"),
+            })?;
+        Ok(Box::new(ctx))
+    }
+
+    fn default_config(&self) -> Option<LanguageConfig> {
+        LanguageConfig::new(&RustFilter::default()).ok()
     }
 }
 
@@ -265,5 +413,74 @@ pub fn third() {}
         assert!(names.contains(&ItemName::try_new("first").unwrap()));
         assert!(names.contains(&ItemName::try_new("second").unwrap()));
         assert!(names.contains(&ItemName::try_new("third").unwrap()));
+    }
+
+    #[test]
+    fn test_rust_filter_should_index_checks_doc_lines() {
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Function],
+            DocLineCount::new(3),
+        );
+
+        let short_doc = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(2),
+        );
+        let long_doc = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(5),
+        );
+
+        assert!(!short_doc);
+        assert!(long_doc);
+    }
+
+    #[test]
+    fn test_rust_filter_should_index_checks_visibility() {
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Function],
+            DocLineCount::new(0),
+        );
+
+        let public = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
+        let private = filter.should_index(
+            &Visibility::Private,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
+
+        assert!(public);
+        assert!(!private);
+    }
+
+    #[test]
+    fn test_rust_filter_should_index_checks_item_type() {
+        let filter = RustFilter::new(
+            vec![Visibility::Public],
+            vec![RustItemType::Struct],
+            DocLineCount::new(0),
+        );
+
+        let struct_item = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Struct,
+            DocLineCount::new(100),
+        );
+        let function_item = filter.should_index(
+            &Visibility::Public,
+            &RustItemType::Function,
+            DocLineCount::new(100),
+        );
+
+        assert!(struct_item);
+        assert!(!function_item);
     }
 }

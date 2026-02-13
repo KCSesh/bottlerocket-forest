@@ -17,5 +17,5 @@ pub use godoc::{GoDocChunker, GoDocSupport};
 pub use javadoc::JavaDocChunker;
 pub use language::{LanguageConfig, LanguageSupport};
 pub use markdown::{MarkdownChunker, MarkdownSupport};
-pub use rustdoc::RustDocChunker;
+pub use rustdoc::{RustDocChunker, RustDocSupport, RustFilter, RustItemType};
 pub use strategy::{ChunkingError, ChunkingInput, ChunkingStrategy};

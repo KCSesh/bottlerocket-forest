@@ -13,7 +13,7 @@ use super::{
     ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, PackageName, RepoName,
     Signature, TokenCount,
 };
-use crate::knowledge::indexing::RustItemType;
+use crate::knowledge::chunking::RustItemType;
 
 /// Searchable documentation unit with source and context metadata.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
