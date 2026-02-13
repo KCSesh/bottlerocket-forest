@@ -2,8 +2,8 @@
 
 use tree_sitter::Node;
 
+use crate::knowledge::domain::GoItemType as FilterGoItemType;
 use crate::knowledge::domain::{GoItemType, GoVisibility, Visibility};
-use crate::knowledge::indexing::GoItemType as FilterGoItemType;
 
 /// Constants for tree-sitter Go node kinds.
 pub mod node_kinds {
@@ -118,6 +118,7 @@ pub fn get_visibility(name: &str) -> (GoVisibility, Visibility) {
 /// Converts a GoItemType to the corresponding filter type.
 pub fn to_filter_type(item_type: GoItemType) -> FilterGoItemType {
     match item_type {
+        GoItemType::All => FilterGoItemType::All,
         GoItemType::Function => FilterGoItemType::Function,
         GoItemType::Method => FilterGoItemType::Method,
         GoItemType::Struct => FilterGoItemType::Struct,

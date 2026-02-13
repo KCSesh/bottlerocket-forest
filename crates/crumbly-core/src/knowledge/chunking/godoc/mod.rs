@@ -10,9 +10,11 @@
 //!
 //! Each chunk preserves metadata including item name, visibility, and signatures.
 
+mod config;
 mod extraction;
 mod support;
 
+pub use config::{GoConfig, GoFilter};
 pub use support::GoDocSupport;
 
 use std::path::Path;
@@ -30,7 +32,6 @@ use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, GoDocContext, GoItemType,
     GoVisibility, ItemName, PackageName, Signature, TokenCount,
 };
-use crate::knowledge::indexing::GoFilter;
 
 const PACKAGE_ITEM_NAME: &str = "package";
 

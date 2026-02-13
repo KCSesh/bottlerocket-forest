@@ -2,8 +2,8 @@
 
 use tree_sitter::Node;
 
+use crate::knowledge::domain::JavaItemType as FilterJavaItemType;
 use crate::knowledge::domain::{JavaItemType, JavaVisibility, Visibility};
-use crate::knowledge::indexing::JavaItemType as FilterJavaItemType;
 
 /// Constants for tree-sitter Java node kinds.
 pub mod node_kinds {
@@ -74,6 +74,7 @@ pub fn get_visibility(node: Node, source: &[u8]) -> (JavaVisibility, Visibility)
 /// Converts a JavaItemType to the corresponding filter type.
 pub fn to_filter_type(item_type: JavaItemType) -> FilterJavaItemType {
     match item_type {
+        JavaItemType::All => FilterJavaItemType::All,
         JavaItemType::Class => FilterJavaItemType::Class,
         JavaItemType::Interface => FilterJavaItemType::Interface,
         JavaItemType::Enum => FilterJavaItemType::Enum,

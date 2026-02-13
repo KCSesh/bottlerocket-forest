@@ -1,10 +1,11 @@
 //! Configuration types for Java source file indexing.
 
-use crate::knowledge::domain::{DocLineCount, Visibility};
-use crate::knowledge::indexing::JavaFilter;
+use serde::{Deserialize, Serialize};
+
+use crate::knowledge::domain::{DocLineCount, JavaItemType, Visibility};
 
 /// Configuration for Java source file indexing.
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct JavaFilterConfig {
     /// Visibility levels to index.
@@ -21,7 +22,7 @@ pub struct JavaFilterConfig {
 impl JavaFilterConfig {
     /// Convert to a JavaFilter for use during indexing.
     pub fn to_filter(&self) -> JavaFilter {
-        let items: Vec<_> = self.items.iter().map(|i| i.to_indexing_type()).collect();
+        let items: Vec<_> = self.items.iter().map(|i| i.to_domain_type()).collect();
         JavaFilter::new(
             self.visibility.clone(),
             items,
@@ -40,8 +41,43 @@ impl Default for JavaFilterConfig {
     }
 }
 
+/// Filtering rules for Java source code indexing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JavaFilter {
+    visibility: Vec<Visibility>,
+    items: Vec<JavaItemType>,
+    min_doc_lines: DocLineCount,
+}
+
+impl JavaFilter {
+    /// Create a filter with visibility, item types, and minimum documentation length.
+    pub fn new(
+        visibility: Vec<Visibility>,
+        items: Vec<JavaItemType>,
+        min_doc_lines: DocLineCount,
+    ) -> Self {
+        Self {
+            visibility,
+            items,
+            min_doc_lines,
+        }
+    }
+
+    /// Determine whether a Java item should be indexed based on filter criteria.
+    pub fn should_index(
+        &self,
+        visibility: &Visibility,
+        item_type: &JavaItemType,
+        doc_lines: DocLineCount,
+    ) -> bool {
+        doc_lines >= self.min_doc_lines
+            && self.visibility.contains(visibility)
+            && (self.items.contains(&JavaItemType::All) || self.items.contains(item_type))
+    }
+}
+
 /// Categories of Java language items that can be filtered during indexing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum JavaFilterItemType {
     /// All item types.
@@ -73,18 +109,17 @@ pub enum JavaFilterItemType {
 }
 
 impl JavaFilterItemType {
-    pub(super) fn to_indexing_type(self) -> crate::knowledge::indexing::JavaItemType {
-        use crate::knowledge::indexing::JavaItemType as IndexingType;
+    pub(super) fn to_domain_type(self) -> JavaItemType {
         match self {
-            Self::All => IndexingType::All,
-            Self::Class => IndexingType::Class,
-            Self::Interface => IndexingType::Interface,
-            Self::Enum => IndexingType::Enum,
-            Self::Record => IndexingType::Record,
-            Self::Method => IndexingType::Method,
-            Self::Field => IndexingType::Field,
-            Self::Constructor => IndexingType::Constructor,
-            Self::Annotation => IndexingType::Annotation,
+            Self::All => JavaItemType::All,
+            Self::Class => JavaItemType::Class,
+            Self::Interface => JavaItemType::Interface,
+            Self::Enum => JavaItemType::Enum,
+            Self::Record => JavaItemType::Record,
+            Self::Method => JavaItemType::Method,
+            Self::Field => JavaItemType::Field,
+            Self::Constructor => JavaItemType::Constructor,
+            Self::Annotation => JavaItemType::Annotation,
         }
     }
 }

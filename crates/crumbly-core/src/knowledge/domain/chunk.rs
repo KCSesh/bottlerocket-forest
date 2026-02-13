@@ -252,6 +252,8 @@ pub enum GoVisibility {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum GoItemType {
+    /// All item types.
+    All,
     /// Standalone function.
     Function,
     /// Method on a type.
@@ -306,6 +308,8 @@ pub enum JavaVisibility {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum JavaItemType {
+    /// All item types.
+    All,
     /// Class definition.
     Class,
     /// Interface definition.

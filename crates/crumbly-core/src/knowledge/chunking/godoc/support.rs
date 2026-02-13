@@ -5,11 +5,11 @@ use std::any::Any;
 use snafu::ResultExt;
 
 use super::GoDocChunker;
+use super::config::{GoConfig, GoFilter};
 use crate::knowledge::chunking::{
     ChunkingError, ChunkingStrategy, LanguageConfig, LanguageSupport,
 };
 use crate::knowledge::domain::{EmbeddingModelConfig, GoDocContext};
-use crate::knowledge::indexing::config::GoConfig;
 use crate::knowledge::storage::StorageError;
 use crate::knowledge::storage::repository::storage_error;
 
@@ -31,7 +31,6 @@ impl LanguageSupport for GoDocSupport {
         language_config: Option<&LanguageConfig>,
     ) -> Result<Box<dyn ChunkingStrategy>, ChunkingError> {
         use crate::knowledge::domain::DocLineCount;
-        use crate::knowledge::indexing::GoFilter;
 
         let filter = match language_config {
             Some(cfg) => {

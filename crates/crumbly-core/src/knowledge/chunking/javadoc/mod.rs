@@ -30,10 +30,10 @@ use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, ItemName, JavaDocContext,
     JavaItemType, JavaVisibility, PackageName, Signature, TokenCount,
 };
-use crate::knowledge::indexing::JavaFilter;
+
 use crate::knowledge::storage::StorageError;
 
-pub use config::{JavaFilterConfig, JavaFilterItemType};
+pub use config::{JavaFilter, JavaFilterConfig, JavaFilterItemType};
 
 /// Metadata for creating a chunk from a Java declaration.
 struct ChunkMetadata {

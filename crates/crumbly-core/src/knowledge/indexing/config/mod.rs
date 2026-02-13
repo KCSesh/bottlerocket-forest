@@ -11,7 +11,7 @@ use serde::Deserialize;
 use snafu::{ResultExt, Snafu};
 use std::path::{Path, PathBuf};
 
-pub use languages::{GoConfig, JavaConfig, RustConfig};
+pub use languages::RustConfig;
 
 use super::filter::IndexingFilter;
 use crate::knowledge::constants::SEMBLY_CONFIG;
