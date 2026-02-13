@@ -5,7 +5,7 @@
 
 use snafu::ResultExt;
 
-use crate::knowledge::domain::{Chunk, RelevanceScore};
+use crate::knowledge::domain::{Chunk, IndexRelativePath, RelevanceScore};
 
 use super::rules::{BoostMultiplier, BoostRule};
 
@@ -21,15 +21,22 @@ impl ScoreBooster {
         Self { rules }
     }
 
+    /// Calculate the boost multiplier for a file path
+    ///
+    /// Uses the multiplier from the first matching rule, or 1.0 if no rules match.
+    pub fn calculate_boost_for_path(&self, path: &IndexRelativePath) -> BoostMultiplier {
+        self.rules
+            .iter()
+            .find(|rule| rule.matches_path(path))
+            .map(|rule| rule.multiplier)
+            .unwrap_or_default()
+    }
+
     /// Calculate the boost multiplier for a chunk
     ///
     /// Uses the multiplier from the first matching rule, or 1.0 if no rules match.
     pub fn calculate_boost(&self, chunk: &Chunk) -> BoostMultiplier {
-        self.rules
-            .iter()
-            .find(|rule| rule.matches(chunk))
-            .map(|rule| rule.multiplier)
-            .unwrap_or_default()
+        self.calculate_boost_for_path(&chunk.source.file_path)
     }
 
     /// Apply boost to a relevance score
@@ -40,9 +47,20 @@ impl ScoreBooster {
         score: RelevanceScore,
         chunk: &Chunk,
     ) -> Result<RelevanceScore, RelevanceScoreError> {
+        self.apply_boost_to_score(score, &chunk.source.file_path)
+    }
+
+    /// Apply boost to a relevance score using a file path
+    ///
+    /// Multiplies the score by the boost multiplier and clamps to [0.0, 1.0].
+    pub fn apply_boost_to_score(
+        &self,
+        score: RelevanceScore,
+        path: &IndexRelativePath,
+    ) -> Result<RelevanceScore, RelevanceScoreError> {
         use relevance_score_error::*;
 
-        let multiplier = self.calculate_boost(chunk);
+        let multiplier = self.calculate_boost_for_path(path);
         let boosted = score.into_inner() * multiplier.into_inner();
         let clamped = boosted.clamp(0.0, 1.0);
 
@@ -298,6 +316,88 @@ mod test {
 
         // When Applying boost
         let boosted = booster.apply_boost(score, &chunk).unwrap();
+
+        // Then Score should be unchanged
+        assert_eq!(boosted.into_inner(), 0.7);
+    }
+
+    #[test]
+    fn test_calculate_boost_for_path_returns_matching_multiplier() {
+        // Given A booster with a specific rule
+        let rules = vec![
+            BoostRule::builder()
+                .description("Markdown files")
+                .pattern(BoostPattern::new("**/*.md").unwrap())
+                .multiplier(BoostMultiplier::try_new(1.5).unwrap())
+                .build(),
+        ];
+        let booster = ScoreBooster::new(rules);
+        let path = IndexRelativePath::try_new("docs/guide.md").unwrap();
+
+        // When Calculating boost for path
+        let multiplier = booster.calculate_boost_for_path(&path);
+
+        // Then It should return the rule's multiplier
+        assert_eq!(multiplier.into_inner(), 1.5);
+    }
+
+    #[test]
+    fn test_calculate_boost_for_path_returns_default_when_no_match() {
+        // Given A booster with rules that don't match
+        let rules = vec![
+            BoostRule::builder()
+                .description("Markdown files")
+                .pattern(BoostPattern::new("**/*.md").unwrap())
+                .multiplier(BoostMultiplier::try_new(1.5).unwrap())
+                .build(),
+        ];
+        let booster = ScoreBooster::new(rules);
+        let path = IndexRelativePath::try_new("src/main.rs").unwrap();
+
+        // When Calculating boost for path
+        let multiplier = booster.calculate_boost_for_path(&path);
+
+        // Then It should return default (1.0)
+        assert_eq!(multiplier.into_inner(), 1.0);
+    }
+
+    #[test]
+    fn test_apply_boost_to_score_multiplies_and_clamps() {
+        // Given A booster and a score
+        let rules = vec![
+            BoostRule::builder()
+                .description("Markdown files")
+                .pattern(BoostPattern::new("**/*.md").unwrap())
+                .multiplier(BoostMultiplier::try_new(2.0).unwrap())
+                .build(),
+        ];
+        let booster = ScoreBooster::new(rules);
+        let path = IndexRelativePath::try_new("guide.md").unwrap();
+        let score = RelevanceScore::try_new(0.8).unwrap();
+
+        // When Applying boost to score
+        let boosted = booster.apply_boost_to_score(score, &path).unwrap();
+
+        // Then Score should be clamped to 1.0
+        assert_eq!(boosted.into_inner(), 1.0);
+    }
+
+    #[test]
+    fn test_apply_boost_to_score_preserves_when_no_match() {
+        // Given A booster with non-matching rules
+        let rules = vec![
+            BoostRule::builder()
+                .description("Markdown files")
+                .pattern(BoostPattern::new("**/*.md").unwrap())
+                .multiplier(BoostMultiplier::try_new(1.5).unwrap())
+                .build(),
+        ];
+        let booster = ScoreBooster::new(rules);
+        let path = IndexRelativePath::try_new("src/main.rs").unwrap();
+        let score = RelevanceScore::try_new(0.7).unwrap();
+
+        // When Applying boost to score
+        let boosted = booster.apply_boost_to_score(score, &path).unwrap();
 
         // Then Score should be unchanged
         assert_eq!(boosted.into_inner(), 0.7);

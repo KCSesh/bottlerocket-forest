@@ -53,9 +53,14 @@ pub struct BoostRule {
 }
 
 impl BoostRule {
+    /// Check if this rule matches the given file path
+    pub fn matches_path(&self, path: &IndexRelativePath) -> bool {
+        self.pattern.matches(path)
+    }
+
     /// Check if this rule matches the given chunk
     pub fn matches(&self, chunk: &Chunk) -> bool {
-        self.pattern.matches(&chunk.source.file_path)
+        self.matches_path(&chunk.source.file_path)
     }
 }
 
@@ -386,5 +391,39 @@ mod test {
 
         // Then Documentation should have higher boost than source
         assert!(doc_multiplier > src_multiplier);
+    }
+
+    #[test]
+    fn test_boost_rule_matches_path() {
+        // Given A boost rule
+        let rule = BoostRule::builder()
+            .description("Markdown files")
+            .pattern(BoostPattern::new("**/*.md").unwrap())
+            .multiplier(BoostMultiplier::try_new(1.2).unwrap())
+            .build();
+        let path = IndexRelativePath::try_new("docs/guide.md").unwrap();
+
+        // When Checking if it matches path
+        let matches = rule.matches_path(&path);
+
+        // Then It should match
+        assert!(matches);
+    }
+
+    #[test]
+    fn test_boost_rule_matches_path_no_match() {
+        // Given A boost rule
+        let rule = BoostRule::builder()
+            .description("Markdown files")
+            .pattern(BoostPattern::new("**/*.md").unwrap())
+            .multiplier(BoostMultiplier::try_new(1.2).unwrap())
+            .build();
+        let path = IndexRelativePath::try_new("src/main.rs").unwrap();
+
+        // When Checking if it matches path
+        let matches = rule.matches_path(&path);
+
+        // Then It should not match
+        assert!(!matches);
     }
 }
