@@ -6,8 +6,8 @@ use snafu::Snafu;
 use std::collections::HashSet;
 
 use crate::knowledge::domain::{
-    ChunkHash, ChunkId, Context, ContextId, EmbeddingModelConfig, FileHash, IndexMetadata,
-    IndexRelativePath, IndexedChunk, RelevanceScore, ResultLimit, Timestamp,
+    ChunkHash, ChunkId, Context, ContextId, EmbeddingModelConfig, FileHash, FileSearchResult,
+    IndexMetadata, IndexRelativePath, IndexedChunk, RelevanceScore, ResultLimit, Timestamp,
 };
 
 /// Abstract interface for chunk storage operations
@@ -57,6 +57,18 @@ pub trait ChunkRepository {
         limit: ResultLimit,
         context_id: ContextId,
     ) -> Result<Vec<(IndexedChunk, RelevanceScore)>, StorageError>;
+
+    /// Searches for files containing semantically similar chunks.
+    ///
+    /// Over-fetches chunks using `k = file_limit * chunk_multiplier`, then groups
+    /// results by file path. Returns files ranked by their best chunk match.
+    fn search_files(
+        &self,
+        query_embedding: &[f32],
+        file_limit: ResultLimit,
+        chunk_multiplier: usize,
+        context_id: ContextId,
+    ) -> Result<Vec<FileSearchResult>, StorageError>;
 
     /// Checks if an embedding exists for the given chunk hash
     fn has_embedding(&self, chunk_hash: &ChunkHash) -> Result<bool, StorageError>;

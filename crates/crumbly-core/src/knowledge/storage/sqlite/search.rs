@@ -20,7 +20,10 @@ use rusqlite::Connection;
 use snafu::ResultExt;
 
 use super::serialization::{indexed_chunk_from_row, serialize_embedding};
-use crate::knowledge::domain::{ContextId, IndexedChunk, RelevanceScore, ResultLimit};
+use crate::knowledge::domain::{
+    ContextId, FileSearchResult, IndexRelativePath, IndexedChunk, RelevanceScore, RepoName,
+    ResultLimit, SearchResult,
+};
 use crate::knowledge::storage::repository::StorageError;
 
 /// Performs k-nearest-neighbor search using cosine distance
@@ -146,6 +149,127 @@ fn get_context_file_paths(
     }
 
     Ok(mapping)
+}
+
+/// Searches for files containing semantically similar chunks.
+///
+/// Over-fetches chunks using `k = file_limit * chunk_multiplier`, then groups
+/// results by file path in Rust. Returns files ranked by their best chunk match.
+pub fn search_files(
+    conn: &Connection,
+    query_embedding: &[f32],
+    file_limit: ResultLimit,
+    chunk_multiplier: usize,
+    context_id: ContextId,
+) -> Result<Vec<FileSearchResult>, StorageError> {
+    use crate::knowledge::storage::repository::storage_error::*;
+
+    let k = file_limit
+        .into_inner()
+        .saturating_mul(chunk_multiplier)
+        .min(100 * chunk_multiplier);
+    let embedding_bytes = serialize_embedding(query_embedding);
+
+    let file_paths = get_context_file_paths(conn, &context_id)?;
+    if file_paths.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let query = r#"
+        SELECT c.chunk_hash, c.chunk_hash, c.file_hash, '', c.repo_name,
+            c.context_type, c.context_data, c.content, c.token_count, c.last_modified,
+            v.distance
+        FROM vec_chunks v
+        JOIN chunks c ON lower(hex(c.chunk_hash)) = v.chunk_hash
+        WHERE v.embedding MATCH ?1 AND k = ?2
+          AND v.chunk_hash IN (
+            SELECT lower(hex(c2.chunk_hash))
+            FROM chunks c2
+            JOIN indexed_files f ON c2.file_hash = f.file_hash
+            WHERE f.context_id = ?3
+          )
+        ORDER BY v.distance
+    "#;
+
+    let mut stmt = conn.prepare(query).context(DatabaseSnafu)?;
+    let rows = stmt
+        .query_map(
+            [
+                &embedding_bytes as &dyn rusqlite::ToSql,
+                &(k as i64),
+                &context_id.as_str(),
+            ],
+            |row| {
+                let distance: f32 = row.get(10)?;
+                let chunk =
+                    indexed_chunk_from_row(row).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                Ok((chunk, distance))
+            },
+        )
+        .context(DatabaseSnafu)?;
+
+    // Collect chunks and group by file
+    #[allow(clippy::type_complexity)]
+    let mut file_chunks: std::collections::HashMap<
+        crate::knowledge::domain::FileHash,
+        (
+            IndexRelativePath,
+            RepoName,
+            Vec<(IndexedChunk, RelevanceScore)>,
+        ),
+    > = std::collections::HashMap::new();
+
+    for row_result in rows {
+        let (mut chunk, distance) = row_result.context(DatabaseSnafu)?;
+        if let Some(file_path) = file_paths.get(&chunk.chunk.file_hash) {
+            chunk.chunk.source.file_path = file_path.clone();
+            let similarity = (1.0 - distance).clamp(0.0, 1.0);
+            let score =
+                RelevanceScore::try_new(similarity).unwrap_or_else(|_| RelevanceScore::zero());
+
+            let entry = file_chunks.entry(chunk.chunk.file_hash).or_insert_with(|| {
+                (
+                    file_path.clone(),
+                    chunk.chunk.source.repo_name.clone(),
+                    Vec::new(),
+                )
+            });
+            entry.2.push((chunk, score));
+        }
+    }
+
+    // Build FileSearchResults sorted by best score
+    let mut results: Vec<FileSearchResult> = file_chunks
+        .into_iter()
+        .map(|(_, (file_path, repo_name, chunks))| {
+            let best_score = chunks
+                .iter()
+                .map(|(_, s)| *s)
+                .max()
+                .unwrap_or_else(RelevanceScore::zero);
+            let match_count = chunks.len();
+            let search_results: Vec<SearchResult> = chunks
+                .into_iter()
+                .map(|(c, s)| SearchResult::builder().chunk(c.chunk).score(s).build())
+                .collect();
+            FileSearchResult::builder()
+                .file_path(file_path)
+                .repo_name(repo_name)
+                .match_count(match_count)
+                .best_score(best_score)
+                .chunks(search_results)
+                .build()
+        })
+        .collect();
+
+    results.sort_by(|a, b| {
+        b.best_score
+            .partial_cmp(&a.best_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    results.truncate(file_limit.into_inner());
+
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -504,5 +628,136 @@ mod test {
                 .all(|(c, _)| c.chunk.file_hash == file_hash_b),
             "All results should be from Context B"
         );
+    }
+
+    #[test]
+    fn search_files_groups_chunks_by_file() {
+        // Given chunks from multiple files in the same context
+        let conn = setup_connection();
+
+        let file_hash_a = FileHash::new([1u8; 32]);
+        let file_hash_b = FileHash::new([2u8; 32]);
+
+        // Insert 3 chunks for file A - vectors pointing mostly in first dimension
+        for i in 0..3 {
+            let mut embedding = vec![0.0; EMBEDDING_DIM];
+            embedding[0] = 1.0;
+            embedding[1] = 0.1 * (i as f32);
+            let chunk =
+                create_chunk_with_embedding(&format!("file A chunk {}", i), file_hash_a, embedding);
+            insert_chunk_and_embedding(&conn, &chunk);
+        }
+
+        // Insert 2 chunks for file B - vectors pointing mostly in second dimension
+        for i in 0..2 {
+            let mut embedding = vec![0.0; EMBEDDING_DIM];
+            embedding[0] = 0.1;
+            embedding[1] = 1.0;
+            embedding[2] = 0.1 * (i as f32);
+            let chunk =
+                create_chunk_with_embedding(&format!("file B chunk {}", i), file_hash_b, embedding);
+            insert_chunk_and_embedding(&conn, &chunk);
+        }
+
+        let context = ContextId::from_path("test-context").unwrap();
+
+        insert_indexed_file(
+            &conn,
+            &IndexedFile::builder()
+                .context_id(context.clone())
+                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
+                .file_hash(file_hash_a)
+                .mtime_ns(1000)
+                .build(),
+        )
+        .unwrap();
+
+        insert_indexed_file(
+            &conn,
+            &IndexedFile::builder()
+                .context_id(context.clone())
+                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
+                .file_hash(file_hash_b)
+                .mtime_ns(2000)
+                .build(),
+        )
+        .unwrap();
+
+        // When searching for files with multiplier 3 - query points in file A's direction
+        let mut query = vec![0.0; EMBEDDING_DIM];
+        query[0] = 1.0;
+        let results =
+            super::search_files(&conn, &query, ResultLimit::try_new(10).unwrap(), 3, context)
+                .unwrap();
+
+        // Then results should be grouped by file
+        assert_eq!(results.len(), 2, "Should return 2 files");
+
+        // File A should be first (closer to query)
+        assert_eq!(results[0].file_path.to_string(), "file-a.md");
+        assert_eq!(results[0].match_count, 3);
+        assert_eq!(results[0].chunks.len(), 3);
+
+        // File B should be second
+        assert_eq!(results[1].file_path.to_string(), "file-b.md");
+        assert_eq!(results[1].match_count, 2);
+        assert_eq!(results[1].chunks.len(), 2);
+    }
+
+    #[test]
+    fn search_files_respects_file_limit() {
+        // Given chunks from 5 files
+        let conn = setup_connection();
+        let context = ContextId::from_path("test-context").unwrap();
+
+        for file_idx in 0..5u8 {
+            let file_hash = FileHash::new([file_idx + 1; 32]);
+            let mut embedding = vec![0.9 - (file_idx as f32 * 0.05); EMBEDDING_DIM];
+            embedding[0] = 0.9 - (file_idx as f32 * 0.05);
+            let chunk = create_chunk_with_embedding(
+                &format!("file {} content", file_idx),
+                file_hash,
+                embedding,
+            );
+            insert_chunk_and_embedding(&conn, &chunk);
+
+            insert_indexed_file(
+                &conn,
+                &IndexedFile::builder()
+                    .context_id(context.clone())
+                    .file_path(
+                        IndexRelativePath::try_new(&format!("file-{}.md", file_idx)).unwrap(),
+                    )
+                    .file_hash(file_hash)
+                    .mtime_ns(1000)
+                    .build(),
+            )
+            .unwrap();
+        }
+
+        // When searching with file_limit=2
+        let query = vec![0.9; EMBEDDING_DIM];
+        let results =
+            super::search_files(&conn, &query, ResultLimit::try_new(2).unwrap(), 3, context)
+                .unwrap();
+
+        // Then only 2 files should be returned
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn search_files_returns_empty_for_empty_context() {
+        // Given a context with no files
+        let conn = setup_connection();
+        let context = ContextId::from_path("empty-context").unwrap();
+
+        // When searching
+        let query = vec![0.9; EMBEDDING_DIM];
+        let results =
+            super::search_files(&conn, &query, ResultLimit::try_new(10).unwrap(), 3, context)
+                .unwrap();
+
+        // Then no results
+        assert!(results.is_empty());
     }
 }

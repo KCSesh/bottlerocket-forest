@@ -181,6 +181,22 @@ impl ChunkRepository for SqliteChunkRepository {
         search::search_semantic(&self.conn, query_embedding, limit, context_id)
     }
 
+    fn search_files(
+        &self,
+        query_embedding: &[f32],
+        file_limit: ResultLimit,
+        chunk_multiplier: usize,
+        context_id: ContextId,
+    ) -> Result<Vec<crate::knowledge::domain::FileSearchResult>, StorageError> {
+        search::search_files(
+            &self.conn,
+            query_embedding,
+            file_limit,
+            chunk_multiplier,
+            context_id,
+        )
+    }
+
     fn has_embedding(&self, chunk_hash: &ChunkHash) -> Result<bool, StorageError> {
         let result = self.has_embedding_batch(&[*chunk_hash])?;
         Ok(result.contains(chunk_hash))
