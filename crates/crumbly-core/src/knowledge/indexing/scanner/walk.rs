@@ -144,7 +144,11 @@ mod test {
         );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 2);
-        assert!(files.iter().all(|f| f.file_type == FileType::Markdown));
+        assert!(
+            files
+                .iter()
+                .all(|f| f.file_type == FileType::new("markdown"))
+        );
     }
 
     #[test]
@@ -161,7 +165,11 @@ mod test {
         let scanner = scanner_no_git(temp_dir.path());
         let files = scanner.scan().unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().all(|f| f.file_type == FileType::Rust));
+        assert!(
+            files
+                .iter()
+                .all(|f| f.file_type == FileType::new("rust_doc"))
+        );
     }
 
     #[test]
@@ -179,7 +187,7 @@ mod test {
         );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 1);
-        assert_eq!(files[0].file_type, FileType::Markdown);
+        assert_eq!(files[0].file_type, FileType::new("markdown"));
     }
 
     #[test]
@@ -195,7 +203,11 @@ mod test {
         );
         let files = scan_forest(temp_dir.path());
         assert_eq!(files.len(), 2);
-        assert!(files.iter().all(|f| f.file_type == FileType::Markdown));
+        assert!(
+            files
+                .iter()
+                .all(|f| f.file_type == FileType::new("markdown"))
+        );
     }
 
     #[test]

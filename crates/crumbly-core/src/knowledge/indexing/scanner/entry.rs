@@ -16,9 +16,11 @@ impl FileScanner {
             return Ok(None);
         }
 
-        let file_type = FileType::from_path(path);
+        let Some(file_type) = FileType::from_path(path) else {
+            return Ok(None);
+        };
 
-        if !self.filter.should_index_file_type(file_type) || !file_type.is_indexable() {
+        if !self.filter.should_index_file_type(&file_type) {
             return Ok(None);
         }
 

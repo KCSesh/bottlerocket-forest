@@ -149,7 +149,7 @@ impl GoFilter {
 /// Combined filtering rules for file types and language-specific criteria
 #[derive(Debug, Clone)]
 pub struct IndexingFilter {
-    enabled_file_types: Vec<crate::knowledge::domain::FileType>,
+    enabled_types: std::collections::HashSet<String>,
     rust_filter: Option<RustFilter>,
     go_filter: Option<GoFilter>,
     java_filter: Option<JavaFilter>,
@@ -158,13 +158,13 @@ pub struct IndexingFilter {
 impl IndexingFilter {
     /// Create a filter with enabled file types and optional language-specific rules
     pub fn new(
-        enabled_file_types: Vec<crate::knowledge::domain::FileType>,
+        enabled_types: std::collections::HashSet<String>,
         rust_filter: Option<RustFilter>,
         go_filter: Option<GoFilter>,
         java_filter: Option<JavaFilter>,
     ) -> Self {
         Self {
-            enabled_file_types,
+            enabled_types,
             rust_filter,
             go_filter,
             java_filter,
@@ -172,8 +172,8 @@ impl IndexingFilter {
     }
 
     /// Determine whether a file type should be indexed
-    pub fn should_index_file_type(&self, file_type: crate::knowledge::domain::FileType) -> bool {
-        self.enabled_file_types.contains(&file_type)
+    pub fn should_index_file_type(&self, file_type: &crate::knowledge::domain::FileType) -> bool {
+        self.enabled_types.contains(file_type.context_type_name())
     }
 
     /// Access the Rust-specific filter if configured
@@ -194,10 +194,11 @@ impl IndexingFilter {
 
 impl Default for IndexingFilter {
     fn default() -> Self {
-        use crate::knowledge::domain::FileType;
-
         Self {
-            enabled_file_types: vec![FileType::Markdown, FileType::Rust],
+            enabled_types: ["markdown", "rust_doc"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
             rust_filter: Some(RustFilter::new(
                 vec![Visibility::Public],
                 vec![
@@ -329,11 +330,16 @@ mod test {
     fn test_indexing_filter_should_index_file_type() {
         // Given A filter with only markdown enabled
         use crate::knowledge::domain::FileType;
-        let filter = IndexingFilter::new(vec![FileType::Markdown], None, None, None);
+        let filter = IndexingFilter::new(
+            ["markdown"].into_iter().map(String::from).collect(),
+            None,
+            None,
+            None,
+        );
 
         // When Checking different file types
-        let markdown = filter.should_index_file_type(FileType::Markdown);
-        let rust = filter.should_index_file_type(FileType::Rust);
+        let markdown = filter.should_index_file_type(&FileType::new("markdown"));
+        let rust = filter.should_index_file_type(&FileType::new("rust_doc"));
 
         // Then Only markdown should pass
         assert!(markdown);
@@ -344,7 +350,12 @@ mod test {
     fn test_indexing_filter_rust_filter_returns_reference() {
         // Given A filter with Rust filter configured
         let rust_filter = RustFilter::new(vec![Visibility::Public], vec![], DocLineCount::new(0));
-        let filter = IndexingFilter::new(vec![], Some(rust_filter), None, None);
+        let filter = IndexingFilter::new(
+            std::collections::HashSet::new(),
+            Some(rust_filter),
+            None,
+            None,
+        );
 
         // When Getting the Rust filter
         let result = filter.rust_filter();

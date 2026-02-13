@@ -157,7 +157,7 @@ mod test {
             .id(id.to_string())
             .relative_path(IndexRelativePath::try_new(id.to_string()).unwrap())
             .repo_name(RepoName::try_new("test-repo".to_string()).unwrap())
-            .file_type(FileType::Markdown)
+            .file_type(FileType::new("markdown"))
             .build()
     }
 

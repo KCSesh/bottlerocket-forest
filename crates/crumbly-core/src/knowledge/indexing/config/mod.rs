@@ -15,16 +15,17 @@ pub use languages::{GoConfig, JavaConfig, RustConfig};
 
 use super::filter::IndexingFilter;
 use crate::knowledge::constants::SEMBLY_CONFIG;
-use crate::knowledge::domain::FileType;
+use std::collections::HashSet;
+
 use crate::knowledge::scoring::BoostRule;
 
 /// Configuration loaded from `crumbly.toml` in the forest root
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct CrumblyConfig {
-    /// File types to index
+    /// File types to index (context type names like "markdown", "rust_doc")
     #[serde(default = "default_file_types")]
-    pub enabled_file_types: Vec<FileType>,
+    pub enabled_file_types: Vec<String>,
 
     /// Scan targets relative to forest root
     ///
@@ -45,30 +46,47 @@ pub struct CrumblyConfig {
 impl CrumblyConfig {
     /// Convert configuration to an IndexingFilter for use during scanning
     pub fn to_indexing_filter(&self) -> Result<IndexingFilter, CrumblyConfigError> {
-        let rust_filter = if self.enabled_file_types.contains(&FileType::Rust) {
+        // Map user-facing config names to context_type_names
+        let enabled_types: HashSet<String> = self
+            .enabled_file_types
+            .iter()
+            .map(|name| map_config_name_to_context_type(name))
+            .collect();
+
+        let rust_filter = if self.enabled_file_types.iter().any(|n| n == "rust") {
             Some(self.file_types.rust.to_rust_filter()?)
         } else {
             None
         };
 
-        let go_filter = if self.enabled_file_types.contains(&FileType::Go) {
+        let go_filter = if self.enabled_file_types.iter().any(|n| n == "go") {
             Some(self.file_types.go.to_go_filter()?)
         } else {
             None
         };
 
-        let java_filter = if self.enabled_file_types.contains(&FileType::Java) {
+        let java_filter = if self.enabled_file_types.iter().any(|n| n == "java") {
             Some(self.file_types.java.to_java_filter()?)
         } else {
             None
         };
 
         Ok(IndexingFilter::new(
-            self.enabled_file_types.clone(),
+            enabled_types,
             rust_filter,
             go_filter,
             java_filter,
         ))
+    }
+}
+
+/// Maps user-facing config names to internal context_type_names.
+fn map_config_name_to_context_type(name: &str) -> String {
+    match name {
+        "rust" => "rust_doc".to_string(),
+        "go" => "go_doc".to_string(),
+        "java" => "java_doc".to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -100,8 +118,8 @@ pub struct FileTypeConfig {
     pub java: JavaConfig,
 }
 
-fn default_file_types() -> Vec<FileType> {
-    vec![FileType::Markdown, FileType::Rust]
+fn default_file_types() -> Vec<String> {
+    vec!["markdown".to_string(), "rust_doc".to_string()]
 }
 
 /// Load and validate crumbly configuration from `crumbly.toml`
@@ -188,7 +206,7 @@ pub enum CrumblyConfigError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::domain::Visibility;
+    use crate::knowledge::domain::{FileType, Visibility};
     use crate::knowledge::indexing::filter::RustItemType;
     use std::fs;
     use tempfile::TempDir;
@@ -296,7 +314,7 @@ min-doc-lines = 30
         let config = result.unwrap().unwrap();
         assert_eq!(
             config.enabled_file_types,
-            vec![FileType::Markdown, FileType::Rust]
+            vec!["markdown".to_string(), "rust".to_string()]
         );
         assert_eq!(
             config.file_types.rust.visibility,
@@ -308,7 +326,7 @@ min-doc-lines = 30
     #[test]
     fn test_crumbly_config_to_indexing_filter() {
         let config = CrumblyConfig {
-            enabled_file_types: vec![FileType::Markdown, FileType::Rust],
+            enabled_file_types: vec!["markdown".to_string(), "rust".to_string()],
             targets: vec![],
             file_types: FileTypeConfig {
                 rust: RustConfig {
@@ -325,8 +343,8 @@ min-doc-lines = 30
         let result = config.to_indexing_filter();
         assert!(result.is_ok());
         let filter = result.unwrap();
-        assert!(filter.should_index_file_type(FileType::Markdown));
-        assert!(filter.should_index_file_type(FileType::Rust));
+        assert!(filter.should_index_file_type(&FileType::new("markdown")));
+        assert!(filter.should_index_file_type(&FileType::new("rust_doc")));
         assert!(filter.rust_filter().is_some());
     }
 

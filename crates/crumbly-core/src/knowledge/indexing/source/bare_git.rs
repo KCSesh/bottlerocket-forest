@@ -117,14 +117,11 @@ impl BareGitSource {
         let mut entries = Vec::new();
 
         for line in stdout.lines() {
-            let file_type = match Path::new(line).extension().and_then(|e| e.to_str()) {
-                Some("md") => FileType::Markdown,
-                Some("rs") => FileType::Rust,
-                Some("go") => FileType::Go,
-                _ => continue,
+            let Some(file_type) = FileType::from_path(Path::new(line)) else {
+                continue;
             };
 
-            if !self.filter.should_index_file_type(file_type) {
+            if !self.filter.should_index_file_type(&file_type) {
                 continue;
             }
 

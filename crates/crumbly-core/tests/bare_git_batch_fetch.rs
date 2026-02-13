@@ -74,7 +74,7 @@ fn make_entry(repo: &str, rev: &str, path: &str) -> ContentEntry<GitBlobRef> {
             .build())
         .relative_path(IndexRelativePath::try_new(path).unwrap())
         .repo_name(RepoName::try_new(repo).unwrap())
-        .file_type(FileType::Markdown)
+        .file_type(FileType::new("markdown"))
         .build()
 }
 

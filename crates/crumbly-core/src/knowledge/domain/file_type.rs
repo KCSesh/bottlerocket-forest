@@ -5,38 +5,55 @@
 
 use std::path::Path;
 
+use crate::knowledge::chunking::LanguageSupport;
+
 /// File classification determining indexing strategy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum FileType {
-    /// Markdown documentation files.
-    Markdown,
-    /// Rust source files.
-    Rust,
-    /// Go source files.
-    Go,
-    /// Java source files.
-    Java,
-    /// Files that cannot be indexed.
-    #[serde(skip)]
-    Unsupported,
-}
+///
+/// Built dynamically from registered language support modules.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FileType(String);
 
 impl FileType {
-    /// Classifies a file by its extension.
-    pub fn from_path(path: &Path) -> Self {
-        match path.extension().and_then(|s| s.to_str()) {
-            Some("md") => Self::Markdown,
-            Some("rs") => Self::Rust,
-            Some("go") => Self::Go,
-            Some("java") => Self::Java,
-            _ => Self::Unsupported,
-        }
+    /// Creates a FileType from a context type name.
+    pub fn new(context_type_name: impl Into<String>) -> Self {
+        Self(context_type_name.into())
     }
 
-    /// Returns true if this file type can be indexed.
-    pub fn is_indexable(&self) -> bool {
-        matches!(self, Self::Markdown | Self::Rust | Self::Go | Self::Java)
+    /// Classifies a file by its extension using registered language support.
+    ///
+    /// Returns `None` if no registered language supports this file type.
+    pub fn from_path(path: &Path) -> Option<Self> {
+        let ext = path.extension()?.to_str()?;
+        for lang in inventory::iter::<&dyn LanguageSupport> {
+            if lang.extensions().contains(&ext) {
+                return Some(Self(lang.context_type_name().to_string()));
+            }
+        }
+        None
+    }
+
+    /// Returns the context type name for this file type.
+    pub fn context_type_name(&self) -> &str {
+        &self.0
+    }
+}
+
+impl serde::Serialize for FileType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FileType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self(s))
     }
 }
 
@@ -45,12 +62,13 @@ mod test {
     use super::*;
     use test_case::test_case;
 
-    #[test_case("README.md", FileType::Markdown, true ; "markdown file")]
-    #[test_case("src/main.rs", FileType::Rust, true ; "rust file")]
-    #[test_case("main.go", FileType::Go, true ; "go file")]
-    #[test_case("Cargo.toml", FileType::Unsupported, false ; "toml file")]
-    #[test_case("LICENSE", FileType::Unsupported, false ; "no extension")]
-    fn test_file_classification(path: &str, expected_type: FileType, expected_indexable: bool) {
+    #[test_case("README.md", Some("markdown") ; "markdown file")]
+    #[test_case("src/main.rs", Some("rust_doc") ; "rust file")]
+    #[test_case("main.go", Some("go_doc") ; "go file")]
+    #[test_case("Main.java", Some("java_doc") ; "java file")]
+    #[test_case("Cargo.toml", None ; "toml file")]
+    #[test_case("LICENSE", None ; "no extension")]
+    fn test_file_classification(path: &str, expected_type: Option<&str>) {
         // Given A file path
         let path = Path::new(path);
 
@@ -58,7 +76,9 @@ mod test {
         let file_type = FileType::from_path(path);
 
         // Then It should match expected classification
-        assert_eq!(file_type, expected_type);
-        assert_eq!(file_type.is_indexable(), expected_indexable);
+        assert_eq!(
+            file_type.as_ref().map(|ft| ft.context_type_name()),
+            expected_type
+        );
     }
 }
