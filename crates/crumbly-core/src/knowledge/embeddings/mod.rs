@@ -9,11 +9,13 @@
 //! - [`operations`]: Vector operations (cosine similarity, normalization, etc.)
 //! - [`error`]: Error types for embedding operations
 
+pub mod cache;
 pub mod error;
 pub mod model;
 pub mod operations;
 pub mod pool;
 
+pub use cache::{ModelCacheResolver, TieredModelCache, default_l2_dir};
 pub use error::EmbeddingError;
 pub use model::{EmbeddingModel, EmbeddingProvider, LoadedEmbeddingModel};
 pub use operations::VectorOps;
