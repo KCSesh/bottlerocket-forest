@@ -79,3 +79,17 @@ pub struct FileSearchResult {
     /// Individual chunk matches from this file.
     pub chunks: Vec<SearchResult>,
 }
+
+/// Complete file-grouped search results with performance metrics.
+#[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
+#[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[non_exhaustive]
+pub struct FileSearchResults {
+    /// Original search query.
+    pub query: SearchQuery,
+    /// File-grouped results ordered by best score.
+    pub results: Vec<FileSearchResult>,
+    /// Time taken to execute the search.
+    pub search_duration: Duration,
+}

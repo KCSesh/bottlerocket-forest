@@ -45,3 +45,10 @@ pub const DEFAULT_CHUNK_OVERLAP_TOKENS: usize =
 /// Version 2 introduces content-addressed storage with contexts table,
 /// modified indexed_files and chunks tables. Requires rebuild from version 1.
 pub const SCHEMA_VERSION: u32 = 5;
+
+/// Multiplier for chunk limit when performing file-level search.
+///
+/// File search fetches more chunks than requested to ensure adequate file coverage
+/// after grouping. For example, with limit=10 and multiplier=10, fetches 100 chunks
+/// before grouping by file.
+pub const DEFAULT_FILE_SEARCH_CHUNK_MULTIPLIER: usize = 10;

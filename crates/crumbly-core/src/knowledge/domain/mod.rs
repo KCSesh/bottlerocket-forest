@@ -26,7 +26,8 @@ pub use file_type::FileType;
 pub use hash::{ChunkHash, FileHash};
 pub use indexed_file::IndexedFile;
 pub use search::{
-    DEFAULT_RESULT_LIMIT, FileSearchResult, SearchQuery, SearchResult, SearchResults,
+    DEFAULT_RESULT_LIMIT, FileSearchResult, FileSearchResults, SearchQuery, SearchResult,
+    SearchResults,
 };
 
 /// Unique identifier for a documentation chunk
