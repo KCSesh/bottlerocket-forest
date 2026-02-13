@@ -74,14 +74,13 @@ impl CrumblyConfig {
     }
 }
 
-/// Maps user-facing config names to internal context_type_names.
+/// Maps user-facing config names to internal context_type_names via inventory lookup.
 fn map_config_name_to_context_type(name: &str) -> String {
-    match name {
-        "rust" => "rust_doc".to_string(),
-        "go" => "go_doc".to_string(),
-        "java" => "java_doc".to_string(),
-        other => other.to_string(),
-    }
+    inventory::iter::<&dyn crate::knowledge::chunking::LanguageSupport>
+        .into_iter()
+        .find(|lang| lang.config_key() == name)
+        .map(|lang| lang.context_type_name().to_string())
+        .unwrap_or_else(|| name.to_string())
 }
 
 impl Default for CrumblyConfig {
@@ -105,7 +104,11 @@ pub struct FileTypeConfig {
 }
 
 fn default_file_types() -> Vec<String> {
-    vec!["markdown".to_string(), "rust_doc".to_string()]
+    inventory::iter::<&dyn crate::knowledge::chunking::LanguageSupport>
+        .into_iter()
+        .filter(|lang| lang.enabled_by_default())
+        .map(|lang| lang.config_key().to_string())
+        .collect()
 }
 
 /// Load and validate crumbly configuration from `crumbly.toml`

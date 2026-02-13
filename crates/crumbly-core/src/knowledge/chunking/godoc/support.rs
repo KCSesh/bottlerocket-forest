@@ -73,6 +73,14 @@ impl LanguageSupport for GoDocSupport {
     fn default_config(&self) -> Option<LanguageConfig> {
         LanguageConfig::new(&GoConfig::default()).ok()
     }
+
+    fn config_key(&self) -> &'static str {
+        "go"
+    }
+
+    fn enabled_by_default(&self) -> bool {
+        false
+    }
 }
 
 inventory::submit! {

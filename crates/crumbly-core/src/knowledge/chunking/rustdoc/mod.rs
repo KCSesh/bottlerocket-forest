@@ -293,6 +293,14 @@ impl LanguageSupport for RustDocSupport {
     fn default_config(&self) -> Option<LanguageConfig> {
         LanguageConfig::new(&RustFilter::default()).ok()
     }
+
+    fn config_key(&self) -> &'static str {
+        "rust"
+    }
+
+    fn enabled_by_default(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

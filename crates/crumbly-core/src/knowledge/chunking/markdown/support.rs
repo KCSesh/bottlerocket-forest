@@ -52,6 +52,14 @@ impl LanguageSupport for MarkdownSupport {
     fn default_config(&self) -> Option<LanguageConfig> {
         None
     }
+
+    fn config_key(&self) -> &'static str {
+        "markdown"
+    }
+
+    fn enabled_by_default(&self) -> bool {
+        true
+    }
 }
 
 inventory::submit!(&MarkdownSupport as &dyn LanguageSupport);

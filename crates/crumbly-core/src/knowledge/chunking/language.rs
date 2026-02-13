@@ -74,6 +74,14 @@ pub trait LanguageSupport: Send + Sync + 'static {
 
     /// Default configuration for this language.
     fn default_config(&self) -> Option<LanguageConfig>;
+
+    /// User-facing config key used in crumbly.toml (e.g. "rust", "go").
+    fn config_key(&self) -> &'static str;
+
+    /// Whether this language is indexed by default when no config exists.
+    fn enabled_by_default(&self) -> bool {
+        false
+    }
 }
 
 inventory::collect!(&'static dyn LanguageSupport);

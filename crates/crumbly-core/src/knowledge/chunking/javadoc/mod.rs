@@ -328,6 +328,14 @@ impl LanguageSupport for JavaDocSupport {
     fn default_config(&self) -> Option<LanguageConfig> {
         LanguageConfig::new(&JavaFilterConfig::default()).ok()
     }
+
+    fn config_key(&self) -> &'static str {
+        "java"
+    }
+
+    fn enabled_by_default(&self) -> bool {
+        false
+    }
 }
 
 fn extract_package_name(root: tree_sitter::Node, source: &[u8]) -> Option<PackageName> {
