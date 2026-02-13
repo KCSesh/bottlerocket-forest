@@ -2,8 +2,9 @@
 
 use tree_sitter::Node;
 
-use crate::knowledge::domain::GoItemType as FilterGoItemType;
-use crate::knowledge::domain::{GoItemType, GoVisibility, Visibility};
+use super::context::GoItemType as FilterGoItemType;
+use super::context::{GoItemType, GoVisibility};
+use crate::knowledge::domain::Visibility;
 
 /// Constants for tree-sitter Go node kinds.
 pub mod node_kinds {

@@ -53,8 +53,8 @@ pub use chunking::{ChunkingError, ChunkingInput, ChunkingStrategy};
 pub use context::{DiscoveryError, Workspace, discover_workspace};
 pub use domain::{
     Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, ChunkableContent, Embedding,
-    EmbeddingModelConfig, FileType, IndexMetadata, IndexRelativePath, IndexedChunk,
-    MarkdownContext, RepoName, RustDocContext, SearchQuery, SearchResult, SearchResults, Timestamp,
+    EmbeddingModelConfig, FileType, IndexMetadata, IndexRelativePath, IndexedChunk, RepoName,
+    SearchQuery, SearchResult, SearchResults, Timestamp,
 };
 pub use facade::{CacheResult, CacheSource, IndexError, IndexStatus, KnowledgeIndex};
 pub use indexing::ProgressReporter;

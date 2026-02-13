@@ -9,11 +9,11 @@
 use bon::Builder;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    ChunkHash, ChunkId, FileHash, HeadingText, IndexRelativePath, ItemName, PackageName, RepoName,
-    Signature, TokenCount,
-};
-use crate::knowledge::chunking::RustItemType;
+use super::{ChunkHash, ChunkId, FileHash, IndexRelativePath, RepoName, TokenCount};
+use crate::knowledge::chunking::godoc::GoDocContext;
+use crate::knowledge::chunking::javadoc::JavaDocContext;
+use crate::knowledge::chunking::markdown::MarkdownContext;
+use crate::knowledge::chunking::rustdoc::RustDocContext;
 
 /// Searchable documentation unit with source and context metadata.
 #[derive(Debug, Clone, PartialEq, Builder, Serialize, Deserialize)]
@@ -166,32 +166,6 @@ impl std::fmt::Display for ChunkContextError {
 
 impl std::error::Error for ChunkContextError {}
 
-/// Heading hierarchy for markdown document structure.
-#[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
-#[builder(on(_, into))]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-#[non_exhaustive]
-pub struct MarkdownContext {
-    /// Nested heading path from document root to this chunk.
-    pub heading_hierarchy: Vec<HeadingText>,
-}
-
-/// Rust item metadata for doc comment context.
-#[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
-#[builder(on(_, into))]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-#[non_exhaustive]
-pub struct RustDocContext {
-    /// Name of the documented item.
-    pub item_name: ItemName,
-    /// Visibility level of the item.
-    pub visibility: Visibility,
-    /// Function or type signature if applicable.
-    pub signature: Option<Signature>,
-    /// Kind of Rust item.
-    pub item_type: RustItemType,
-}
-
 /// Visibility of a Rust item.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -218,112 +192,4 @@ impl From<syn::Visibility> for Visibility {
             syn::Visibility::Inherited => Visibility::Private,
         }
     }
-}
-
-/// Go item metadata for doc comment context.
-#[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
-#[builder(on(_, into))]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-#[non_exhaustive]
-pub struct GoDocContext {
-    /// Name of the documented item.
-    pub item_name: ItemName,
-    /// Visibility level of the item.
-    pub visibility: GoVisibility,
-    /// Function or type signature if applicable.
-    pub signature: Option<Signature>,
-    /// Kind of Go item.
-    pub item_type: GoItemType,
-    /// Package name for this Go item. None only during parsing errors or malformed files.
-    pub package_name: Option<PackageName>,
-}
-
-/// Visibility of a Go item.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum GoVisibility {
-    /// Exported (capitalized) item visible outside package.
-    Exported,
-    /// Unexported (lowercase) item visible only within package.
-    Unexported,
-}
-
-/// Type of Go item.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum GoItemType {
-    /// All item types.
-    All,
-    /// Standalone function.
-    Function,
-    /// Method on a type.
-    Method,
-    /// Struct type definition.
-    Struct,
-    /// Interface type definition.
-    Interface,
-    /// Type alias or definition.
-    Type,
-    /// Constant declaration.
-    Const,
-    /// Variable declaration.
-    Var,
-    /// Package-level documentation.
-    Package,
-}
-
-/// Java item metadata for doc comment context.
-#[derive(Debug, Clone, PartialEq, Eq, Builder, Serialize, Deserialize)]
-#[builder(on(_, into))]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-#[non_exhaustive]
-pub struct JavaDocContext {
-    /// Name of the documented item.
-    pub item_name: ItemName,
-    /// Visibility level of the item.
-    pub visibility: JavaVisibility,
-    /// Method or type signature if applicable.
-    pub signature: Option<Signature>,
-    /// Kind of Java item.
-    pub item_type: JavaItemType,
-    /// Package name for this Java item. None only during parsing errors or malformed files.
-    pub package_name: Option<PackageName>,
-}
-
-/// Visibility of a Java item.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum JavaVisibility {
-    /// Public visibility.
-    Public,
-    /// Protected visibility.
-    Protected,
-    /// Package-private (default) visibility.
-    PackagePrivate,
-    /// Private visibility.
-    Private,
-}
-
-/// Type of Java item.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum JavaItemType {
-    /// All item types.
-    All,
-    /// Class definition.
-    Class,
-    /// Interface definition.
-    Interface,
-    /// Enum definition.
-    Enum,
-    /// Record definition.
-    Record,
-    /// Method definition.
-    Method,
-    /// Field definition.
-    Field,
-    /// Constructor definition.
-    Constructor,
-    /// Annotation definition.
-    Annotation,
 }

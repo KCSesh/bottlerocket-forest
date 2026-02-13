@@ -101,10 +101,11 @@ impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::MarkdownContext;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-        IndexRelativePath, IndexedChunk, MarkdownContext, QueryText, RelevanceScore, RepoName,
-        ResultLimit, Timestamp, TokenCount,
+        IndexRelativePath, IndexedChunk, QueryText, RelevanceScore, RepoName, ResultLimit,
+        Timestamp, TokenCount,
     };
     use crate::knowledge::search::embeddings::model::MockEmbeddingProvider;
     use crate::knowledge::storage::repository::MockChunkRepository;

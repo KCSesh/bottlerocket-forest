@@ -19,8 +19,18 @@ use tokenizers::Tokenizer;
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, HeadingText, MarkdownContext, TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, HeadingText, TokenCount,
 };
+
+/// Heading hierarchy for markdown document structure.
+#[derive(Debug, Clone, PartialEq, Eq, bon::Builder, serde::Serialize, serde::Deserialize)]
+#[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[non_exhaustive]
+pub struct MarkdownContext {
+    /// Nested heading path from document root to this chunk.
+    pub heading_hierarchy: Vec<HeadingText>,
+}
 
 /// Chunks markdown files while preserving heading hierarchy.
 ///

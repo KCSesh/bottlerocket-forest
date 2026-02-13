@@ -12,6 +12,7 @@
 //! Each chunk preserves metadata including item name, visibility, and signatures.
 
 mod config;
+mod context;
 mod extraction;
 
 use std::any::Any;
@@ -26,9 +27,11 @@ use self::extraction::{
 use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
+pub use context::{JavaDocContext, JavaItemType, JavaVisibility};
+
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, ItemName, JavaDocContext,
-    JavaItemType, JavaVisibility, PackageName, Signature, TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, ItemName, PackageName, Signature,
+    TokenCount,
 };
 
 use crate::knowledge::storage::StorageError;
@@ -366,10 +369,11 @@ fn process_node(
 
 #[cfg(test)]
 mod test {
+    use super::JavaDocContext;
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, JavaDocContext, RepoName,
+        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {

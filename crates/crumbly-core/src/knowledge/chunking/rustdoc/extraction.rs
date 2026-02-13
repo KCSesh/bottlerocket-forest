@@ -5,11 +5,12 @@ use syn::{Attribute, Item, ItemImpl};
 use text_splitter::TextSplitter;
 use tokenizers::Tokenizer;
 
+use super::RustDocContext;
 use super::{RustFilter, RustItemType};
 use crate::knowledge::chunking::{ChunkingError, ChunkingInput};
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, DocLineCount, ItemName, RustDocContext,
-    Signature, TokenCount, Visibility,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, DocLineCount, ItemName, Signature,
+    TokenCount, Visibility,
 };
 
 pub(crate) struct DocExtractor<'a> {

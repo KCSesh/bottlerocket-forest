@@ -95,9 +95,10 @@ mod test {
     use uuid::Uuid;
 
     use super::*;
+    use crate::knowledge::chunking::MarkdownContext;
     use crate::knowledge::domain::{
-        ChunkContent, ChunkContext, ChunkId, ChunkSource, HeadingText, IndexRelativePath,
-        MarkdownContext, RepoName, TokenCount,
+        ChunkContent, ChunkContext, ChunkId, ChunkSource, HeadingText, IndexRelativePath, RepoName,
+        TokenCount,
     };
 
     fn make_chunk(text: &str) -> Chunk {

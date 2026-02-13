@@ -27,8 +27,24 @@ use tokenizers::Tokenizer;
 use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
-use crate::knowledge::domain::{Chunk, DocLineCount, ItemName, RustDocContext, Visibility};
+use crate::knowledge::domain::{Chunk, DocLineCount, ItemName, Signature, Visibility};
 use crate::knowledge::storage::StorageError;
+
+/// Rust item metadata for doc comment context.
+#[derive(Debug, Clone, PartialEq, Eq, bon::Builder, Serialize, Deserialize)]
+#[builder(on(_, into))]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[non_exhaustive]
+pub struct RustDocContext {
+    /// Name of the documented item.
+    pub item_name: ItemName,
+    /// Visibility level of the item.
+    pub visibility: Visibility,
+    /// Function or type signature if applicable.
+    pub signature: Option<Signature>,
+    /// Kind of Rust item.
+    pub item_type: RustItemType,
+}
 
 pub(crate) use extraction::DocExtractor;
 
@@ -305,12 +321,12 @@ impl LanguageSupport for RustDocSupport {
 
 #[cfg(test)]
 mod test {
+    use super::RustDocContext;
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
         ChunkSource, ChunkableContent, FileHash, IndexRelativePath, ItemName, RepoName,
-        RustDocContext,
     };
     use test_case::test_case;
 

@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::knowledge::domain::{DocLineCount, GoItemType, Visibility};
+use super::context::GoItemType;
+use crate::knowledge::domain::{DocLineCount, Visibility};
 
 /// Configuration for indexing Go source files.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

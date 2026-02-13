@@ -84,9 +84,10 @@ pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::MarkdownContext;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, Embedding, EmbeddingModelConfig,
-        HeadingText, IndexRelativePath, MarkdownContext, RepoName, Timestamp, TokenCount,
+        HeadingText, IndexRelativePath, RepoName, Timestamp, TokenCount,
     };
     use crate::knowledge::storage::schema;
     use rusqlite::Connection;

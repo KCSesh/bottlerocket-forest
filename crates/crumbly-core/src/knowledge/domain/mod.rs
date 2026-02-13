@@ -20,11 +20,7 @@ use uuid::Uuid;
 
 use crate::knowledge::constants;
 
-pub use chunk::{
-    Chunk, ChunkContent, ChunkContext, ChunkContextError, ChunkSource, GoDocContext, GoItemType,
-    GoVisibility, JavaDocContext, JavaItemType, JavaVisibility, MarkdownContext, RustDocContext,
-    Visibility,
-};
+pub use chunk::{Chunk, ChunkContent, ChunkContext, ChunkContextError, ChunkSource, Visibility};
 pub use context::{Context, ContextId, ContextIdError};
 pub use file_type::FileType;
 pub use hash::{ChunkHash, FileHash};

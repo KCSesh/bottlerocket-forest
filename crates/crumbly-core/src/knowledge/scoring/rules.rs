@@ -145,9 +145,10 @@ pub fn default_boost_rules() -> Vec<BoostRule> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::MarkdownContext;
     use crate::knowledge::domain::{
-        Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, FileHash,
-        MarkdownContext, RepoName, TokenCount,
+        Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, FileHash, RepoName,
+        TokenCount,
     };
 
     fn create_test_chunk(file_path: &str) -> Chunk {

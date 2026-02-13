@@ -2,8 +2,9 @@
 
 use tree_sitter::Node;
 
-use crate::knowledge::domain::JavaItemType as FilterJavaItemType;
-use crate::knowledge::domain::{JavaItemType, JavaVisibility, Visibility};
+use super::context::JavaItemType as FilterJavaItemType;
+use super::context::{JavaItemType, JavaVisibility};
+use crate::knowledge::domain::Visibility;
 
 /// Constants for tree-sitter Java node kinds.
 pub mod node_kinds {

@@ -280,11 +280,11 @@ impl ChunkRepository for SqliteChunkRepository {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::{MarkdownContext, RustDocContext};
     use crate::knowledge::constants::EMBEDDING_DIM;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkSource, Embedding, FileHash,
-        HeadingText, ItemName, MarkdownContext, RepoName, RustDocContext, Signature, TokenCount,
-        Visibility,
+        HeadingText, ItemName, RepoName, Signature, TokenCount, Visibility,
     };
     use crate::knowledge::domain::{EmbeddingModelConfig, Timestamp};
     use std::time::SystemTime;

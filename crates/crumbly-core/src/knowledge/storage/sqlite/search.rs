@@ -151,11 +151,12 @@ fn get_context_file_paths(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::MarkdownContext;
     use crate::knowledge::constants::EMBEDDING_DIM;
     use crate::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding,
-        EmbeddingModelConfig, FileHash, IndexRelativePath, IndexedFile, MarkdownContext, RepoName,
-        ResultLimit, Timestamp, TokenCount,
+        EmbeddingModelConfig, FileHash, IndexRelativePath, IndexedFile, RepoName, ResultLimit,
+        Timestamp, TokenCount,
     };
     use crate::knowledge::storage::schema;
     use crate::knowledge::storage::sqlite::files::insert_indexed_file;

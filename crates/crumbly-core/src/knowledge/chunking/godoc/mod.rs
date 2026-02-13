@@ -11,6 +11,7 @@
 //! Each chunk preserves metadata including item name, visibility, and signatures.
 
 mod config;
+mod context;
 mod extraction;
 mod support;
 
@@ -28,9 +29,11 @@ use self::extraction::{
 };
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
+pub use context::{GoDocContext, GoItemType, GoVisibility};
+
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, GoDocContext, GoItemType,
-    GoVisibility, ItemName, PackageName, Signature, TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, ItemName, PackageName, Signature,
+    TokenCount,
 };
 
 const PACKAGE_ITEM_NAME: &str = "package";
@@ -336,10 +339,11 @@ impl ChunkingStrategy for GoDocChunker {
 
 #[cfg(test)]
 mod test {
+    use super::GoDocContext;
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, GoDocContext, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {

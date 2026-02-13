@@ -3,10 +3,11 @@
 use std::any::Any;
 
 use super::MarkdownChunker;
+use super::MarkdownContext;
 use crate::knowledge::chunking::{
     ChunkingError, ChunkingStrategy, LanguageConfig, LanguageSupport,
 };
-use crate::knowledge::domain::{EmbeddingModelConfig, MarkdownContext};
+use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::storage::StorageError;
 
 /// Language support registration for markdown files.

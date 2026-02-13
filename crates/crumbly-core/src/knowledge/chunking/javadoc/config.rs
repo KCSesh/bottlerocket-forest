@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::knowledge::domain::{DocLineCount, JavaItemType, Visibility};
+use super::context::JavaItemType;
+use crate::knowledge::domain::{DocLineCount, Visibility};
 
 /// Configuration for Java source file indexing.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

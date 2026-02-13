@@ -238,10 +238,11 @@ pub fn handle_status(args: StatusArgs) -> Result<(), IndexError> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crumbly_core::knowledge::chunking::MarkdownContext;
     use crumbly_core::knowledge::domain::{
         Chunk, ChunkContent, ChunkContext, ChunkId, ChunkSource, EmbeddingModelConfig,
-        FileSearchResult, IndexRelativePath, MarkdownContext, RelevanceScore, RepoName,
-        SearchQuery, SearchResult, SearchResults, TokenCount,
+        FileSearchResult, IndexRelativePath, RelevanceScore, RepoName, SearchQuery, SearchResult,
+        SearchResults, TokenCount,
     };
     use crumbly_core::knowledge::facade::IndexStatus;
     use crumbly_core::knowledge::indexing::IndexResult;

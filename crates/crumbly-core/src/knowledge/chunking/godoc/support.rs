@@ -5,11 +5,12 @@ use std::any::Any;
 use snafu::ResultExt;
 
 use super::GoDocChunker;
+use super::GoDocContext;
 use super::config::{GoConfig, GoFilter};
 use crate::knowledge::chunking::{
     ChunkingError, ChunkingStrategy, LanguageConfig, LanguageSupport,
 };
-use crate::knowledge::domain::{EmbeddingModelConfig, GoDocContext};
+use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::storage::StorageError;
 use crate::knowledge::storage::repository::storage_error;
 
