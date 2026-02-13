@@ -53,7 +53,7 @@ impl<'a> DocExtractor<'a> {
         ident: &syn::Ident,
         visibility: syn::Visibility,
         signature: Option<Signature>,
-        item_type: crate::knowledge::indexing::RustItemType,
+        item_type: super::RustItemType,
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         use crate::knowledge::chunking::strategy::chunking_error::*;
@@ -176,7 +176,7 @@ impl<'a> DocExtractor<'a> {
         attrs: &[Attribute],
         ident: &syn::Ident,
         visibility: syn::Visibility,
-        item_type: crate::knowledge::indexing::RustItemType,
+        item_type: super::RustItemType,
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         self.process_item(attrs, ident, visibility, None, item_type, input)
@@ -239,7 +239,7 @@ impl<'a> DocExtractor<'a> {
         item_name: ItemName,
         visibility: Visibility,
         signature: Option<Signature>,
-        item_type: crate::knowledge::indexing::RustItemType,
+        item_type: super::RustItemType,
         input: &ChunkingInput,
     ) -> Result<Vec<Chunk>, ChunkingError> {
         use crate::knowledge::chunking::strategy::chunking_error::*;
@@ -333,10 +333,10 @@ mod test {
 
     fn chunker_with_filter(
         vis: Vec<Visibility>,
-        types: Vec<crate::knowledge::indexing::RustItemType>,
+        types: Vec<super::RustItemType>,
         min_lines: usize,
     ) -> RustDocChunker {
-        use crate::knowledge::indexing::RustFilter;
+        use crate::knowledge::chunking::RustFilter;
         let config = test_config();
         let filter = RustFilter::new(vis, types, DocLineCount::new(min_lines));
         RustDocChunker::from_config_with_filter(&config, Some(filter)).unwrap()
@@ -492,7 +492,7 @@ pub fn process(input: &str, count: usize) -> Result<String, std::io::Error> {
     }
 
     #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 0,
+        vec![Visibility::Public], vec![super::RustItemType::Function], 0,
         r#"
 /// Public function
 pub fn public_fn() {}
@@ -501,7 +501,7 @@ pub fn public_fn() {}
 fn private_fn() {}
 "#, 1, "Public function" ; "visibility_filter")]
     #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Struct], 0,
+        vec![Visibility::Public], vec![super::RustItemType::Struct], 0,
         r#"
 /// A struct
 pub struct MyStruct {}
@@ -510,7 +510,7 @@ pub struct MyStruct {}
 pub fn my_function() {}
 "#, 1, "A struct" ; "item_type_filter")]
     #[test_case(
-        vec![Visibility::Public], vec![crate::knowledge::indexing::RustItemType::Function], 3,
+        vec![Visibility::Public], vec![super::RustItemType::Function], 3,
         r#"
 /// Short doc
 pub fn short() {}
@@ -522,7 +522,7 @@ pub fn long() {}
 "#, 1, "longer documentation" ; "min_lines_filter")]
     #[test_case(
         vec![Visibility::Public],
-        vec![crate::knowledge::indexing::RustItemType::Struct, crate::knowledge::indexing::RustItemType::Enum], 2,
+        vec![super::RustItemType::Struct, super::RustItemType::Enum], 2,
         r#"
 /// A public struct with
 /// sufficient documentation
@@ -545,7 +545,7 @@ pub fn public_function() {}
 "#, 2, "public struct" ; "multiple_criteria_filter")]
     fn test_chunker_filter(
         vis: Vec<Visibility>,
-        types: Vec<crate::knowledge::indexing::RustItemType>,
+        types: Vec<super::RustItemType>,
         min_lines: usize,
         content: &str,
         expected_count: usize,

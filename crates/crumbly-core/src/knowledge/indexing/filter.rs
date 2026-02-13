@@ -9,11 +9,6 @@ use std::collections::{HashMap, HashSet};
 use crate::knowledge::chunking::{LanguageConfig, LanguageSupport};
 use crate::knowledge::domain::FileType;
 
-// Re-export language-specific filters from their modules
-pub use crate::knowledge::chunking::godoc::{GoConfig, GoFilter};
-pub use crate::knowledge::chunking::javadoc::JavaFilter;
-pub use crate::knowledge::chunking::rustdoc::{RustFilter, RustItemType};
-
 /// Combined filtering rules for file types and language-specific criteria.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -78,6 +73,7 @@ impl Default for IndexingFilter {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::knowledge::chunking::{RustFilter, RustItemType};
     use crate::knowledge::domain::{DocLineCount, Visibility};
 
     #[test]
