@@ -1,12 +1,8 @@
 use crate::index::errors::IndexError;
 use crate::theme;
-use crumbly_core::knowledge::domain::SearchResult;
-use crumbly_core::knowledge::domain::{
-    FileSearchResult, IndexRelativePath, RelevanceScore, RepoName, SearchResults,
-};
+use crumbly_core::knowledge::domain::{FileSearchResult, IndexRelativePath};
 
 use snafu::ResultExt;
-use std::collections::HashMap;
 use std::path::Path;
 
 /// Parses the output format string into an OutputFormat enum
@@ -19,49 +15,6 @@ pub(super) fn parse_output_format(format_str: Option<&str>) -> Result<OutputForm
             format: format.to_string(),
         }),
     }
-}
-
-/// Groups search results by file path, aggregating chunks and computing best scores
-pub(super) fn group_results_by_file(results: &SearchResults) -> Vec<FileSearchResult> {
-    let mut file_map: HashMap<IndexRelativePath, (RepoName, Vec<SearchResult>)> = HashMap::new();
-
-    for result in &results.results {
-        let path = result.chunk.source.file_path.clone();
-        let repo = result.chunk.source.repo_name.clone();
-
-        file_map
-            .entry(path)
-            .or_insert_with(|| (repo, Vec::new()))
-            .1
-            .push(result.clone());
-    }
-
-    let mut file_results: Vec<_> = file_map
-        .into_iter()
-        .map(|(path, (repo, chunks))| {
-            let best_score = chunks
-                .iter()
-                .map(|r| r.score)
-                .max_by(|a, b| a.cmp(b))
-                .unwrap_or_else(RelevanceScore::zero);
-
-            FileSearchResult::builder()
-                .file_path(path)
-                .repo_name(repo)
-                .match_count(chunks.len())
-                .best_score(best_score)
-                .chunks(chunks)
-                .build()
-        })
-        .collect();
-
-    file_results.sort_by(|a, b| {
-        b.best_score
-            .cmp(&a.best_score)
-            .then_with(|| b.match_count.cmp(&a.match_count))
-    });
-
-    file_results
 }
 
 /// Prints a formatted summary of build operation results

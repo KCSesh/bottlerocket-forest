@@ -3,7 +3,7 @@
 use snafu::ResultExt;
 
 use super::KnowledgeIndex;
-use crate::knowledge::domain::{ContextId, QueryText, ResultLimit, SearchQuery, SearchResults};
+use crate::knowledge::domain::{ContextId, FileSearchResults, QueryText, ResultLimit, SearchQuery};
 use crate::knowledge::facade::types::IndexError;
 use crate::knowledge::search::SearchEngine;
 
@@ -11,7 +11,7 @@ pub(in crate::knowledge::facade) fn search(
     index: &KnowledgeIndex,
     query: QueryText,
     limit: ResultLimit,
-) -> Result<SearchResults, IndexError> {
+) -> Result<FileSearchResults, IndexError> {
     use crate::knowledge::facade::types::index_error::*;
 
     #[expect(clippy::expect_used)]
@@ -32,7 +32,7 @@ pub(in crate::knowledge::facade) fn search_in_context(
     query: QueryText,
     limit: ResultLimit,
     context_id: ContextId,
-) -> Result<SearchResults, IndexError> {
+) -> Result<FileSearchResults, IndexError> {
     use crate::knowledge::facade::types::index_error::*;
 
     snafu::ensure!(

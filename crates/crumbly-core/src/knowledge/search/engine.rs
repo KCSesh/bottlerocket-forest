@@ -4,13 +4,13 @@
 
 use snafu::Snafu;
 
-use crate::knowledge::domain::{SearchQuery, SearchResults};
+use crate::knowledge::domain::{FileSearchResults, SearchQuery};
 
 /// Executes search queries against the knowledge index
 #[cfg_attr(test, mockall::automock)]
 pub trait SearchEngine {
     /// Execute a search query against the knowledge index
-    fn search(&self, query: &SearchQuery) -> Result<SearchResults, SearchError>;
+    fn search(&self, query: &SearchQuery) -> Result<FileSearchResults, SearchError>;
 }
 
 /// Errors that occur during search operations.

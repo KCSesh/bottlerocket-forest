@@ -46,7 +46,7 @@ use std::path::{Path, PathBuf};
 
 use crate::knowledge::constants::SEMBLY_DIR;
 use crate::knowledge::domain::{
-    Context, ContextId, EmbeddingModelConfig, QueryText, ResultLimit, SearchResults,
+    Context, ContextId, EmbeddingModelConfig, FileSearchResults, QueryText, ResultLimit,
 };
 use crate::knowledge::storage::ChunkRepository;
 use crate::knowledge::storage::StorageError;
@@ -149,7 +149,7 @@ impl KnowledgeIndex {
         &self,
         query: QueryText,
         limit: ResultLimit,
-    ) -> Result<SearchResults, IndexError> {
+    ) -> Result<FileSearchResults, IndexError> {
         inner::search(self, query, limit)
     }
 
@@ -161,7 +161,7 @@ impl KnowledgeIndex {
         query: QueryText,
         limit: ResultLimit,
         context_id: ContextId,
-    ) -> Result<SearchResults, IndexError> {
+    ) -> Result<FileSearchResults, IndexError> {
         inner::search_in_context(self, query, limit, context_id)
     }
 

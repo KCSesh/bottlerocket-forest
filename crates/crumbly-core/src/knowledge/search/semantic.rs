@@ -9,7 +9,8 @@
 
 use snafu::ResultExt;
 
-use crate::knowledge::domain::{SearchQuery, SearchResults};
+use crate::knowledge::constants::DEFAULT_FILE_SEARCH_CHUNK_MULTIPLIER;
+use crate::knowledge::domain::{FileSearchResults, SearchQuery};
 use crate::knowledge::scoring::ScoreBooster;
 use crate::knowledge::storage::ChunkRepository;
 
@@ -41,7 +42,7 @@ impl<R: ChunkRepository> SemanticSearchEngine<R> {
 }
 
 impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
-    fn search(&self, query: &SearchQuery) -> Result<SearchResults, SearchError> {
+    fn search(&self, query: &SearchQuery) -> Result<FileSearchResults, SearchError> {
         use super::engine::search_error::*;
         use std::time::Instant;
 
@@ -53,46 +54,57 @@ impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
             .map_err(crate::knowledge::error::box_err)
             .context(EmbeddingFailedSnafu)?;
 
-        let results = self
+        let limit = query.limit;
+        let mut multiplier = DEFAULT_FILE_SEARCH_CHUNK_MULTIPLIER;
+
+        let mut file_results = self
             .repository
-            .search_semantic(
+            .search_files(
                 query_embedding.as_ref(),
-                query.limit,
+                limit,
+                multiplier,
                 query.context_id.clone(),
             )
             .context(StorageSnafu)?;
 
-        let search_duration = start.elapsed();
-        let total_chunks_searched = results.len();
+        // Retry with doubled multiplier if insufficient results
+        if file_results.len() < limit.into_inner() {
+            multiplier *= 2;
+            file_results = self
+                .repository
+                .search_files(
+                    query_embedding.as_ref(),
+                    limit,
+                    multiplier,
+                    query.context_id.clone(),
+                )
+                .context(StorageSnafu)?;
+        }
 
-        let mut search_results: Vec<_> = results
+        // Apply score boosting to each file's best_score
+        let mut boosted_results: Vec<_> = file_results
             .into_iter()
-            .map(|(indexed_chunk, score)| {
-                use crate::knowledge::domain::SearchResult;
-
-                // Apply score boosting based on file characteristics
+            .map(|mut file_result| {
                 let boosted_score = self
                     .score_booster
-                    .apply_boost(score, &indexed_chunk.chunk)
+                    .apply_boost_to_score(file_result.best_score, &file_result.file_path)
                     .map_err(crate::knowledge::error::box_err)
                     .context(InvalidScoreSnafu {
-                        score: score.into_inner(),
+                        score: file_result.best_score.into_inner(),
                     })?;
-
-                Ok(SearchResult::builder()
-                    .chunk(indexed_chunk.chunk)
-                    .score(boosted_score)
-                    .build())
+                file_result.best_score = boosted_score;
+                Ok(file_result)
             })
             .collect::<Result<Vec<_>, SearchError>>()?;
 
-        // Sort by boosted score (descending)
-        search_results.sort_by_key(|result| std::cmp::Reverse(result.score));
+        // Re-sort by boosted best_score descending
+        boosted_results.sort_by_key(|r| std::cmp::Reverse(r.best_score));
 
-        Ok(SearchResults::builder()
+        let search_duration = start.elapsed();
+
+        Ok(FileSearchResults::builder()
             .query(query.clone())
-            .results(search_results)
-            .total_chunks_searched(total_chunks_searched)
+            .results(boosted_results)
             .search_duration(search_duration)
             .build())
     }
@@ -101,11 +113,9 @@ impl<R: ChunkRepository> SearchEngine for SemanticSearchEngine<R> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::knowledge::chunking::markdown::MarkdownContext;
     use crate::knowledge::domain::{
-        Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
-        IndexRelativePath, IndexedChunk, QueryText, RelevanceScore, RepoName, ResultLimit,
-        Timestamp, TokenCount,
+        Embedding, FileSearchResult, IndexRelativePath, QueryText, RelevanceScore, RepoName,
+        ResultLimit,
     };
     use crate::knowledge::search::embeddings::model::MockEmbeddingProvider;
     use crate::knowledge::storage::repository::MockChunkRepository;
@@ -115,40 +125,13 @@ mod test {
         Embedding::try_new(values).unwrap()
     }
 
-    fn default_markdown_context() -> ChunkContext {
-        ChunkContext::new(
-            "markdown",
-            &MarkdownContext::builder().heading_hierarchy(vec![]).build(),
-        )
-        .unwrap()
-    }
-
-    fn create_test_chunk(id: &str, content: &str, embedding: Embedding) -> IndexedChunk {
-        IndexedChunk::builder()
-            .chunk(
-                Chunk::builder()
-                    .id(ChunkId::new(uuid::Uuid::new_v4()))
-                    .chunk_hash(ChunkHash::new([0u8; 32]))
-                    .file_hash(FileHash::new([0u8; 32]))
-                    .source(
-                        ChunkSource::builder()
-                            .file_path(
-                                IndexRelativePath::try_new(format!("test/{}.md", id)).unwrap(),
-                            )
-                            .repo_name(RepoName::try_new("test").unwrap())
-                            .build(),
-                    )
-                    .content(
-                        ChunkContent::builder()
-                            .text(content)
-                            .token_count(TokenCount::try_new(10).unwrap())
-                            .build(),
-                    )
-                    .context(default_markdown_context())
-                    .build(),
-            )
-            .embedding(embedding)
-            .indexed_at(Timestamp::now())
+    fn create_file_result(path: &str, score: f32) -> FileSearchResult {
+        FileSearchResult::builder()
+            .file_path(IndexRelativePath::try_new(path).unwrap())
+            .repo_name(RepoName::try_new("test").unwrap())
+            .match_count(1usize)
+            .best_score(RelevanceScore::try_new(score).unwrap())
+            .chunks(vec![])
             .build()
     }
 
@@ -157,8 +140,8 @@ mod test {
         // Given A semantic search engine with embedding provider
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(|_, _, _| Ok(vec![]));
+            .expect_search_files()
+            .returning(|_, _, _, _| Ok(vec![]));
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -183,11 +166,11 @@ mod test {
 
     #[test]
     fn test_semantic_search_with_no_results() {
-        // Given A repository with no matching chunks
+        // Given A repository with no matching files
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(|_, _, _| Ok(vec![]));
+            .expect_search_files()
+            .returning(|_, _, _, _| Ok(vec![]));
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -207,26 +190,18 @@ mod test {
 
         // Then Results should be empty
         assert_eq!(results.results.len(), 0);
-        assert_eq!(results.total_chunks_searched, 0);
     }
 
     #[test]
     fn test_semantic_search_returns_ranked_results() {
-        // Given A repository with matching chunks
-        let chunk1 = create_test_chunk(
-            "1",
-            "rust programming",
-            create_test_embedding(vec![0.5; 384]),
-        );
-        let chunk2 = create_test_chunk("2", "rust language", create_test_embedding(vec![0.9; 384]));
-
+        // Given A repository with matching files
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(move |_, _, _| {
+            .expect_search_files()
+            .returning(move |_, _, _, _| {
                 Ok(vec![
-                    (chunk2.clone(), RelevanceScore::try_new(0.95).unwrap()),
-                    (chunk1.clone(), RelevanceScore::try_new(0.75).unwrap()),
+                    create_file_result("test/2.md", 0.95),
+                    create_file_result("test/1.md", 0.75),
                 ])
             });
 
@@ -251,27 +226,24 @@ mod test {
         // When Searching
         let results = engine.search(&query).unwrap();
 
-        // Then Results should be ranked by similarity score
+        // Then Results should be ranked by best_score
         assert_eq!(results.results.len(), 2);
-        assert!(results.results[0].score.into_inner() > results.results[1].score.into_inner());
-        assert_eq!(results.total_chunks_searched, 2);
+        assert!(
+            results.results[0].best_score.into_inner() > results.results[1].best_score.into_inner()
+        );
     }
 
     #[test]
     fn test_semantic_search_respects_limit() {
-        // Given A repository with many matching chunks
-        let chunk1 = create_test_chunk("1", "content 1", create_test_embedding(vec![0.1; 384]));
-        let chunk2 = create_test_chunk("2", "content 2", create_test_embedding(vec![0.2; 384]));
-        let chunk3 = create_test_chunk("3", "content 3", create_test_embedding(vec![0.3; 384]));
-
+        // Given A repository with many matching files
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(move |_, limit, _| {
+            .expect_search_files()
+            .returning(move |_, limit, _, _| {
                 let all_results = vec![
-                    (chunk1.clone(), RelevanceScore::try_new(0.9).unwrap()),
-                    (chunk2.clone(), RelevanceScore::try_new(0.8).unwrap()),
-                    (chunk3.clone(), RelevanceScore::try_new(0.7).unwrap()),
+                    create_file_result("test/1.md", 0.9),
+                    create_file_result("test/2.md", 0.8),
+                    create_file_result("test/3.md", 0.7),
                 ];
                 Ok(all_results.into_iter().take(limit.into_inner()).collect())
             });
@@ -328,7 +300,7 @@ mod test {
     fn test_semantic_search_propagates_storage_errors() {
         // Given A repository that returns an error
         let mut mock_repo = MockChunkRepository::new();
-        mock_repo.expect_search_semantic().returning(|_, _, _| {
+        mock_repo.expect_search_files().returning(|_, _, _, _| {
             Err(crate::knowledge::storage::StorageError::InvalidData {
                 message: "test error".to_string(),
             })
@@ -358,9 +330,9 @@ mod test {
 
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .withf(move |embedding, _, _| embedding == expected_embedding.as_slice())
-            .returning(|_, _, _| Ok(vec![]));
+            .expect_search_files()
+            .withf(move |embedding, _, _, _| embedding == expected_embedding.as_slice())
+            .returning(|_, _, _, _| Ok(vec![]));
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -387,14 +359,10 @@ mod test {
     #[test_case("How does Bottlerocket boot?" ; "question")]
     fn test_semantic_search_handles_various_queries(query_text: &str) {
         // Given A semantic search engine
-        let chunk = create_test_chunk("1", "test content", create_test_embedding(vec![0.5; 384]));
-
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(move |_, _, _| {
-                Ok(vec![(chunk.clone(), RelevanceScore::try_new(0.8).unwrap())])
-            });
+            .expect_search_files()
+            .returning(move |_, _, _, _| Ok(vec![create_file_result("test/1.md", 0.8)]));
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -418,18 +386,11 @@ mod test {
 
     #[test]
     fn test_semantic_search_returns_results() {
-        // Given A repository with matching chunks
-        let chunk = create_test_chunk("1", "rust content", create_test_embedding(vec![0.5; 384]));
-
+        // Given A repository with matching files
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(move |_, _, _| {
-                Ok(vec![(
-                    chunk.clone(),
-                    RelevanceScore::try_new(0.85).unwrap(),
-                )])
-            });
+            .expect_search_files()
+            .returning(move |_, _, _, _| Ok(vec![create_file_result("test/1.md", 0.85)]));
 
         let mut mock_provider = MockEmbeddingProvider::new();
         mock_provider
@@ -453,67 +414,17 @@ mod test {
 
     #[test]
     fn test_semantic_search_reorders_after_boosting() {
-        // Given Two chunks where boosting will reverse their order
-        // chunk1: .rs file with higher raw score (0.9)
-        // chunk2: .md file with lower raw score (0.7) but gets 1.5x boost
-        let chunk1 = IndexedChunk::builder()
-            .chunk(
-                Chunk::builder()
-                    .id(ChunkId::new(uuid::Uuid::new_v4()))
-                    .chunk_hash(ChunkHash::new([0u8; 32]))
-                    .file_hash(FileHash::new([0u8; 32]))
-                    .source(
-                        ChunkSource::builder()
-                            .file_path(IndexRelativePath::try_new("src/main.rs").unwrap())
-                            .repo_name(RepoName::try_new("test").unwrap())
-                            .build(),
-                    )
-                    .content(
-                        ChunkContent::builder()
-                            .text("rust code")
-                            .token_count(TokenCount::try_new(10).unwrap())
-                            .build(),
-                    )
-                    .context(default_markdown_context())
-                    .build(),
-            )
-            .embedding(create_test_embedding(vec![0.9; 384]))
-            .indexed_at(Timestamp::now())
-            .build();
-
-        let chunk2 = IndexedChunk::builder()
-            .chunk(
-                Chunk::builder()
-                    .id(ChunkId::new(uuid::Uuid::new_v4()))
-                    .chunk_hash(ChunkHash::new([0u8; 32]))
-                    .file_hash(FileHash::new([0u8; 32]))
-                    .source(
-                        ChunkSource::builder()
-                            .file_path(IndexRelativePath::try_new("docs/guide.md").unwrap())
-                            .repo_name(RepoName::try_new("test").unwrap())
-                            .build(),
-                    )
-                    .content(
-                        ChunkContent::builder()
-                            .text("documentation")
-                            .token_count(TokenCount::try_new(10).unwrap())
-                            .build(),
-                    )
-                    .context(default_markdown_context())
-                    .build(),
-            )
-            .embedding(create_test_embedding(vec![0.7; 384]))
-            .indexed_at(Timestamp::now())
-            .build();
-
+        // Given Two files where boosting will reverse their order
+        // file1: .rs file with higher raw score (0.9)
+        // file2: .md file with lower raw score (0.7) but gets 1.5x boost
         let mut mock_repo = MockChunkRepository::new();
         mock_repo
-            .expect_search_semantic()
-            .returning(move |_, _, _| {
-                // Repository returns in raw score order (chunk1 first)
+            .expect_search_files()
+            .returning(move |_, _, _, _| {
+                // Repository returns in raw score order (rs file first)
                 Ok(vec![
-                    (chunk1.clone(), RelevanceScore::try_new(0.9).unwrap()),
-                    (chunk2.clone(), RelevanceScore::try_new(0.7).unwrap()),
+                    create_file_result("src/main.rs", 0.9),
+                    create_file_result("docs/guide.md", 0.7),
                 ])
             });
 
@@ -547,26 +458,105 @@ mod test {
         let results = engine.search(&query).unwrap();
 
         // Then Results should be reordered by boosted score
-        // chunk2 (.md): 0.85 * 1.5 = 1.0 (clamped)
-        // chunk1 (.rs): 0.95 * 1.0 = 0.95
+        // .md file: 0.7 * 1.5 = 1.0 (clamped)
+        // .rs file: 0.9 * 1.0 = 0.9
         assert_eq!(results.results.len(), 2);
-        assert!(
-            results.results[0]
-                .chunk
-                .source
-                .file_path
-                .to_string()
-                .ends_with(".md")
-        );
-        assert!(
-            results.results[1]
-                .chunk
-                .source
-                .file_path
-                .to_string()
-                .ends_with(".rs")
-        );
-        assert_eq!(results.results[0].score.into_inner(), 1.0);
-        assert_eq!(results.results[1].score.into_inner(), 0.9);
+        assert!(results.results[0].file_path.to_string().ends_with(".md"));
+        assert!(results.results[1].file_path.to_string().ends_with(".rs"));
+        assert_eq!(results.results[0].best_score.into_inner(), 1.0);
+        assert_eq!(results.results[1].best_score.into_inner(), 0.9);
+    }
+
+    #[test]
+    fn test_semantic_search_retries_with_doubled_multiplier() {
+        // Given A repository that returns fewer files than limit on first call
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = call_count.clone();
+
+        let mut mock_repo = MockChunkRepository::new();
+        mock_repo
+            .expect_search_files()
+            .times(2)
+            .returning(move |_, _limit, multiplier, _| {
+                let count = call_count_clone.fetch_add(1, Ordering::SeqCst);
+                if count == 0 {
+                    // First call: return fewer than limit
+                    assert_eq!(multiplier, 10); // DEFAULT_FILE_SEARCH_CHUNK_MULTIPLIER
+                    Ok(vec![create_file_result("test/1.md", 0.9)])
+                } else {
+                    // Second call: doubled multiplier
+                    assert_eq!(multiplier, 20);
+                    Ok(vec![
+                        create_file_result("test/1.md", 0.9),
+                        create_file_result("test/2.md", 0.8),
+                    ])
+                }
+            });
+
+        let mut mock_provider = MockEmbeddingProvider::new();
+        mock_provider
+            .expect_embed()
+            .returning(|_| Ok(create_test_embedding(vec![0.5; 384])));
+
+        let engine =
+            SemanticSearchEngine::new(mock_repo, Box::new(mock_provider), ScoreBooster::default());
+        let query = SearchQuery::builder()
+            .text(QueryText::try_new("test").unwrap())
+            .limit(ResultLimit::try_new(5).unwrap())
+            .context_id(Default::default())
+            .build();
+
+        // When Searching with limit > initial results
+        let results = engine.search(&query).unwrap();
+
+        // Then Retry should have been called
+        assert_eq!(call_count.load(Ordering::SeqCst), 2);
+        assert_eq!(results.results.len(), 2);
+    }
+
+    #[test]
+    fn test_semantic_search_no_retry_when_sufficient_results() {
+        // Given A repository that returns enough files on first call
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = call_count.clone();
+
+        let mut mock_repo = MockChunkRepository::new();
+        mock_repo
+            .expect_search_files()
+            .times(1)
+            .returning(move |_, _, _, _| {
+                call_count_clone.fetch_add(1, Ordering::SeqCst);
+                Ok(vec![
+                    create_file_result("test/1.md", 0.9),
+                    create_file_result("test/2.md", 0.8),
+                    create_file_result("test/3.md", 0.7),
+                ])
+            });
+
+        let mut mock_provider = MockEmbeddingProvider::new();
+        mock_provider
+            .expect_embed()
+            .returning(|_| Ok(create_test_embedding(vec![0.5; 384])));
+
+        let engine =
+            SemanticSearchEngine::new(mock_repo, Box::new(mock_provider), ScoreBooster::default());
+        let query = SearchQuery::builder()
+            .text(QueryText::try_new("test").unwrap())
+            .limit(ResultLimit::try_new(3).unwrap())
+            .context_id(Default::default())
+            .build();
+
+        // When Searching with limit <= initial results
+        let results = engine.search(&query).unwrap();
+
+        // Then No retry should occur
+        assert_eq!(call_count.load(Ordering::SeqCst), 1);
+        assert_eq!(results.results.len(), 3);
     }
 }

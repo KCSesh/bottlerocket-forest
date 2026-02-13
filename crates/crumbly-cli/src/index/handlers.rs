@@ -4,8 +4,7 @@ use crate::index::errors::IndexError;
 
 use crate::index::formatting::{
     OutputFormat, format_build_result, format_file_results_human, format_file_results_json,
-    format_status, format_update_result, group_results_by_file, parse_output_format,
-    prompt_confirmation,
+    format_status, format_update_result, parse_output_format, prompt_confirmation,
 };
 use crate::index::{BuildArgs, ClearArgs, RebuildArgs, SearchArgs, StatusArgs, UpdateArgs};
 use crumbly_core::knowledge::KnowledgeIndex;
@@ -205,15 +204,13 @@ pub fn handle_search(args: SearchArgs) -> Result<(), IndexError> {
         .search_in_context(query, limit, context_id)
         .context(KnowledgeIndexSnafu)?;
 
-    let file_results = group_results_by_file(&results);
-
     let cwd = get_cwd()?;
 
     match format {
         OutputFormat::Human => {
-            format_file_results_human(&file_results, args.show_chunks, index.index_root(), &cwd)
+            format_file_results_human(&results.results, args.show_chunks, index.index_root(), &cwd)
         }
-        OutputFormat::Json => format_file_results_json(&file_results, index.index_root(), &cwd)?,
+        OutputFormat::Json => format_file_results_json(&results.results, index.index_root(), &cwd)?,
     }
 
     Ok(())
@@ -419,41 +416,6 @@ mod test {
 
         // Then It should succeed
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_group_results_by_file() {
-        // Given SearchResults with multiple chunks from same file
-        let chunk1 = create_test_chunk();
-        let mut chunk2 = chunk1.clone();
-        chunk2.id = ChunkId::new(uuid::Uuid::new_v4());
-
-        let results = SearchResults::builder()
-            .query(create_test_query())
-            .results(vec![
-                SearchResult::builder()
-                    .chunk(chunk1)
-                    .score(RelevanceScore::try_new(0.95).unwrap())
-                    .build(),
-                SearchResult::builder()
-                    .chunk(chunk2)
-                    .score(RelevanceScore::try_new(0.85).unwrap())
-                    .build(),
-            ])
-            .total_chunks_searched(100usize)
-            .search_duration(Duration::from_millis(50))
-            .build();
-
-        // When Grouping results by file
-        let file_results = group_results_by_file(&results);
-
-        // Then It should return one file with two chunks
-        assert_eq!(file_results.len(), 1);
-        assert_eq!(file_results[0].match_count, 2);
-        assert_eq!(
-            file_results[0].best_score,
-            RelevanceScore::try_new(0.95).unwrap()
-        );
     }
 
     #[test]
