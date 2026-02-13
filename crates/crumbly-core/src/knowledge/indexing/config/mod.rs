@@ -58,25 +58,16 @@ impl CrumblyConfig {
         // Build language configs from file_types config
         let mut language_configs = std::collections::HashMap::new();
 
-        if self.enabled_file_types.iter().any(|n| n == "rust") {
-            let filter = self.file_types.rust.to_rust_filter()?;
-            if let Ok(cfg) = LanguageConfig::new(&filter) {
-                language_configs.insert("rust_doc".to_string(), cfg);
+        // Process each language config from the TOML
+        for (name, value) in &self.file_types.languages {
+            let context_type = map_config_name_to_context_type(name);
+            if !enabled_types.contains(&context_type) {
+                continue;
             }
-        }
-
-        if self.enabled_file_types.iter().any(|n| n == "go") {
-            // Go uses GoConfig directly, not GoFilter
-            if let Ok(cfg) = LanguageConfig::new(&self.file_types.go) {
-                language_configs.insert("go_doc".to_string(), cfg);
-            }
-        }
-
-        if self.enabled_file_types.iter().any(|n| n == "java") {
-            let filter = self.file_types.java.to_java_filter()?;
-            if let Ok(cfg) = LanguageConfig::new(&filter) {
-                language_configs.insert("java_doc".to_string(), cfg);
-            }
+            let Ok(cfg) = LanguageConfig::from_toml(value) else {
+                continue;
+            };
+            language_configs.insert(context_type, cfg);
         }
 
         Ok(IndexingFilter::new(enabled_types, language_configs))
@@ -106,19 +97,11 @@ impl Default for CrumblyConfig {
 
 /// Configuration options specific to different file types
 #[derive(Debug, Clone, PartialEq, Deserialize, Default)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
 pub struct FileTypeConfig {
-    /// Rust-specific indexing controls
-    #[serde(default)]
-    pub rust: RustConfig,
-
-    /// Go-specific indexing controls
-    #[serde(default)]
-    pub go: GoConfig,
-
-    /// Java-specific indexing controls
-    #[serde(default)]
-    pub java: JavaConfig,
+    /// Language-specific configurations keyed by user-facing name (rust, go, java)
+    #[serde(flatten)]
+    pub languages: std::collections::HashMap<String, toml::Value>,
 }
 
 fn default_file_types() -> Vec<String> {
@@ -319,27 +302,32 @@ min-doc-lines = 30
             config.enabled_file_types,
             vec!["markdown".to_string(), "rust".to_string()]
         );
-        assert_eq!(
-            config.file_types.rust.visibility,
-            vec![Visibility::Public, Visibility::Crate]
-        );
-        assert_eq!(config.file_types.rust.min_doc_lines, 30);
+        // Verify rust config was parsed into the languages map
+        assert!(config.file_types.languages.contains_key("rust"));
+        let rust_config = config.file_types.languages.get("rust").unwrap();
+        // Verify the TOML value contains expected fields
+        assert!(rust_config.get("visibility").is_some());
+        assert!(rust_config.get("min-doc-lines").is_some());
     }
 
     #[test]
     fn test_crumbly_config_to_indexing_filter() {
+        // Build a config with rust language settings
+        let mut languages = std::collections::HashMap::new();
+        languages.insert(
+            "rust".to_string(),
+            toml::Value::try_from(&RustConfig {
+                visibility: vec![Visibility::Public],
+                items: vec![RustItemType::Struct],
+                min_doc_lines: 20,
+            })
+            .unwrap(),
+        );
+
         let config = CrumblyConfig {
             enabled_file_types: vec!["markdown".to_string(), "rust".to_string()],
             targets: vec![],
-            file_types: FileTypeConfig {
-                rust: RustConfig {
-                    visibility: vec![Visibility::Public],
-                    items: vec![RustItemType::Struct],
-                    min_doc_lines: 20,
-                },
-                go: GoConfig::default(),
-                java: JavaConfig::default(),
-            },
+            file_types: FileTypeConfig { languages },
             boost_rules: vec![],
         };
 

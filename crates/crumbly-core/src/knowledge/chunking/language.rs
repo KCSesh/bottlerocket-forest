@@ -28,6 +28,14 @@ impl LanguageConfig {
         })
     }
 
+    /// Creates a language config from a TOML value.
+    pub fn from_toml(value: &toml::Value) -> Result<Self, serde_json::Error> {
+        // Convert TOML value to JSON value
+        let json_str = serde_json::to_string(value)?;
+        let raw: serde_json::Value = serde_json::from_str(&json_str)?;
+        Ok(Self { raw })
+    }
+
     /// Deserializes the config into a concrete type.
     pub fn deserialize_as<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
         serde_json::from_value(self.raw.clone())

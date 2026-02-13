@@ -30,6 +30,9 @@ impl LanguageSupport for GoDocSupport {
         embedding_config: &EmbeddingModelConfig,
         language_config: Option<&LanguageConfig>,
     ) -> Result<Box<dyn ChunkingStrategy>, ChunkingError> {
+        use crate::knowledge::domain::DocLineCount;
+        use crate::knowledge::indexing::GoFilter;
+
         let filter = match language_config {
             Some(cfg) => {
                 let go_config: GoConfig =
@@ -37,13 +40,11 @@ impl LanguageSupport for GoDocSupport {
                         .map_err(|e| ChunkingError::ConfigError {
                             message: e.to_string(),
                         })?;
-                Some(
-                    go_config
-                        .to_go_filter()
-                        .map_err(|e| ChunkingError::ConfigError {
-                            message: e.to_string(),
-                        })?,
-                )
+                Some(GoFilter::new(
+                    go_config.visibility,
+                    go_config.items,
+                    DocLineCount::new(go_config.min_doc_lines),
+                ))
             }
             None => None,
         };

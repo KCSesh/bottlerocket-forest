@@ -64,11 +64,35 @@ pub enum RustItemType {
 
 /// Filtering rules for Rust source code indexing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
 pub struct RustFilter {
+    #[serde(default = "default_visibility")]
     visibility: Vec<Visibility>,
+    #[serde(default = "default_items")]
     items: Vec<RustItemType>,
+    #[serde(default = "default_min_doc_lines")]
     min_doc_lines: DocLineCount,
+}
+
+fn default_min_doc_lines() -> DocLineCount {
+    DocLineCount::new(0)
+}
+
+fn default_visibility() -> Vec<Visibility> {
+    vec![Visibility::Public]
+}
+
+fn default_items() -> Vec<RustItemType> {
+    vec![
+        RustItemType::Module,
+        RustItemType::Function,
+        RustItemType::Struct,
+        RustItemType::Enum,
+        RustItemType::Trait,
+        RustItemType::Impl,
+        RustItemType::TypeAlias,
+        RustItemType::Constant,
+    ]
 }
 
 impl RustFilter {
@@ -101,17 +125,8 @@ impl RustFilter {
 impl Default for RustFilter {
     fn default() -> Self {
         Self {
-            visibility: vec![Visibility::Public],
-            items: vec![
-                RustItemType::Module,
-                RustItemType::Function,
-                RustItemType::Struct,
-                RustItemType::Enum,
-                RustItemType::Trait,
-                RustItemType::Impl,
-                RustItemType::TypeAlias,
-                RustItemType::Constant,
-            ],
+            visibility: default_visibility(),
+            items: default_items(),
             min_doc_lines: DocLineCount::new(0),
         }
     }
