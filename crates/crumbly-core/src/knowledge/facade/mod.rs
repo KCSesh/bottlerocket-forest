@@ -21,8 +21,8 @@
 //! let query = QueryText::try_new("how does boot work")?;
 //! let limit = ResultLimit::try_new(20).unwrap();
 //! let results = index.search(query, limit)?;
-//! for result in results.results {
-//!     println!("Score: {}, File: {}", result.score, result.chunk.source.file_path);
+//! for file_result in results.results {
+//!     println!("Score: {}, File: {}", file_result.best_score, file_result.file_path);
 //! }
 //!
 //! // Check status

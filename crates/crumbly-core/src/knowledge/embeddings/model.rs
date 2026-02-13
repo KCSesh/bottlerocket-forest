@@ -8,7 +8,6 @@ use std::sync::Arc;
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
-use hf_hub::{Repo, RepoType, api::sync::ApiBuilder};
 use snafu::IntoError;
 use tokenizers::Tokenizer;
 
@@ -55,42 +54,29 @@ impl EmbeddingModel {
     pub fn load(self) -> Result<LoadedEmbeddingModel, EmbeddingError> {
         let cache_dir = self.cache_resolver.resolve(&self.model_name)?;
 
-        let api = ApiBuilder::new()
-            .with_cache_dir(cache_dir)
-            .build()
+        // Resolve file paths directly from the hf_hub cache structure
+        // Layout: models--<org>--<model>/refs/main -> snapshot hash
+        //         models--<org>--<model>/snapshots/<hash>/<files>
+        let model_dir_name = format!("models--{}", self.model_name.replace('/', "--"));
+        let refs_main = cache_dir.join(&model_dir_name).join("refs").join("main");
+
+        let snapshot_hash = std::fs::read_to_string(&refs_main)
+            .map(|s| s.trim().to_string())
             .map_err(|e| {
                 embedding_error::ModelLoadFailedSnafu {
                     model_name: self.model_name.clone(),
                 }
-                .into_error(Box::new(std::io::Error::other(e.to_string())))
+                .into_error(Box::new(e))
             })?;
 
-        let repo = api.repo(Repo::with_revision(
-            self.model_name.clone(),
-            RepoType::Model,
-            "main".to_string(),
-        ));
+        let snapshot_dir = cache_dir
+            .join(&model_dir_name)
+            .join("snapshots")
+            .join(&snapshot_hash);
 
-        let config_path = repo.get("config.json").map_err(|e| {
-            embedding_error::ModelLoadFailedSnafu {
-                model_name: self.model_name.clone(),
-            }
-            .into_error(Box::new(std::io::Error::other(e.to_string())))
-        })?;
-
-        let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
-            embedding_error::ModelLoadFailedSnafu {
-                model_name: self.model_name.clone(),
-            }
-            .into_error(Box::new(std::io::Error::other(e.to_string())))
-        })?;
-
-        let weights_path = repo.get("model.safetensors").map_err(|e| {
-            embedding_error::ModelLoadFailedSnafu {
-                model_name: self.model_name.clone(),
-            }
-            .into_error(Box::new(std::io::Error::other(e.to_string())))
-        })?;
+        let config_path = snapshot_dir.join("config.json");
+        let tokenizer_path = snapshot_dir.join("tokenizer.json");
+        let weights_path = snapshot_dir.join("model.safetensors");
 
         let config: Config =
             serde_json::from_str(&std::fs::read_to_string(&config_path).map_err(|e| {

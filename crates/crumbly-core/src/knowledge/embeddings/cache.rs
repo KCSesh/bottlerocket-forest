@@ -71,28 +71,29 @@ pub fn default_l2_dir() -> PathBuf {
 }
 
 /// Check if a model is cached in the given directory.
+///
+/// Checks the local filesystem directly to avoid network calls.
+/// The hf_hub layout is: models--<org>--<model>/refs/main -> snapshot hash
 fn is_model_cached(cache_dir: &Path, model_name: &str) -> Result<bool, EmbeddingError> {
-    let api = ApiBuilder::new()
-        .with_cache_dir(cache_dir.to_path_buf())
-        .build()
-        .map_err(|e| {
-            embedding_error::CacheAccessFailedSnafu {
-                path: cache_dir.display().to_string(),
-            }
-            .into_error(std::io::Error::other(e.to_string()))
-        })?;
+    let model_dir_name = format!("models--{}", model_name.replace('/', "--"));
+    let refs_main = cache_dir.join(&model_dir_name).join("refs").join("main");
 
-    let repo = api.repo(Repo::with_revision(
-        model_name.to_string(),
-        RepoType::Model,
-        "main".to_string(),
-    ));
+    // Check if refs/main exists and points to a valid snapshot
+    let snapshot_hash = match std::fs::read_to_string(&refs_main) {
+        Ok(hash) => hash.trim().to_string(),
+        Err(_) => return Ok(false),
+    };
 
-    // Try to get config.json - if it succeeds, model is cached
-    match repo.get("config.json") {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
+    // Verify the snapshot directory has the required files
+    let snapshot_dir = cache_dir
+        .join(&model_dir_name)
+        .join("snapshots")
+        .join(&snapshot_hash);
+
+    let required_files = ["config.json", "tokenizer.json", "model.safetensors"];
+    let all_present = required_files.iter().all(|f| snapshot_dir.join(f).exists());
+
+    Ok(all_present)
 }
 
 /// Download a model to the cache directory.
