@@ -3,7 +3,7 @@
 //! Contains configuration structs for Rust, Go, and Java source file indexing,
 //! including visibility filters, item type selection, and documentation requirements.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::CrumblyConfigError;
 use crate::knowledge::domain::{DocLineCount, Visibility};
@@ -81,7 +81,7 @@ impl Default for RustConfig {
 }
 
 /// Configuration for indexing Go source files
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct GoConfig {
     /// Visibility levels to index
@@ -99,7 +99,8 @@ pub struct GoConfig {
 
 impl GoConfig {
     /// Convert to a GoFilter for use during indexing
-    pub(super) fn to_go_filter(&self) -> Result<GoFilter, CrumblyConfigError> {
+    /// Convert to a GoFilter for use during indexing.
+    pub fn to_go_filter(&self) -> Result<GoFilter, CrumblyConfigError> {
         Ok(GoFilter::new(
             self.visibility.clone(),
             self.items.clone(),

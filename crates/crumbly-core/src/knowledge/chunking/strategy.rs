@@ -78,4 +78,15 @@ pub enum ChunkingError {
         /// Underlying UTF-8 error.
         source: std::str::Utf8Error,
     },
+
+    /// Language configuration is invalid.
+    #[snafu(display("Invalid language configuration: {message}"))]
+    #[diagnostic(
+        code(crumbly::chunking::config_error),
+        help("Check the language configuration in crumbly.toml")
+    )]
+    ConfigError {
+        /// Description of the configuration error.
+        message: String,
+    },
 }

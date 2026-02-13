@@ -11,6 +11,9 @@
 //! Each chunk preserves metadata including item name, visibility, and signatures.
 
 mod extraction;
+mod support;
+
+pub use support::GoDocSupport;
 
 use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
