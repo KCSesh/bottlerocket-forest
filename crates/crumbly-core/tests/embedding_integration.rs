@@ -158,8 +158,8 @@ fn test_unsupported_model_name_fails() {
         .build()
         .load();
 
-    // Then Returns ModelLoadFailed error
+    // Then Returns ModelDownloadFailed error
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();
-    assert!(error_msg.contains("Failed to load embedding model"));
+    assert!(error_msg.contains("Failed to download model from"));
 }
