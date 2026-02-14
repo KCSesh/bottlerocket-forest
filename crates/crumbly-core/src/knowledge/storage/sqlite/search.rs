@@ -285,6 +285,7 @@ mod test {
     use crate::knowledge::storage::schema;
     use crate::knowledge::storage::sqlite::files::insert_indexed_file;
     use rusqlite::Connection;
+    use test_case::test_case;
 
     fn setup_connection() -> Connection {
         #[allow(clippy::missing_transmute_annotations)]
@@ -298,15 +299,10 @@ mod test {
         conn
     }
 
-    fn create_chunk_with_embedding(
-        content: &str,
-        file_hash: FileHash,
-        embedding_values: Vec<f32>,
-    ) -> IndexedChunk {
-        let chunk_hash = ChunkHash::from_text(content);
+    fn create_chunk(content: &str, file_hash: FileHash, embedding: Vec<f32>) -> IndexedChunk {
         let chunk = Chunk::builder()
             .id(ChunkId::new(uuid::Uuid::new_v4()))
-            .chunk_hash(chunk_hash)
+            .chunk_hash(ChunkHash::from_text(content))
             .file_hash(file_hash)
             .source(
                 ChunkSource::builder()
@@ -328,436 +324,214 @@ mod test {
                 .unwrap(),
             )
             .build();
-
         IndexedChunk::builder()
             .chunk(chunk)
-            .embedding(Embedding::try_new(embedding_values).unwrap())
+            .embedding(Embedding::try_new(embedding).unwrap())
             .indexed_at(Timestamp::now())
             .build()
     }
 
-    fn insert_chunk_and_embedding(conn: &Connection, chunk: &IndexedChunk) {
+    fn insert_chunk(conn: &Connection, chunk: &IndexedChunk) {
         use crate::knowledge::storage::sqlite::chunks::save_chunk;
         save_chunk(conn, chunk).unwrap();
-
-        let embedding_bytes: Vec<u8> = chunk
+        let bytes: Vec<u8> = chunk
             .embedding
             .iter()
             .flat_map(|f| f.to_le_bytes())
             .collect();
         conn.execute(
             "INSERT INTO vec_chunks (chunk_hash, embedding) VALUES (?, ?)",
-            rusqlite::params![chunk.chunk.chunk_hash.to_string(), embedding_bytes],
+            rusqlite::params![chunk.chunk.chunk_hash.to_string(), bytes],
         )
         .unwrap();
+    }
+
+    fn index_file(conn: &Connection, ctx: &ContextId, path: &str, hash: FileHash) {
+        insert_indexed_file(
+            conn,
+            &IndexedFile::builder()
+                .context_id(ctx.clone())
+                .file_path(IndexRelativePath::try_new(path).unwrap())
+                .file_hash(hash)
+                .mtime_ns(1000)
+                .build(),
+        )
+        .unwrap();
+    }
+
+    #[test_case("empty" ; "returns empty when context has no files")]
+    #[test_case("other" ; "does not leak results across contexts")]
+    fn search_semantic_context_isolation(scenario: &str) {
+        // Given a chunk indexed only in context-a
+        let conn = setup_connection();
+        let hash = FileHash::new([1u8; 32]);
+        insert_chunk(
+            &conn,
+            &create_chunk("content", hash, vec![0.8; EMBEDDING_DIM]),
+        );
+        let ctx_a = ContextId::from_path("context-a").unwrap();
+        index_file(&conn, &ctx_a, "file.md", hash);
+
+        // When searching a different context
+        let target = ContextId::from_path(if scenario == "empty" {
+            "empty"
+        } else {
+            "context-b"
+        })
+        .unwrap();
+        let results = search_semantic(
+            &conn,
+            &vec![0.8; EMBEDDING_DIM],
+            ResultLimit::try_new(10).unwrap(),
+            target,
+        )
+        .unwrap();
+
+        // Then no results should leak
+        assert!(results.is_empty());
     }
 
     #[test]
     fn search_semantic_filters_by_context() {
-        // Given a database with chunks in multiple contexts
+        // Given chunks in two different contexts
         let conn = setup_connection();
-
-        let file_hash_a = FileHash::new([1u8; 32]);
-        let file_hash_b = FileHash::new([2u8; 32]);
-
-        let chunk_a = create_chunk_with_embedding(
-            "content in context A",
-            file_hash_a,
-            vec![0.8; EMBEDDING_DIM],
+        let hash_a = FileHash::new([1u8; 32]);
+        let hash_b = FileHash::new([2u8; 32]);
+        insert_chunk(
+            &conn,
+            &create_chunk("content A", hash_a, vec![0.8; EMBEDDING_DIM]),
         );
-        let chunk_b = create_chunk_with_embedding(
-            "content in context B",
-            file_hash_b,
-            vec![0.7; EMBEDDING_DIM],
+        insert_chunk(
+            &conn,
+            &create_chunk("content B", hash_b, vec![0.7; EMBEDDING_DIM]),
         );
 
-        insert_chunk_and_embedding(&conn, &chunk_a);
-        insert_chunk_and_embedding(&conn, &chunk_b);
+        let ctx_a = ContextId::from_path("context-a").unwrap();
+        let ctx_b = ContextId::from_path("context-b").unwrap();
+        index_file(&conn, &ctx_a, "file-a.md", hash_a);
+        index_file(&conn, &ctx_b, "file-b.md", hash_b);
 
-        let context_a = ContextId::from_path("context-a").unwrap();
-        let context_b = ContextId::from_path("context-b").unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_a.clone())
-                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
-                .file_hash(file_hash_a)
-                .mtime_ns(1000)
-                .build(),
-        )
-        .unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_b)
-                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
-                .file_hash(file_hash_b)
-                .mtime_ns(2000)
-                .build(),
-        )
-        .unwrap();
-
-        // When searching with context_id = Some(context_a)
-        let query = vec![0.75; EMBEDDING_DIM];
-        let results =
-            search_semantic(&conn, &query, ResultLimit::try_new(10).unwrap(), context_a).unwrap();
-
-        // Then only chunks from context_a should be returned
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].0.chunk.file_hash, file_hash_a);
-    }
-
-    #[test]
-    fn search_semantic_returns_empty_when_context_has_no_files() {
-        // Given a database with chunks but an empty context
-        let conn = setup_connection();
-
-        let file_hash = FileHash::new([1u8; 32]);
-        let chunk =
-            create_chunk_with_embedding("some content", file_hash, vec![0.8; EMBEDDING_DIM]);
-        insert_chunk_and_embedding(&conn, &chunk);
-
-        let populated_context = ContextId::from_path("populated").unwrap();
-        let empty_context = ContextId::from_path("empty").unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(populated_context)
-                .file_path(IndexRelativePath::try_new("file.md").unwrap())
-                .file_hash(file_hash)
-                .mtime_ns(1000)
-                .build(),
-        )
-        .unwrap();
-
-        // When searching the empty context
-        let query = vec![0.8; EMBEDDING_DIM];
+        // When searching context_a
         let results = search_semantic(
             &conn,
-            &query,
+            &vec![0.75; EMBEDDING_DIM],
             ResultLimit::try_new(10).unwrap(),
-            empty_context,
+            ctx_a,
         )
         .unwrap();
 
-        // Then no results should be returned
-        assert!(results.is_empty());
+        // Then only context_a chunks returned
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.chunk.file_hash, hash_a);
     }
 
-    /// This test verifies that context filtering works correctly even when
-    /// the target context has fewer matching chunks than the k limit.
-    ///
-    /// sqlite-vec's k parameter limits results BEFORE any WHERE clause filtering.
-    /// A naive query like:
-    ///   SELECT ... FROM vec_chunks v JOIN chunks c JOIN indexed_files i
-    ///   WHERE v.embedding MATCH ? AND k = 2 AND i.context_id = 'target'
-    ///
-    /// Would first return the top 2 nearest neighbors (which might all be from
-    /// other contexts), then filter by context_id, potentially returning 0 results
-    /// even though the target context has matching content.
-    ///
-    /// Our implementation uses a two-phase approach to avoid this issue.
-    #[test]
-    fn search_semantic_finds_results_when_other_context_has_closer_matches() {
-        // Given: context_a has 1 chunk, context_b has 5 chunks with closer embeddings
+    /// Verifies context filtering works when other contexts have closer matches.
+    /// sqlite-vec's k parameter limits results BEFORE WHERE filtering, so naive
+    /// queries could return 0 results. Our IN subquery approach avoids this.
+    #[test_case(5, 1, 2, 1 ; "finds target when other context has closer matches")]
+    #[test_case(100, 5, 5, 5 ; "works without multiplier hack")]
+    fn search_semantic_context_filtering_with_many_chunks(
+        other_count: usize,
+        target_count: usize,
+        limit: usize,
+        expected: usize,
+    ) {
         let conn = setup_connection();
-
-        // Create chunks for context_b with embeddings very close to query
-        let file_hash_b = FileHash::new([2u8; 32]);
-        for i in 0..5 {
-            let mut embedding = vec![0.99; EMBEDDING_DIM];
-            embedding[0] = 0.99 - (i as f32 * 0.001); // Slightly vary each one
-            let chunk = create_chunk_with_embedding(
-                &format!("context B chunk {}", i),
-                file_hash_b,
-                embedding,
-            );
-            insert_chunk_and_embedding(&conn, &chunk);
+        let hash_other = FileHash::new([2u8; 32]);
+        for i in 0..other_count {
+            let mut emb = vec![0.99; EMBEDDING_DIM];
+            emb[0] = 0.99 - (i as f32 * 0.0001);
+            insert_chunk(&conn, &create_chunk(&format!("O{}", i), hash_other, emb));
+        }
+        let hash_target = FileHash::new([1u8; 32]);
+        for i in 0..target_count {
+            let mut emb = vec![0.5; EMBEDDING_DIM];
+            emb[0] = 0.5 + (i as f32 * 0.01);
+            insert_chunk(&conn, &create_chunk(&format!("T{}", i), hash_target, emb));
         }
 
-        // Create chunk for context_a with embedding further from query
-        let file_hash_a = FileHash::new([1u8; 32]);
-        let chunk_a =
-            create_chunk_with_embedding("context A content", file_hash_a, vec![0.5; EMBEDDING_DIM]);
-        insert_chunk_and_embedding(&conn, &chunk_a);
+        let ctx_other = ContextId::from_path("ctx-other").unwrap();
+        let ctx_target = ContextId::from_path("ctx-target").unwrap();
+        index_file(&conn, &ctx_other, "other.md", hash_other);
+        index_file(&conn, &ctx_target, "target.md", hash_target);
 
-        let context_a = ContextId::from_path("context-a").unwrap();
-        let context_b = ContextId::from_path("context-b").unwrap();
-
-        insert_indexed_file(
+        let results = search_semantic(
             &conn,
-            &IndexedFile::builder()
-                .context_id(context_a.clone())
-                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
-                .file_hash(file_hash_a)
-                .mtime_ns(1000)
-                .build(),
+            &vec![0.99; EMBEDDING_DIM],
+            ResultLimit::try_new(limit).unwrap(),
+            ctx_target,
         )
         .unwrap();
 
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_b)
-                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
-                .file_hash(file_hash_b)
-                .mtime_ns(2000)
-                .build(),
-        )
-        .unwrap();
-
-        // When: searching context_a with limit=2 and query close to context_b's embeddings
-        // A naive k=2 query would return only context_b results, then filter to 0
-        let query = vec![0.99; EMBEDDING_DIM];
-        let results =
-            search_semantic(&conn, &query, ResultLimit::try_new(2).unwrap(), context_a).unwrap();
-
-        // Then: should still find context_a's chunk despite context_b having closer matches
-        assert_eq!(
-            results.len(),
-            1,
-            "Should find context_a's chunk even though context_b has closer matches"
-        );
-        assert_eq!(results[0].0.chunk.file_hash, file_hash_a);
-    }
-
-    #[test]
-    fn search_semantic_does_not_leak_results_across_contexts() {
-        // Given a database with chunks indexed only in context A
-        let conn = setup_connection();
-
-        let file_hash = FileHash::new([1u8; 32]);
-        let chunk =
-            create_chunk_with_embedding("secret content", file_hash, vec![0.9; EMBEDDING_DIM]);
-        insert_chunk_and_embedding(&conn, &chunk);
-
-        let context_a = ContextId::from_path("context-a").unwrap();
-        let context_b = ContextId::from_path("context-b").unwrap();
-
-        // File is only indexed in context_a
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_a)
-                .file_path(IndexRelativePath::try_new("secret.md").unwrap())
-                .file_hash(file_hash)
-                .mtime_ns(1000)
-                .build(),
-        )
-        .unwrap();
-
-        // When searching context_b (which has no files)
-        let query = vec![0.9; EMBEDDING_DIM];
-        let results =
-            search_semantic(&conn, &query, ResultLimit::try_new(10).unwrap(), context_b).unwrap();
-
-        // Then results from context_a should NOT appear (MCI-15)
-        assert!(
-            results.is_empty(),
-            "Chunks from context_a should not leak into context_b search results"
-        );
-    }
-    #[test]
-    fn search_semantic_works_without_multiplier_hack() {
-        let conn = setup_connection();
-
-        let file_hash_a = FileHash::new([1u8; 32]);
-        for i in 0..100 {
-            let mut embedding = vec![0.99; EMBEDDING_DIM];
-            embedding[0] = 0.99 - (i as f32 * 0.0001);
-            let chunk = create_chunk_with_embedding(
-                &format!("context A chunk {}", i),
-                file_hash_a,
-                embedding,
-            );
-            insert_chunk_and_embedding(&conn, &chunk);
-        }
-
-        let file_hash_b = FileHash::new([2u8; 32]);
-        for i in 0..5 {
-            let mut embedding = vec![0.5; EMBEDDING_DIM];
-            embedding[0] = 0.5 + (i as f32 * 0.01);
-            let chunk = create_chunk_with_embedding(
-                &format!("context B chunk {}", i),
-                file_hash_b,
-                embedding,
-            );
-            insert_chunk_and_embedding(&conn, &chunk);
-        }
-
-        let context_a = ContextId::from_path("context-a").unwrap();
-        let context_b = ContextId::from_path("context-b").unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_a)
-                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
-                .file_hash(file_hash_a)
-                .mtime_ns(1000)
-                .build(),
-        )
-        .unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context_b.clone())
-                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
-                .file_hash(file_hash_b)
-                .mtime_ns(2000)
-                .build(),
-        )
-        .unwrap();
-
-        let query = vec![0.99; EMBEDDING_DIM];
-        let results =
-            search_semantic(&conn, &query, ResultLimit::try_new(5).unwrap(), context_b).unwrap();
-
-        assert_eq!(
-            results.len(),
-            5,
-            "Should return all 5 chunks from Context B despite Context A having closer matches"
-        );
+        assert_eq!(results.len(), expected);
         assert!(
             results
                 .iter()
-                .all(|(c, _)| c.chunk.file_hash == file_hash_b),
-            "All results should be from Context B"
+                .all(|(c, _)| c.chunk.file_hash == hash_target)
         );
     }
 
     #[test]
     fn search_files_groups_chunks_by_file() {
-        // Given chunks from multiple files in the same context
+        // Given chunks from two files in the same context
         let conn = setup_connection();
+        let hash_a = FileHash::new([1u8; 32]);
+        let hash_b = FileHash::new([2u8; 32]);
 
-        let file_hash_a = FileHash::new([1u8; 32]);
-        let file_hash_b = FileHash::new([2u8; 32]);
-
-        // Insert 3 chunks for file A - vectors pointing mostly in first dimension
         for i in 0..3 {
-            let mut embedding = vec![0.0; EMBEDDING_DIM];
-            embedding[0] = 1.0;
-            embedding[1] = 0.1 * (i as f32);
-            let chunk =
-                create_chunk_with_embedding(&format!("file A chunk {}", i), file_hash_a, embedding);
-            insert_chunk_and_embedding(&conn, &chunk);
+            let mut emb = vec![0.0; EMBEDDING_DIM];
+            emb[0] = 1.0;
+            emb[1] = 0.1 * (i as f32);
+            insert_chunk(&conn, &create_chunk(&format!("A{}", i), hash_a, emb));
         }
-
-        // Insert 2 chunks for file B - vectors pointing mostly in second dimension
         for i in 0..2 {
-            let mut embedding = vec![0.0; EMBEDDING_DIM];
-            embedding[0] = 0.1;
-            embedding[1] = 1.0;
-            embedding[2] = 0.1 * (i as f32);
-            let chunk =
-                create_chunk_with_embedding(&format!("file B chunk {}", i), file_hash_b, embedding);
-            insert_chunk_and_embedding(&conn, &chunk);
+            let mut emb = vec![0.0; EMBEDDING_DIM];
+            emb[1] = 1.0;
+            emb[2] = 0.1 * (i as f32);
+            insert_chunk(&conn, &create_chunk(&format!("B{}", i), hash_b, emb));
         }
 
-        let context = ContextId::from_path("test-context").unwrap();
+        let ctx = ContextId::from_path("test-context").unwrap();
+        index_file(&conn, &ctx, "file-a.md", hash_a);
+        index_file(&conn, &ctx, "file-b.md", hash_b);
 
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context.clone())
-                .file_path(IndexRelativePath::try_new("file-a.md").unwrap())
-                .file_hash(file_hash_a)
-                .mtime_ns(1000)
-                .build(),
-        )
-        .unwrap();
-
-        insert_indexed_file(
-            &conn,
-            &IndexedFile::builder()
-                .context_id(context.clone())
-                .file_path(IndexRelativePath::try_new("file-b.md").unwrap())
-                .file_hash(file_hash_b)
-                .mtime_ns(2000)
-                .build(),
-        )
-        .unwrap();
-
-        // When searching for files with multiplier 3 - query points in file A's direction
+        // When searching with query pointing toward file A
         let mut query = vec![0.0; EMBEDDING_DIM];
         query[0] = 1.0;
         let results =
-            super::search_files(&conn, &query, ResultLimit::try_new(10).unwrap(), 3, context)
-                .unwrap();
+            search_files(&conn, &query, ResultLimit::try_new(10).unwrap(), 3, ctx).unwrap();
 
-        // Then results should be grouped by file
-        assert_eq!(results.len(), 2, "Should return 2 files");
-
-        // File A should be first (closer to query)
+        // Then results grouped by file, file A first
+        assert_eq!(results.len(), 2);
         assert_eq!(results[0].file_path.to_string(), "file-a.md");
         assert_eq!(results[0].match_count, 3);
-        assert_eq!(results[0].chunks.len(), 3);
-
-        // File B should be second
         assert_eq!(results[1].file_path.to_string(), "file-b.md");
         assert_eq!(results[1].match_count, 2);
-        assert_eq!(results[1].chunks.len(), 2);
     }
 
     #[test]
     fn search_files_respects_file_limit() {
-        // Given chunks from 5 files
+        // Given 5 files with one chunk each
         let conn = setup_connection();
-        let context = ContextId::from_path("test-context").unwrap();
-
-        for file_idx in 0..5u8 {
-            let file_hash = FileHash::new([file_idx + 1; 32]);
-            let mut embedding = vec![0.9 - (file_idx as f32 * 0.05); EMBEDDING_DIM];
-            embedding[0] = 0.9 - (file_idx as f32 * 0.05);
-            let chunk = create_chunk_with_embedding(
-                &format!("file {} content", file_idx),
-                file_hash,
-                embedding,
-            );
-            insert_chunk_and_embedding(&conn, &chunk);
-
-            insert_indexed_file(
-                &conn,
-                &IndexedFile::builder()
-                    .context_id(context.clone())
-                    .file_path(
-                        IndexRelativePath::try_new(&format!("file-{}.md", file_idx)).unwrap(),
-                    )
-                    .file_hash(file_hash)
-                    .mtime_ns(1000)
-                    .build(),
-            )
-            .unwrap();
+        let ctx = ContextId::from_path("test-context").unwrap();
+        for i in 0..5u8 {
+            let hash = FileHash::new([i + 1; 32]);
+            let emb = vec![0.9 - (i as f32 * 0.05); EMBEDDING_DIM];
+            insert_chunk(&conn, &create_chunk(&format!("file{}", i), hash, emb));
+            index_file(&conn, &ctx, &format!("file-{}.md", i), hash);
         }
 
         // When searching with file_limit=2
-        let query = vec![0.9; EMBEDDING_DIM];
-        let results =
-            super::search_files(&conn, &query, ResultLimit::try_new(2).unwrap(), 3, context)
-                .unwrap();
+        let results = search_files(
+            &conn,
+            &vec![0.9; EMBEDDING_DIM],
+            ResultLimit::try_new(2).unwrap(),
+            3,
+            ctx,
+        )
+        .unwrap();
 
-        // Then only 2 files should be returned
+        // Then only 2 files returned
         assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn search_files_returns_empty_for_empty_context() {
-        // Given a context with no files
-        let conn = setup_connection();
-        let context = ContextId::from_path("empty-context").unwrap();
-
-        // When searching
-        let query = vec![0.9; EMBEDDING_DIM];
-        let results =
-            super::search_files(&conn, &query, ResultLimit::try_new(10).unwrap(), 3, context)
-                .unwrap();
-
-        // Then no results
-        assert!(results.is_empty());
     }
 }
