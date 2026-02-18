@@ -43,6 +43,11 @@ impl<'a> SeedOperation<'a> {
 
         self.emitter.emit(&ForesterEvent::SeedStarted);
 
+        let pre_ctx = self.hook_context(Trigger::PreSeed);
+        self.hooks
+            .run_hooks(Trigger::PreSeed, &pre_ctx)
+            .context(HookSnafu)?;
+
         let bare_dir = self.forest_root.bare_dir();
         std::fs::create_dir_all(&bare_dir).context(CreateDirSnafu { path: &bare_dir })?;
 
@@ -50,9 +55,9 @@ impl<'a> SeedOperation<'a> {
             self.clone_member(member)?;
         }
 
-        let ctx = self.hook_context();
+        let post_ctx = self.hook_context(Trigger::PostSeed);
         self.hooks
-            .run_hooks(Trigger::PostSeed, &ctx)
+            .run_hooks(Trigger::PostSeed, &post_ctx)
             .context(HookSnafu)?;
 
         self.emitter.emit(&ForesterEvent::SeedCompleted);
@@ -85,10 +90,10 @@ impl<'a> SeedOperation<'a> {
         Ok(())
     }
 
-    fn hook_context(&self) -> HookContext {
+    fn hook_context(&self, trigger: Trigger) -> HookContext {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
-            .trigger(Trigger::PostSeed)
+            .trigger(trigger)
             .emitter(Arc::clone(&self.emitter))
             .verbose(self.verbose)
             .build()

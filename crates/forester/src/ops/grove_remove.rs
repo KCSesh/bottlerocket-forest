@@ -49,11 +49,16 @@ impl<'a> GroveRemoveOperation<'a> {
             name: name.to_string(),
         });
 
+        let pre_ctx = self.hook_context(name, &grove_path, Trigger::PreGroveRemove);
+        self.hooks
+            .run_hooks(Trigger::PreGroveRemove, &pre_ctx)
+            .context(HookSnafu)?;
+
         std::fs::remove_dir_all(&grove_path).context(RemoveDirSnafu { path: &grove_path })?;
 
-        let ctx = self.hook_context(name, &grove_path);
+        let post_ctx = self.hook_context(name, &grove_path, Trigger::PostGroveRemove);
         self.hooks
-            .run_hooks(Trigger::PostGroveRemove, &ctx)
+            .run_hooks(Trigger::PostGroveRemove, &post_ctx)
             .context(HookSnafu)?;
 
         self.emitter.emit(&ForesterEvent::GroveRemoved {
@@ -62,10 +67,10 @@ impl<'a> GroveRemoveOperation<'a> {
         Ok(())
     }
 
-    fn hook_context(&self, name: &GroveName, path: &Path) -> HookContext {
+    fn hook_context(&self, name: &GroveName, path: &Path, trigger: Trigger) -> HookContext {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
-            .trigger(Trigger::PostGroveRemove)
+            .trigger(trigger)
             .emitter(Arc::clone(&self.emitter))
             .grove_name(name.to_string())
             .grove_path(path.to_path_buf())

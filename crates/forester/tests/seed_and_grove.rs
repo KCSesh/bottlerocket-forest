@@ -8,6 +8,32 @@ mod common;
 use common::{create_bare_repo, forester_grove, forester_seed, temp_forest};
 use std::fs;
 
+/// Hook config entries for forester.toml that touch marker files.
+fn hook_toml_entries() -> String {
+    let triggers = [
+        "pre-seed",
+        "post-seed",
+        "pre-grove-create",
+        "post-grove-create",
+        "pre-grove-remove",
+        "post-grove-remove",
+    ];
+    triggers
+        .iter()
+        .map(|t| {
+            format!(
+                r#"
+[[hook]]
+name = "exec"
+triggers = ["{t}"]
+path = "/bin/sh"
+args = ["-c", "touch $FOREST_ROOT/.{t}-ran"]
+"#
+            )
+        })
+        .collect::<String>()
+}
+
 fn setup_forest_with_local_repos() -> tempfile::TempDir {
     let temp = temp_forest();
 
@@ -38,6 +64,7 @@ default_branch = "main"
         repo_a.display(),
         repo_b.display()
     );
+    let forester_toml = format!("{}{}", forester_toml, hook_toml_entries());
     fs::write(temp.path().join("forester.toml"), forester_toml).unwrap();
 
     // Create crumbly.toml
@@ -60,6 +87,16 @@ fn seed_clones_bare_repos() {
     // And: Bare repos are created
     assert!(temp.path().join(".forest/bare/repo-a.git").exists());
     assert!(temp.path().join(".forest/bare/repo-b.git").exists());
+
+    // And: Pre and post seed hooks ran
+    assert!(
+        temp.path().join(".pre-seed-ran").exists(),
+        "pre-seed hook did not run"
+    );
+    assert!(
+        temp.path().join(".post-seed-ran").exists(),
+        "post-seed hook did not run"
+    );
 }
 
 #[test]
@@ -117,6 +154,16 @@ fn grove_create_makes_new_grove() {
     assert!(temp.path().join("groves/feature-x").exists());
     assert!(temp.path().join("groves/feature-x/repo-a").exists());
     assert!(temp.path().join("groves/feature-x/nested/repo-b").exists());
+
+    // And: Pre and post grove-create hooks ran
+    assert!(
+        temp.path().join(".pre-grove-create-ran").exists(),
+        "pre-grove-create hook did not run"
+    );
+    assert!(
+        temp.path().join(".post-grove-create-ran").exists(),
+        "post-grove-create hook did not run"
+    );
 }
 
 #[test]
@@ -155,6 +202,16 @@ fn grove_remove_deletes_grove() {
 
     // And: Other grove still exists
     assert!(temp.path().join("groves/feature-y").exists());
+
+    // And: Pre and post grove-remove hooks ran
+    assert!(
+        temp.path().join(".pre-grove-remove-ran").exists(),
+        "pre-grove-remove hook did not run"
+    );
+    assert!(
+        temp.path().join(".post-grove-remove-ran").exists(),
+        "post-grove-remove hook did not run"
+    );
 }
 
 #[test]
@@ -183,9 +240,10 @@ fn no_repos_at_forest_root() {
                 ".forest",
                 ".crumbly",
                 "groves",
-                "repos"
+                "repos",
             ]
-            .contains(&entry.as_str()),
+            .contains(&entry.as_str())
+                || entry.starts_with('.') && entry.ends_with("-ran"),
             "Unexpected entry at forest root: {}",
             entry
         );

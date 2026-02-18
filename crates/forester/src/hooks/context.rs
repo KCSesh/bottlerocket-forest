@@ -35,6 +35,10 @@ impl HookContext {
     }
 
     /// Returns environment variables for hook execution.
+    ///
+    /// `GROVE_PATH` may not exist on disk depending on the trigger:
+    /// `PreGroveCreate` runs before the grove is created,
+    /// `PostGroveRemove` runs after the grove is deleted.
     pub fn env_vars(&self) -> Vec<(&'static str, String)> {
         let mut vars = vec![
             ("FOREST_ROOT", self.forest_root.path().display().to_string()),
