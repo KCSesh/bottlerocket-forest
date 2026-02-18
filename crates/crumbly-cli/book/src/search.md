@@ -1,6 +1,7 @@
 # Search
 
-This is where crumbly pays off. After building your index, you can find relevant documentation instantly—even when you don't know the exact words to search for.
+This is where crumbly pays off.
+After building your index, you can find relevant documentation instantly—even when you don't know the exact words to search for.
 
 ## Basic Search
 
@@ -14,7 +15,8 @@ Crumbly returns the most relevant chunks from your documentation, ranked by simi
 
 ## Semantic Search, Not Keywords
 
-Unlike grep or traditional search, crumbly understands *meaning*. It finds content that's conceptually similar to your query, even when the exact words don't match.
+Unlike grep or traditional search, crumbly understands *meaning*.
+It finds content that's conceptually similar to your query, even when the exact words don't match.
 
 For example, searching for:
 
@@ -29,15 +31,18 @@ crumbly search "how to set up authentication"
 
 None of these contain the word "authentication," but they're all semantically related.
 
-This works because crumbly converts both your query and the indexed content into numerical vectors that capture meaning. Similar concepts end up close together in this vector space, regardless of the specific words used.
+Crumbly converts both your query and the indexed content into numerical vectors that capture meaning.
+Similar concepts end up close together in this vector space, regardless of the specific words used.
+You don't need to understand vector math to use crumbly effectively.
 
 ## Limiting Results
 
-By default, crumbly returns the top 10 results. Adjust this with `--limit`:
+By default, crumbly returns the top 20 results.
+Adjust this with `--limit`:
 
 ```bash
 # Get more results
-crumbly search "error handling" --limit 20
+crumbly search "error handling" --limit 50
 
 # Get just the top match
 crumbly search "main entry point" --limit 1
@@ -45,7 +50,8 @@ crumbly search "main entry point" --limit 1
 
 ## Boost Rules
 
-Not all documentation is equally important. Boost rules let you prioritize certain files or patterns in search results.
+Not all documentation is equally important.
+Boost rules let you prioritize certain files or patterns in search results.
 
 A boost rule has two parts:
 - **pattern**: A glob pattern matching file paths
@@ -53,21 +59,22 @@ A boost rule has two parts:
 
 Multipliers work like this:
 - `> 1.0` — Boost matching files higher in results
-- `< 1.0` — Push matching files lower in results  
+- `< 1.0` — Push matching files lower in results
 - `= 1.0` — No effect (default)
 
 ### Default Boost Rules
 
 Crumbly ships with sensible defaults:
 
-```
-+----------+------------+----------------------------------+
-| Pattern  | Multiplier | Effect                           |
-+----------+------------+----------------------------------+
-| README*  | 1.2        | READMEs rank slightly higher     |
-| docs/**  | 1.2        | Documentation folders prioritized|
-| CHANGELOG| 0.8        | Changelogs rank slightly lower   |
-+----------+------------+----------------------------------+
+```text
++----------------+------------+----------------------------------+
+| Pattern        | Multiplier | Effect                           |
++----------------+------------+----------------------------------+
+| **/README.md   | 1.2        | READMEs rank higher              |
+| **/docs/**     | 1.2        | Documentation folders prioritized|
+| **/CHANGELOG.md| 0.8        | Changelogs rank lower            |
+| **/*.md        | 1.1        | Markdown files get slight boost  |
++----------------+------------+----------------------------------+
 ```
 
 These defaults assume you usually want conceptual documentation over release notes.
@@ -98,17 +105,18 @@ pattern = "**/testdata/**"
 multiplier = 0.3
 ```
 
-Boost rules are evaluated in order. If multiple patterns match a file, all multipliers are applied.
+Boost rules are evaluated in order.
+The first matching rule wins—subsequent rules are ignored for that file.
 
 ### Boost Rule Patterns
 
 Patterns use glob syntax:
 
 | Pattern | Matches |
-|---------|--------|
-| `README*` | README, README.md, README.txt |
-| `docs/**` | Everything under docs/ recursively |
-| `*.md` | All markdown files |
+|---------|---------|
+| `**/README.md` | README.md in any directory |
+| `**/docs/**` | Everything under any docs/ recursively |
+| `**/*.md` | All markdown files |
 | `**/api/**` | Any path containing /api/ |
 | `src/lib.rs` | Exact file match |
 
@@ -190,4 +198,8 @@ multiplier = 0.2
 
 4. **Use boost rules strategically** — if you keep finding irrelevant results from certain directories, de-prioritize them
 
-5. **Start broad, then narrow** — use `--limit 20` to see more context, then refine your query
+5. **Start broad, then narrow** — use `--limit 50` to see more context, then refine your query
+
+## What's Next
+
+Now that you understand how to search your index, see [Configuration](configuration.md) for the full reference on customizing crumbly's behavior.
