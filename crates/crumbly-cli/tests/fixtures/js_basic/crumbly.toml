@@ -1,0 +1,3 @@
+targets = ["."]
+
+[file-types.javascript]
