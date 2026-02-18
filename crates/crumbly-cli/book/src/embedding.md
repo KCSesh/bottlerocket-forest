@@ -8,7 +8,7 @@ It's the step that lets crumbly understand what your documentation *means*, not 
 At its core, embedding converts text into a list of numbers called a *vector*.
 Think of it like giving each chunk of text a unique fingerprint that captures its meaning.
 
-```
+```text
 "How to configure logging"  →  [0.12, -0.34, 0.56, ...]
 "Setting up log output"     →  [0.11, -0.33, 0.55, ...]
 "Unrelated topic"           →  [0.89, 0.12, -0.67, ...]
@@ -29,7 +29,7 @@ Traditional keyword search fails when you use different words than the documenta
 Because embeddings capture *meaning*, similar concepts end up near each other in vector space.
 When you search, crumbly embeds your query and finds chunks with similar vectors—regardless of exact wording.
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │           Vector Space                  │
 │                                         │
@@ -45,9 +45,11 @@ When you search, crumbly embeds your query and finds chunks with similar vectors
 Similar meanings cluster together.
 ```
 
-## The Model
+## The Embedding Model
 
-Crumbly uses `all-MiniLM-L6-v2`, a compact embedding model that runs locally.
+You don't need to understand the model details to use crumbly effectively.
+
+Crumbly uses `sentence-transformers/all-MiniLM-L6-v2`, a compact embedding model that runs locally.
 It produces 384-dimensional vectors—enough to capture nuanced meaning while staying fast.
 
 You don't need an API key or internet connection.
@@ -65,8 +67,12 @@ When you run `crumbly build`, it automatically:
 The embedding step is invisible—it just works.
 Your only interaction is running `build` and `search`.
 
-## Content-Addressed Storage
+## Efficient Storage
 
-Crumbly is smart about duplicate content.
-If two files contain identical text, they share the same embedding.
-This saves storage and speeds up indexing when content hasn't changed.
+Crumbly caches embedding models to avoid redundant downloads.
+Once downloaded, the model is reused across builds.
+
+## What's Next
+
+Now that chunks have been converted to vectors, they need somewhere to live.
+The next chapter covers how crumbly stores these vectors for fast retrieval.
