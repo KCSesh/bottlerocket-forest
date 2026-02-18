@@ -18,11 +18,15 @@ Crumbly uses different chunking strategies depending on file type:
      .md files     ──▶   MarkdownChunker    ──▶   Heading sections
      .rs files     ──▶   RustDocChunker     ──▶   Doc comments
      .go files     ──▶   GoDocChunker       ──▶   Doc comments
+     .java files   ──▶   JavaDocChunker     ──▶   Doc comments
+     .c/.h files   ──▶   CDocChunker        ──▶   Doc comments
+     .sh files     ──▶   ShellChunker       ──▶   Doc comments
+     .js files     ──▶   JsDocChunker       ──▶   Doc comments
 ```
 
 ## Markdown Chunking
 
-Markdown files are split by heading structure.
+Crumbly splits markdown files by heading structure.
 Each heading starts a new chunk that includes all content until the next heading of equal or higher level.
 
 Consider this document:
@@ -75,12 +79,15 @@ pub fn validate(input: &str, schema: &Schema) -> Result<()> {
 }
 ```
 
-The doc comment becomes a searchable chunk, tagged with the item name (`validate`) and type (`function`).
+Crumbly extracts the doc comment as a searchable chunk, tagged with the item name (`validate`) and type (`function`).
 The function body is not indexed—only the documentation.
 
 ### Filtering Rust Chunks
 
-You often want to index only public APIs or skip trivial items:
+Not all documented items are equally useful for search.
+You might want to focus on public APIs and skip internal helpers, or filter out trivial one-liner comments that add noise to results.
+
+Crumbly lets you control what gets indexed:
 
 ```toml
 [file-types.rust]
@@ -89,16 +96,20 @@ items = ["function", "struct", "trait", "enum", "module"]
 min-doc-lines = 2
 ```
 
-**visibility** — Which items to index based on visibility: `public`, `private`, `crate`, `restricted`. Default: all.
+**visibility** — Which items to index based on visibility: `public`, `private`, `crate`, `restricted`.
+Default: all.
 
-**items** — Which item types to index: `function`, `struct`, `trait`, `enum`, `module`, `const`, `static`, `type`. Default: all.
+**items** — Which item types to index: `function`, `struct`, `trait`, `enum`, `module`, `const`, `static`, `type`.
+Default: all.
 
-**min-doc-lines** — Skip items with fewer than N lines of documentation. Filters out trivial one-liner comments. Default: `1`.
+**min-doc-lines** — Skip items with fewer than N lines of documentation.
+Filters out trivial one-liner comments.
+Default: `1`.
 
 ## Go Doc Comments
 
-Go files work similarly.
-Doc comments preceding functions, types, and packages are extracted:
+Go uses a similar doc comment convention, so crumbly applies the same extraction approach.
+Doc comments preceding functions, types, and packages become searchable chunks:
 
 ```go
 // ParseConfig reads a configuration file and returns
@@ -122,11 +133,14 @@ items = ["function", "type", "package"]
 min-doc-lines = 2
 ```
 
-**visibility** — `exported` (capitalized names) or `unexported`. Default: all.
+**visibility** — `exported` (capitalized names) or `unexported`.
+Default: all.
 
-**items** — `function`, `type`, `package`, `const`, `var`. Default: all.
+**items** — `function`, `type`, `package`, `const`, `var`.
+Default: all.
 
-**min-doc-lines** — Same as Rust. Default: `1`.
+**min-doc-lines** — Same as Rust.
+Default: `1`.
 
 ## Enabling File Types
 
@@ -134,7 +148,7 @@ By default, crumbly only indexes markdown files.
 Enable additional file types in your `crumbly.toml`:
 
 ```toml
-enabled-file-types = ["markdown", "rust", "go"]
+enabled-file-types = ["markdown", "rust", "go", "java", "c", "shell", "javascript"]
 ```
 
 ## Chunk Size Controls
@@ -142,12 +156,17 @@ enabled-file-types = ["markdown", "rust", "go"]
 Two settings control how large chunks can be:
 
 ```toml
-max-tokens = 512
+max-tokens = 256
 ```
 
 **max-tokens** sets the maximum size of a chunk in tokens.
 This limit exists because the embedding model has a maximum input length—chunks exceeding it cannot be embedded.
-If a markdown section exceeds this limit, it's split into multiple chunks.
+If a markdown section exceeds this limit, crumbly splits it into multiple chunks.
 
-The default is tuned for the built-in embedding model.
+The default (256) is tuned for the built-in embedding model.
 You typically don't need to change it unless you're using a different model with a different context window.
+
+## What's Next
+
+Chunking produces bite-sized pieces of your documentation.
+The next step is [Embedding](embedding.md), where crumbly converts those chunks into vectors that capture their semantic meaning.
