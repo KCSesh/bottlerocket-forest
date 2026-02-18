@@ -1,0 +1,4 @@
+targets = ["."]
+
+[file-types.typescript]
+visibility = ["public"]
