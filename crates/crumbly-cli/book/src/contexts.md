@@ -27,14 +27,14 @@ Crumbly uses content-addressable storage internally.
 Identical content is stored only once, regardless of how many contexts contain it.
 
 This design shines when you work with git worktrees.
-Many developers have found that AI agents work well with worktrees—each task gets its own working directory without branch switching overhead.
-When you add a worktree as a new context, crumbly indexes it almost instantly because most of the content already exists in the index from other contexts.
+Most files are identical across worktrees, so adding a new worktree as a context indexes almost instantly—only the files that differ need new embeddings computed.
 
-Only the files that differ between worktrees need new embeddings computed.
+Many developers have found that AI agents work well with worktrees.
+Each task gets its own working directory without branch switching overhead.
 
 ## Creating a Context
 
-Create a new context with `build`:
+Build a context:
 
 ```bash
 crumbly build --context ./main
@@ -42,7 +42,7 @@ crumbly build --context ./main
 
 The context name is derived from the path.
 
-To update an existing context after files change, use `update`:
+Update an existing context after files change:
 
 ```bash
 crumbly update --context ./main
@@ -71,8 +71,8 @@ The second build completes quickly because crumbly recognizes that most chunks a
 
 ## Searching
 
-Crumbly automatically discovers which context you're in.
-When you run a search, it looks for a `.crumbly` index in parent directories, then determines if your current working directory falls within any indexed context.
+Crumbly automatically discovers which context you're in by walking up the directory tree to find a `.crumbly` index.
+It then determines if your current working directory falls within any indexed context.
 
 ```bash
 cd feature-x
@@ -92,7 +92,11 @@ crumbly search --context ./main "authentication"
 See what contexts exist:
 
 ```bash
-crumbly status
+crumbly context list
 ```
 
 This shows each context with its chunk count and last update time.
+
+## What's Next
+
+The [Pipeline Overview](pipeline-overview.md) explains how crumbly transforms your documents into searchable chunks.
