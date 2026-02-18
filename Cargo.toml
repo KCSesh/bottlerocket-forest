@@ -33,9 +33,10 @@ bon = "3"
 nutype = { version = "0.5", features = ["serde"] }
 
 # Embeddings and ML
+gemm = { version = "0.19", default-features = false, features = ["std", "rayon"] }
 candle-core = { version = "0.9", default-features = false }
-candle-nn = "0.9"
-candle-transformers = "0.9"
+candle-nn = { version = "0.9", default-features = false }
+candle-transformers = { version = "0.9", default-features = false }
 hf-hub = { version = "0.4", default-features = false, features = ["tokio", "rustls-tls"] }
 tokenizers = { version = "0.22", features = ["http", "rustls-tls"] }
 
@@ -109,3 +110,12 @@ expect_used = "deny"
 
 [workspace.lints.rust]
 missing_docs = "deny"
+
+[patch.crates-io]
+gemm = { path = "/tmp/gemm-patch/gemm" }
+gemm-common = { path = "/tmp/gemm-patch/gemm-common" }
+gemm-f16 = { path = "/tmp/gemm-patch/gemm-f16" }
+gemm-f32 = { path = "/tmp/gemm-patch/gemm-f32" }
+gemm-f64 = { path = "/tmp/gemm-patch/gemm-f64" }
+gemm-c32 = { path = "/tmp/gemm-patch/gemm-c32" }
+gemm-c64 = { path = "/tmp/gemm-patch/gemm-c64" }
