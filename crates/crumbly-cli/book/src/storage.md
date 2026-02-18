@@ -10,7 +10,7 @@ When you run `crumbly build`, crumbly creates a `.crumbly` directory to store th
 ```
 your-project/
 ├── .crumbly/
-│   └── index.db    # SQLite database with all indexed content
+│   └── knowledge.db    # SQLite database with all indexed content
 ├── src/
 ├── docs/
 └── crumbly.toml
@@ -31,11 +31,13 @@ Add `.crumbly/` to your `.gitignore`—the index is derived from your source fil
 
 ## Content Addressing
 
-Crumbly uses content-addressing to avoid redundant work.
+Re-embedding unchanged content wastes time and compute.
+Crumbly uses content-addressing to avoid this redundant work.
+
 When you index a file, crumbly computes a hash of each chunk's content.
 If identical content already exists in the database, crumbly reuses the existing embedding.
 
-This means:
+The result:
 
 - Re-indexing unchanged files is fast (no re-embedding needed)
 - Duplicate content across files shares storage
@@ -43,7 +45,7 @@ This means:
 
 ## Contexts
 
-A "context" is simply a directory containing a `.crumbly` folder.
+A `context` is simply a directory containing a `.crumbly` folder.
 You can maintain separate indexes for different projects:
 
 ```bash
@@ -59,12 +61,12 @@ crumbly search --context ~/projects/frontend "component lifecycle"
 ```
 
 Each context has its own independent database.
-There's no cross-contamination between projects.
+Projects stay completely separate.
 
-## Cleanup with gc
+## Garbage Collection
 
-Over time, as files change or get deleted, the database may contain orphaned entries.
-The `gc` command cleans these up:
+Deleted files leave orphaned data behind.
+The `gc` command cleans this up:
 
 ```bash
 crumbly gc
@@ -74,9 +76,9 @@ This removes:
 
 - Chunks from files that no longer exist
 - Embeddings that are no longer referenced
-- Stale metadata
 
-Run `gc` periodically if you're working on a project with frequent file churn, or after major refactors.
+Run `gc` periodically if you're working on a project with frequent file churn.
+It's also useful after major refactors.
 
 ## Checking Index Status
 
@@ -87,3 +89,8 @@ crumbly status
 ```
 
 This shows the number of indexed files, chunks, and other statistics about your context.
+
+## What's Next
+
+With storage covered, you're ready to learn how crumbly finds relevant content.
+The [Search](search.md) chapter explains how queries match against your indexed chunks.
