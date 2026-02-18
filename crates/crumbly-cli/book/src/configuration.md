@@ -1,12 +1,13 @@
 # Configuration
 
-Crumbly uses a `crumbly.toml` file to control what gets indexed and how search results are ranked.
+As your project grows, you'll want to control what crumbly indexes and how results are ranked.
+Crumbly uses a `crumbly.toml` file for this.
 
 ## Where to Put Your Config
 
 Place `crumbly.toml` in the root of the directory you want to index:
 
-```
+```text
 my-project/
 ├── crumbly.toml    ← config goes here
 ├── docs/
@@ -45,7 +46,7 @@ multiplier = 1.3
 
 This indexes all markdown files, with READMEs and docs/ content ranked higher in results.
 
-## Common Configuration Tasks
+## Configuring Your Index
 
 ### Indexing Multiple Directories
 
@@ -101,13 +102,14 @@ pattern = "CHANGELOG.md"
 multiplier = 0.5    # Rank lower
 ```
 
-Patterns use glob syntax. A multiplier above 1.0 boosts; below 1.0 demotes.
+Patterns use glob syntax.
+A multiplier above 1.0 boosts; below 1.0 demotes.
 
 ### Excluding Files
 
 Create a `.crumblyignore` file (same syntax as `.gitignore`):
 
-```
+```text
 # .crumblyignore
 vendor/
 node_modules/
@@ -123,20 +125,23 @@ use-crumblyignore = false
 
 ## Tips for Tuning
 
-**Start simple.** Begin with just markdown files and add more file types as needed.
+**Start simple.**
+Begin with just markdown files and add more file types as needed.
 
-**Check your index.** Run `crumbly status` to see what got indexed:
+**Check your index.**
+Run `crumbly status` to see what got indexed:
 
 ```bash
 crumbly status
 # Shows: file counts, chunk counts, index size
 ```
 
-**Test your boosts.** Search for terms and see if the right docs surface first. Adjust multipliers accordingly.
+**Test your boosts.**
+Search for terms and see if the right docs surface first.
+Adjust multipliers accordingly.
 
-**Use targeted directories.** Instead of indexing everything from root, list specific directories in `targets` to keep your index focused.
-
----
+**Use targeted directories.**
+Instead of indexing everything from root, list specific directories in `targets` to keep your index focused.
 
 ## Configuration Reference
 
@@ -229,3 +234,8 @@ multiplier = 1.3
 pattern = "**/CHANGELOG.md"
 multiplier = 0.8
 ```
+
+## What's Next
+
+You now know how to customize crumbly's indexing behavior.
+For a deeper understanding of how crumbly processes your content, revisit the [Pipeline Overview](pipeline-overview.md).
