@@ -1,0 +1,4 @@
+targets = ["."]
+
+[file-types.c]
+items = ["function", "struct"]
