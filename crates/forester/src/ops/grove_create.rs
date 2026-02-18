@@ -58,6 +58,11 @@ impl<'a> GroveCreateOperation<'a> {
             });
         }
 
+        let pre_ctx = self.hook_context(name, &grove_path, Trigger::PreGroveCreate);
+        self.hooks
+            .run_hooks(Trigger::PreGroveCreate, &pre_ctx)
+            .context(HookSnafu)?;
+
         std::fs::create_dir_all(&grove_path).context(CreateDirSnafu { path: &grove_path })?;
         std::fs::create_dir_all(grove_root.marker_dir()).context(CreateDirSnafu {
             path: grove_root.marker_dir(),
@@ -80,9 +85,9 @@ gitdir: /dev/null
 
         self.create_symlinks(&grove_path, self.forest_root.path())?;
 
-        let ctx = self.hook_context(name, &grove_path);
+        let post_ctx = self.hook_context(name, &grove_path, Trigger::PostGroveCreate);
         self.hooks
-            .run_hooks(Trigger::PostGroveCreate, &ctx)
+            .run_hooks(Trigger::PostGroveCreate, &post_ctx)
             .context(HookSnafu)?;
 
         self.emitter.emit(&ForesterEvent::GroveCreated {
@@ -178,10 +183,10 @@ gitdir: /dev/null
         Ok(())
     }
 
-    fn hook_context(&self, name: &GroveName, path: &Path) -> HookContext {
+    fn hook_context(&self, name: &GroveName, path: &Path, trigger: Trigger) -> HookContext {
         HookContext::builder()
             .forest_root(self.forest_root.clone())
-            .trigger(Trigger::PostGroveCreate)
+            .trigger(trigger)
             .emitter(Arc::clone(&self.emitter))
             .grove_name(name.to_string())
             .grove_path(path.to_path_buf())
