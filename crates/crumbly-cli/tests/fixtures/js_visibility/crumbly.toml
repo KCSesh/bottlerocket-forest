@@ -1,3 +1,4 @@
+enabled-file-types = ["javascript"]
 targets = ["."]
 
 [file-types.javascript]
