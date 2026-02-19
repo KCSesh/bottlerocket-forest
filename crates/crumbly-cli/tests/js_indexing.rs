@@ -104,8 +104,7 @@ fn js_item_types_indexes_functions_and_classes() {
     );
 
     // When: Searching for class content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "plasma conduit routing");
+    let (code, stdout, _) = crumbly_search_with_chunks(workspace.path(), "plasma conduit routing");
 
     // Then: Class is found
     assert_eq!(code, 0, "Search failed");
@@ -125,8 +124,10 @@ fn js_item_types_excludes_variables() {
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for variable content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "warp field subspace distortion coefficient");
+    let (code, stdout, _) = crumbly_search_with_chunks(
+        workspace.path(),
+        "warp field subspace distortion coefficient",
+    );
 
     // Then: Variable should not be in results
     assert_eq!(code, 0, "Search failed");

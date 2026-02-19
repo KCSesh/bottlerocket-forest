@@ -21,8 +21,10 @@ fn shell_basic_indexes_and_searches() {
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for function content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "deploy application container orchestration");
+    let (code, stdout, _) = crumbly_search_with_chunks(
+        workspace.path(),
+        "deploy application container orchestration",
+    );
 
     // Then: Function is found
     assert_eq!(code, 0, "Search failed");
@@ -42,8 +44,10 @@ fn shell_basic_finds_standalone_comments() {
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for standalone comment content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "deployment strategy blue-green methodology");
+    let (code, stdout, _) = crumbly_search_with_chunks(
+        workspace.path(),
+        "deployment strategy blue-green methodology",
+    );
 
     // Then: Standalone comment is found
     assert_eq!(code, 0, "Search failed");
@@ -88,8 +92,10 @@ fn shell_item_types_excludes_standalone_comments() {
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for standalone comment content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "initialization procedures bootstrap sequence");
+    let (code, stdout, _) = crumbly_search_with_chunks(
+        workspace.path(),
+        "initialization procedures bootstrap sequence",
+    );
 
     // Then: Standalone comment should NOT be in results
     assert_eq!(code, 0, "Search failed");

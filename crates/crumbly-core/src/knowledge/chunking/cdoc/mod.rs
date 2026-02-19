@@ -135,6 +135,26 @@ impl CDocChunker {
         self.create_chunks(text, metadata, input)
     }
 
+    fn process_node_children(
+        &self,
+        node: tree_sitter::Node,
+        source_bytes: &[u8],
+        input: &ChunkingInput,
+        chunks: &mut Vec<Chunk>,
+    ) -> Result<(), ChunkingError> {
+        for child in node.children(&mut node.walk()) {
+            // Recursively process children of preprocessor blocks
+            if child.kind().starts_with("preproc_") {
+                self.process_node_children(child, source_bytes, input, chunks)?;
+                continue;
+            }
+            if let Some(item_type) = get_item_type(child.kind()) {
+                chunks.extend(self.process_declaration(child, source_bytes, item_type, input)?);
+            }
+        }
+        Ok(())
+    }
+
     fn create_chunks(
         &self,
         text: &str,
@@ -232,12 +252,8 @@ impl ChunkingStrategy for CDocChunker {
         let source_bytes = content.as_bytes();
         let mut chunks = Vec::new();
 
-        // Process declarations
-        for node in root.children(&mut root.walk()) {
-            if let Some(item_type) = get_item_type(node.kind()) {
-                chunks.extend(self.process_declaration(node, source_bytes, item_type, input)?);
-            }
-        }
+        // Process declarations (including those inside preprocessor blocks)
+        self.process_node_children(root, source_bytes, input, &mut chunks)?;
 
         // Process standalone comments
         for comment in find_standalone_comments(root, source_bytes) {
@@ -475,5 +491,46 @@ struct bar {};
             .deserialize_as()
             .expect("should be CDocContext");
         assert_eq!(ctx.item_type, CItemType::Struct);
+    }
+
+    #[test]
+    fn test_extracts_doc_after_preprocessor_directives() {
+        // Given C header with include guards before struct
+        let chunker = CDocChunker::from_config(&test_config()).unwrap();
+        let input = make_input(
+            r#"
+#ifndef ENGINE_H
+#define ENGINE_H
+
+/**
+ * Engine telemetry data structure.
+ *
+ * Contains rpm, temperature, and oil pressure readings.
+ */
+struct EngineTelemetry {
+    int rpm;
+};
+
+#endif
+"#,
+            "test.h",
+        );
+
+        // When chunking the source
+        let chunks = chunker.chunk(&input).unwrap();
+
+        // Then the struct doc is extracted despite preprocessor directives
+        assert!(
+            !chunks.is_empty(),
+            "Should extract struct doc from header with include guards"
+        );
+        let ctx: CDocContext = chunks[0]
+            .context
+            .deserialize_as()
+            .expect("should be CDocContext");
+        assert_eq!(
+            ctx.item_name.as_ref().map(|n| n.to_string()).as_deref(),
+            Some("EngineTelemetry")
+        );
     }
 }

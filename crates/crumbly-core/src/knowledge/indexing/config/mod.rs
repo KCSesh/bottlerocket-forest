@@ -45,11 +45,16 @@ impl CrumblyConfig {
         use crate::knowledge::chunking::LanguageConfig;
 
         // Map user-facing config names to context_type_names
-        let enabled_types: HashSet<String> = self
+        let mut enabled_types: HashSet<String> = self
             .enabled_file_types
             .iter()
             .map(|name| map_config_name_to_context_type(name))
             .collect();
+
+        // Explicit [file-types.X] config implicitly enables that language
+        for name in self.file_types.languages.keys() {
+            enabled_types.insert(map_config_name_to_context_type(name));
+        }
 
         // Build language configs from file_types config
         let mut language_configs = std::collections::HashMap::new();
@@ -57,9 +62,6 @@ impl CrumblyConfig {
         // Process each language config from the TOML
         for (name, value) in &self.file_types.languages {
             let context_type = map_config_name_to_context_type(name);
-            if !enabled_types.contains(&context_type) {
-                continue;
-            }
             let Ok(cfg) = LanguageConfig::from_toml(value) else {
                 continue;
             };

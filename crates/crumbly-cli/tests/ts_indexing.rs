@@ -88,8 +88,10 @@ fn ts_visibility_excludes_local_items() {
     assert_eq!(code, 0, "Build failed: {}", stderr);
 
     // When: Searching for local type alias content
-    let (code, stdout, _) =
-        crumbly_search_with_chunks(workspace.path(), "internal cache configuration memory eviction");
+    let (code, stdout, _) = crumbly_search_with_chunks(
+        workspace.path(),
+        "internal cache configuration memory eviction",
+    );
 
     // Then: Local type alias should not appear in results
     assert_eq!(code, 0, "Search failed");

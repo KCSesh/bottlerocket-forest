@@ -29,6 +29,11 @@ pub fn extract_doc_comment(node: Node, source: &[u8]) -> Option<String> {
     let mut cursor = node;
 
     while let Some(prev) = cursor.prev_sibling() {
+        // Skip preprocessor directives - they don't break doc comment association
+        if is_preprocessor_directive(prev.kind()) {
+            cursor = prev;
+            continue;
+        }
         if prev.kind() != node_kinds::COMMENT {
             break;
         }
@@ -52,6 +57,11 @@ pub fn extract_doc_comment(node: Node, source: &[u8]) -> Option<String> {
 
     comments.reverse();
     Some(comments.join("\n"))
+}
+
+/// Checks if a node kind is a preprocessor directive.
+fn is_preprocessor_directive(kind: &str) -> bool {
+    kind.starts_with("preproc_")
 }
 
 /// Parses a single comment node, handling //, /* */, and /** */ styles.
