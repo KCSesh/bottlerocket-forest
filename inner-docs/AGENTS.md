@@ -16,8 +16,8 @@ For example, only modify forest-symlinked content if you are confident that you 
 ## Bottlerocket Grove Core Documentation
 
 If not already present in your context, you should read these:
-* [ ] ./docs/ARCHITECTURE.md
-* [ ] ./docs/build-system.md
+* ./docs/ARCHITECTURE.md
+* ./docs/build-system.md
 
 **Always read these files.** They explain:
 - How kits and variants relate
@@ -25,28 +25,7 @@ If not already present in your context, you should read these:
 - Component dependencies
 - Common development patterns
 
-**If you skip this:**
-- ❌ Will guess instead of citing facts
-- ❌ Will misunderstand component relationships
-- ❌ Will give outdated or incorrect guidance
-
-### Read Skills Documentation
-If you do not have this in context yet, read it.
-
-* [ ] ./skills/README.md
-
-**REQUIRED: Read the entire skills/README.md file.** It contains:
-- The skill announcement protocol (mandatory format)
-- Complete index of available skills with descriptions
-- When and how to use each skill
-
-**This file contains the REQUIRED protocol you must follow when a skill applies.**
-
-**If you skip reading skills/README.md:**
-- ❌ Won't know the correct announcement format
-- ❌ Won't know which skills are available
-- ❌ Will reinvent tested procedures incorrectly
-- ❌ Will miss validation steps
+These files act as a basis for other work done in the grove.
 
 ## Multi-Step Workflows
 
@@ -57,28 +36,20 @@ For complex tasks with multiple steps:
 3. Update status as you progress
 4. Mark tasks complete when verified
 
-This helps track progress, prevents skipped steps, and provides clear status updates.
+## Answering Questions About Bottlerocket
 
-## Documentation Research
+**ANY query about how Bottlerocket works requires the use of our research skills.**
+This applies to user-generated queries or your own queries.
 
-**ANY question about how Bottlerocket works requires research.**
+Spawn subagents, asking them to use `fact-find` or `deep-research` skills to answer such queries correctly.
+These skills have special tooling to efficiently find Bottlerocket knowledge.
 
-Process:
-1. **Read `skills/README.md`** to see the skill index
-2. Check if a skill exists for your task (e.g., `deep-research`)
-3. If yes: Follow the protocol from skills/README.md
-4. Always cite sources in your response
+Specifically, take heed to:
+1. Use `crumbly search` to efficiently find relevant files
+2. Read the related source files
+3. Cite specific files and line numbers in your answer
 
-Never guess or rely on training data for Bottlerocket-specific questions.
-
-### Answering "How does X work?" Questions
-
-1. Use `fact-find` or `deep-research` skill
-2. Use `crumbly search` to find relevant docs
-3. Read the source files
-4. Cite specific files and line numbers in your answer
-
-### Making Code Changes
+## Making Code Changes
 
 1. Check for applicable skills (e.g., `add-package-to-kit`)
 2. Read relevant documentation first
@@ -86,12 +57,13 @@ Never guess or rely on training data for Bottlerocket-specific questions.
 4. Make minimal, focused changes
 5. Verify changes build successfully
 
-### Building and Testing
+## Building and Testing
 
 1. Understand the dependency chain (kit → registry → variant)
-2. Use Makefile targets, not direct twoliter commands
-3. Verify each step before proceeding
-4. Check build artifacts exist
+2. There are many skills to help with these tasks that provide special tools: check for those first
+3. Use Makefile targets, not direct twoliter commands
+4. Verify each step before proceeding
+5. Check build artifacts exist
 
 ## Delegating/Spawning Subagents
 
