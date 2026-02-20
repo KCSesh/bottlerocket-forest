@@ -157,3 +157,13 @@ pub fn crumbly_cmd(workspace: &Path, args: &[&str]) -> (i32, String, String) {
 
     (exit_code, stdout, stderr)
 }
+
+/// Run crumbly update without arguments
+pub fn crumbly_update(workspace: &Path) -> (i32, String, String) {
+    crumbly_cmd(workspace, &["update"])
+}
+
+/// Run crumbly update with --all flag
+pub fn crumbly_update_all(workspace: &Path) -> (i32, String, String) {
+    crumbly_cmd(workspace, &["update", "--all"])
+}

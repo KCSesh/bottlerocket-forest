@@ -8,7 +8,8 @@ mod common;
 
 use common::{
     crumbly_build, crumbly_build_context, crumbly_cmd, crumbly_search_context,
-    crumbly_search_with_chunks, crumbly_status_chunk_count, crumbly_update_context, setup_fixture,
+    crumbly_search_with_chunks, crumbly_status_chunk_count, crumbly_update, crumbly_update_all,
+    crumbly_update_context, setup_fixture,
 };
 
 // =============================================================================
@@ -347,6 +348,101 @@ Zebra unicorn handlers process rainbow data efficiently.
     assert!(
         stdout.contains("No results") || (!stdout.contains("zebra") && !stdout.contains("unicorn")),
         "Worktree context should NOT find main's new content: {}",
+        stdout
+    );
+}
+
+#[test]
+#[ignore]
+fn update_all_flag_updates_all_contexts() {
+    // Given: A workspace with multiple contexts
+    let workspace = setup_fixture("context_boost");
+    let (code, _, stderr) = crumbly_build_context(workspace.path(), "main");
+    assert_eq!(code, 0, "Main context build failed: {}", stderr);
+    let (code, _, stderr) = crumbly_update_context(workspace.path(), "worktree");
+    assert_eq!(code, 0, "Worktree context update failed: {}", stderr);
+
+    // When: Running crumbly update --all
+    let (code, stdout, stderr) = crumbly_update_all(workspace.path());
+
+    // Then: Both contexts should be updated
+    assert_eq!(code, 0, "Update --all failed: {}\n{}", stdout, stderr);
+    assert!(
+        stdout.contains("Updating context:"),
+        "Should show per-context headers: {}",
+        stdout
+    );
+    // Should have at least 2 "Index update complete!" messages
+    let complete_count = stdout.matches("Index update complete!").count();
+    assert!(
+        complete_count >= 2,
+        "Should update at least 2 contexts, got {}: {}",
+        complete_count,
+        stdout
+    );
+}
+
+#[test]
+#[ignore]
+fn update_no_context_falls_back_to_all() {
+    // Given: A workspace with multiple contexts
+    let workspace = setup_fixture("context_boost");
+    let (code, _, stderr) = crumbly_build_context(workspace.path(), "main");
+    assert_eq!(code, 0, "Main context build failed: {}", stderr);
+    let (code, _, stderr) = crumbly_update_context(workspace.path(), "worktree");
+    assert_eq!(code, 0, "Worktree context update failed: {}", stderr);
+
+    // When: Running crumbly update from workspace root (not inside any context)
+    let (code, stdout, stderr) = crumbly_update(workspace.path());
+
+    // Then: Should fall back to updating all contexts
+    assert_eq!(code, 0, "Update fallback failed: {}\n{}", stdout, stderr);
+    assert!(
+        stdout.contains("Updating context:"),
+        "Should show per-context headers when falling back to all: {}",
+        stdout
+    );
+}
+
+#[test]
+#[ignore]
+fn update_all_conflicts_with_context() {
+    // Given: A workspace
+    let workspace = setup_fixture("context_boost");
+
+    // When: Running crumbly update --all --context main (conflicting args)
+    let (code, _, stderr) =
+        crumbly_cmd(workspace.path(), &["update", "--all", "--context", "main"]);
+
+    // Then: Should fail at clap parse level
+    assert_ne!(code, 0, "Conflicting args should fail");
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflict"),
+        "Should mention conflicting args: {}",
+        stderr
+    );
+}
+
+#[test]
+#[ignore]
+fn update_all_no_contexts_shows_message() {
+    // Given: A workspace with a context that we then remove
+    let workspace = setup_fixture("context_boost");
+    let (code, _, stderr) = crumbly_build_context(workspace.path(), "main");
+    assert_eq!(code, 0, "Main context build failed: {}", stderr);
+
+    // Remove the context
+    let (code, _, stderr) = crumbly_cmd(workspace.path(), &["context", "remove", "main"]);
+    assert_eq!(code, 0, "Context remove failed: {}", stderr);
+
+    // When: Running crumbly update --all with no contexts
+    let (code, stdout, _) = crumbly_update_all(workspace.path());
+
+    // Then: Should show "No contexts registered" message
+    assert_eq!(code, 0, "Update --all with no contexts should succeed");
+    assert!(
+        stdout.contains("No contexts registered"),
+        "Should show no contexts message: {}",
         stdout
     );
 }
