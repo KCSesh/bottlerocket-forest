@@ -71,7 +71,7 @@ pub(super) fn chunk_file(
         file_hash,
     };
 
-    match dispatcher.chunk_file(&input) {
+    match dispatcher.chunk_file(&input, &file.file_peek) {
         Some(result) => result.context(ChunkingFailedSnafu),
         None => Ok(vec![]),
     }

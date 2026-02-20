@@ -35,8 +35,8 @@ use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, ItemName, PackageName, Signature,
-    TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, DocLineCount, FilePeek, ItemName, PackageName,
+    Signature, TokenCount,
 };
 
 const MODULE_ITEM_NAME: &str = "module";
@@ -142,11 +142,10 @@ impl JsDocChunker {
         )
     }
 
-    fn get_language(&self, file_path: &Path) -> tree_sitter::Language {
-        let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    fn get_language(&self, ext: Option<&str>) -> tree_sitter::Language {
         match ext {
-            "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
-            "ts" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            Some("tsx") => tree_sitter_typescript::LANGUAGE_TSX.into(),
+            Some("ts") => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             _ => tree_sitter_javascript::LANGUAGE.into(),
         }
     }
@@ -283,12 +282,9 @@ fn extract_signature(text: &str) -> Option<String> {
 }
 
 impl ChunkingStrategy for JsDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| self.extensions.contains(&ext))
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension()
+            .is_some_and(|ext| self.extensions.contains(&ext))
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {
@@ -299,7 +295,10 @@ impl ChunkingStrategy for JsDocChunker {
         let file_path = input.source.file_path.to_string();
 
         let mut parser = Parser::new();
-        let language = self.get_language(Path::new(&file_path));
+        let ext = std::path::Path::new(&file_path)
+            .extension()
+            .and_then(|e| e.to_str());
+        let language = self.get_language(ext);
         parser
             .set_language(&language)
             .map_err(crate::knowledge::error::box_err)

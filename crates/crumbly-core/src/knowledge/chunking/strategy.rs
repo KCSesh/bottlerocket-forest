@@ -1,15 +1,14 @@
 //! Defines the chunking strategy trait and common types for file content processing.
 
 use snafu::Snafu;
-use std::path::Path;
 
-use crate::knowledge::domain::{Chunk, ChunkSource, ChunkableContent, FileHash};
+use crate::knowledge::domain::{Chunk, ChunkSource, ChunkableContent, FileHash, FilePeek};
 
 /// Strategy for chunking file content into searchable units.
 #[cfg_attr(test, mockall::automock)]
 pub trait ChunkingStrategy: Send + Sync {
     /// Returns true if this strategy can process the given file.
-    fn supports(&self, file_path: &Path) -> bool;
+    fn supports(&self, peek: &FilePeek) -> bool;
 
     /// Splits the file content into searchable chunks.
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError>;

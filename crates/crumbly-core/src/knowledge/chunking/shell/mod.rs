@@ -17,15 +17,13 @@ mod support;
 
 pub use config::{ShellConfig, ShellFilter};
 pub use support::ShellDocSupport;
-
-use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 use tree_sitter::Parser;
 
 use self::extraction::extract_comments;
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 pub use context::{ShellDocContext, ShellItemType};
 
 use crate::knowledge::domain::{
@@ -148,13 +146,21 @@ impl ShellDocChunker {
     }
 }
 
+impl ShellDocChunker {
+    fn is_shell_shebang(shebang: Option<&str>) -> bool {
+        let Some(shebang) = shebang else {
+            return false;
+        };
+        shebang.contains("bash") || shebang.contains("/sh") || shebang.contains("zsh")
+    }
+}
+
 impl ChunkingStrategy for ShellDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "sh")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        if peek.extension() == Some("sh") {
+            return true;
+        }
+        Self::is_shell_shebang(peek.shebang())
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {
@@ -218,6 +224,8 @@ mod test {
     use crate::knowledge::domain::{
         ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
     };
+    use std::fs;
+    use tempfile::TempDir;
 
     fn test_config() -> EmbeddingModelConfig {
         EmbeddingModelConfig::default()
@@ -234,17 +242,50 @@ mod test {
         }
     }
 
+    fn create_peek(dir: &std::path::Path, name: &str, content: &str) -> FilePeek {
+        let path = dir.join(name);
+        fs::write(&path, content).unwrap();
+        FilePeek::from_path(&path).unwrap()
+    }
+
     #[test]
     fn test_supports_sh_files() {
         // Given a chunker configured for shell files
         let chunker = ShellDocChunker::from_config(&test_config()).unwrap();
+        let temp = TempDir::new().unwrap();
 
         // When checking file extension support
         // Then .sh files are supported and others are not
-        assert!(chunker.supports(Path::new("script.sh")));
-        assert!(chunker.supports(Path::new("bin/deploy.sh")));
-        assert!(!chunker.supports(Path::new("main.rs")));
-        assert!(!chunker.supports(Path::new("script.bash")));
+        let sh_peek = create_peek(temp.path(), "script.sh", "echo hello");
+        assert!(chunker.supports(&sh_peek));
+
+        let rs_peek = create_peek(temp.path(), "main.rs", "fn main() {}");
+        assert!(!chunker.supports(&rs_peek));
+    }
+
+    #[test]
+    fn test_supports_shebang_files() {
+        // Given a chunker configured for shell files
+        let chunker = ShellDocChunker::from_config(&test_config()).unwrap();
+        let temp = TempDir::new().unwrap();
+
+        // When checking shebang-only files
+        // Then files with shell shebangs are supported
+        let bash_peek = create_peek(temp.path(), "script", "#!/bin/bash\necho hello");
+        assert!(chunker.supports(&bash_peek));
+
+        let env_bash_peek = create_peek(temp.path(), "script2", "#!/usr/bin/env bash\necho hi");
+        assert!(chunker.supports(&env_bash_peek));
+
+        let sh_peek = create_peek(temp.path(), "script3", "#!/bin/sh\necho hi");
+        assert!(chunker.supports(&sh_peek));
+
+        let zsh_peek = create_peek(temp.path(), "script4", "#!/bin/zsh\necho hi");
+        assert!(chunker.supports(&zsh_peek));
+
+        // Non-shell shebangs are not supported
+        let python_peek = create_peek(temp.path(), "script5", "#!/usr/bin/python\nprint('hi')");
+        assert!(!chunker.supports(&python_peek));
     }
 
     #[test]

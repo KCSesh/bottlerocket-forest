@@ -12,7 +12,6 @@ mod support;
 pub use support::MarkdownSupport;
 
 use snafu::ResultExt;
-use std::path::Path;
 use text_splitter::{ChunkConfig, MarkdownSplitter};
 use tokenizers::Tokenizer;
 
@@ -20,7 +19,7 @@ use super::strategy::chunking_error::ParseSnafu;
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
 use crate::knowledge::domain::{
-    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, HeadingText, TokenCount,
+    Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, FilePeek, HeadingText, TokenCount,
 };
 
 /// Heading hierarchy for markdown document structure.
@@ -127,12 +126,8 @@ impl MarkdownChunker {
 }
 
 impl ChunkingStrategy for MarkdownChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .map(|ext| ext == "md")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension() == Some("md")
     }
 
     #[expect(clippy::excessive_nesting)]
@@ -208,7 +203,7 @@ mod test {
     use super::*;
     use crate::knowledge::domain::EmbeddingModelConfig;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, FilePeek, IndexRelativePath, RepoName,
     };
     use test_case::test_case;
 
@@ -234,7 +229,7 @@ mod test {
         let chunker = MarkdownChunker::from_config(&config).unwrap();
 
         // When Checking if it supports .md files
-        let supports = chunker.supports(Path::new("test.md"));
+        let supports = chunker.supports(&FilePeek::from_path_string("test.md"));
 
         // Then It should return true
         assert!(supports);
@@ -251,7 +246,7 @@ mod test {
 
         // When Checking file support
         // Then Return whether it's supported
-        chunker.supports(Path::new(path))
+        chunker.supports(&FilePeek::from_path_string(path))
     }
 
     #[test]

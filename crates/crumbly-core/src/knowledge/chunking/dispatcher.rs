@@ -1,10 +1,9 @@
 //! Routes files to appropriate chunking strategies based on file type.
 
 use snafu::{ResultExt, Snafu};
-use std::path::Path;
 
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
-use crate::knowledge::domain::{Chunk, EmbeddingModelConfig};
+use crate::knowledge::domain::{Chunk, EmbeddingModelConfig, FilePeek};
 use crate::knowledge::indexing::IndexingFilter;
 
 /// Routes files to appropriate chunking strategies.
@@ -44,15 +43,16 @@ impl ChunkingDispatcher {
     /// Chunks a file using the appropriate strategy.
     ///
     /// Returns `None` if no strategy supports the file type.
-    pub fn chunk_file(&self, input: &ChunkingInput) -> Option<Result<Vec<Chunk>, DispatchError>> {
+    pub fn chunk_file(
+        &self,
+        input: &ChunkingInput,
+        peek: &FilePeek,
+    ) -> Option<Result<Vec<Chunk>, DispatchError>> {
         use dispatch_error::*;
-
-        let file_path_str = input.source.file_path.to_string();
-        let file_path = Path::new(&file_path_str);
 
         self.strategies
             .iter()
-            .find(|strategy| strategy.supports(file_path))
+            .find(|strategy| strategy.supports(peek))
             .map(|strategy| strategy.chunk(input).context(ChunkingFailedSnafu))
     }
 }
@@ -102,6 +102,8 @@ mod test {
         ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, ChunkableContent, FileHash,
         IndexRelativePath, RepoName, TokenCount,
     };
+    use std::fs;
+    use tempfile::TempDir;
     use test_case::test_case;
 
     fn create_test_input(file_path: &str) -> ChunkingInput {
@@ -113,6 +115,12 @@ mod test {
                 .build(),
             file_hash: FileHash::new([0u8; 32]),
         }
+    }
+
+    fn create_test_peek(dir: &std::path::Path, name: &str, content: &str) -> FilePeek {
+        let path = dir.join(name);
+        fs::write(&path, content).unwrap();
+        FilePeek::from_path(&path).unwrap()
     }
 
     fn create_test_chunk() -> Chunk {
@@ -154,18 +162,20 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[test_case("test.md" ; "markdown file")]
-    #[test_case("test.rs" ; "rust file")]
-    #[test_case("test.go" ; "go file")]
-    #[test_case("test.java" ; "java file")]
-    fn test_with_defaults_supports_file_types(file_path: &str) {
+    #[test_case("test.md", "# Test" ; "markdown file")]
+    #[test_case("test.rs", "fn main() {}" ; "rust file")]
+    #[test_case("test.go", "package main" ; "go file")]
+    #[test_case("test.java", "class Test {}" ; "java file")]
+    fn test_with_defaults_supports_file_types(file_path: &str, content: &str) {
         // Given A dispatcher with default strategies
         let config = EmbeddingModelConfig::default();
         let dispatcher = ChunkingDispatcher::with_defaults(&config).unwrap();
         let input = create_test_input(file_path);
+        let temp = TempDir::new().unwrap();
+        let peek = create_test_peek(temp.path(), file_path, content);
 
         // When Chunking a supported file
-        let result = dispatcher.chunk_file(&input);
+        let result = dispatcher.chunk_file(&input, &peek);
 
         // Then A result should be returned (not None)
         assert!(result.is_some());
@@ -177,9 +187,11 @@ mod test {
         let config = EmbeddingModelConfig::default();
         let dispatcher = ChunkingDispatcher::with_defaults(&config).unwrap();
         let input = create_test_input("test.txt");
+        let temp = TempDir::new().unwrap();
+        let peek = create_test_peek(temp.path(), "test.txt", "plain text");
 
         // When Chunking an unsupported file type
-        let result = dispatcher.chunk_file(&input);
+        let result = dispatcher.chunk_file(&input, &peek);
 
         // Then None should be returned
         assert!(result.is_none());
@@ -191,7 +203,7 @@ mod test {
         let mut mock_strategy = MockChunkingStrategy::new();
         mock_strategy
             .expect_supports()
-            .returning(|path| path.extension().and_then(|s| s.to_str()) == Some("md"));
+            .returning(|peek| peek.extension() == Some("md"));
         mock_strategy
             .expect_chunk()
             .times(1)
@@ -202,9 +214,11 @@ mod test {
         };
 
         let input = create_test_input("test.md");
+        let temp = TempDir::new().unwrap();
+        let peek = create_test_peek(temp.path(), "test.md", "# Test");
 
         // When Chunking a file
-        let result = dispatcher.chunk_file(&input);
+        let result = dispatcher.chunk_file(&input, &peek);
 
         // Then The strategy should be called and return chunks
         assert!(result.is_some());
@@ -229,9 +243,11 @@ mod test {
         };
 
         let input = create_test_input("test.md");
+        let temp = TempDir::new().unwrap();
+        let peek = create_test_peek(temp.path(), "test.md", "# Test");
 
         // When Chunking a file
-        let result = dispatcher.chunk_file(&input);
+        let result = dispatcher.chunk_file(&input, &peek);
 
         // Then An error should be returned
         assert!(result.is_some());
@@ -259,9 +275,11 @@ mod test {
         };
 
         let input = create_test_input("test.md");
+        let temp = TempDir::new().unwrap();
+        let peek = create_test_peek(temp.path(), "test.md", "# Test");
 
         // When Chunking a file
-        let result = dispatcher.chunk_file(&input);
+        let result = dispatcher.chunk_file(&input, &peek);
 
         // Then The second strategy should be used
         assert!(result.is_some());

@@ -1,11 +1,9 @@
 //! Tests for JavaScript/TypeScript documentation chunking.
 
-use std::path::Path;
-
 use super::*;
 use crate::knowledge::chunking::ChunkingStrategy;
 use crate::knowledge::domain::{
-    ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+    ChunkSource, ChunkableContent, FileHash, FilePeek, IndexRelativePath, RepoName,
 };
 
 fn test_config() -> EmbeddingModelConfig {
@@ -26,19 +24,19 @@ fn make_input(content: &str, filename: &str) -> ChunkingInput {
 #[test]
 fn test_supports_js_files() {
     let chunker = JsDocChunker::for_javascript(&test_config()).unwrap();
-    assert!(chunker.supports(Path::new("main.js")));
-    assert!(chunker.supports(Path::new("component.jsx")));
-    assert!(!chunker.supports(Path::new("main.ts")));
-    assert!(!chunker.supports(Path::new("main.rs")));
+    assert!(chunker.supports(&FilePeek::from_path_string("main.js")));
+    assert!(chunker.supports(&FilePeek::from_path_string("component.jsx")));
+    assert!(!chunker.supports(&FilePeek::from_path_string("main.ts")));
+    assert!(!chunker.supports(&FilePeek::from_path_string("main.rs")));
 }
 
 #[test]
 fn test_supports_ts_files() {
     let chunker = JsDocChunker::for_typescript(&test_config()).unwrap();
-    assert!(chunker.supports(Path::new("main.ts")));
-    assert!(chunker.supports(Path::new("component.tsx")));
-    assert!(!chunker.supports(Path::new("main.js")));
-    assert!(!chunker.supports(Path::new("main.rs")));
+    assert!(chunker.supports(&FilePeek::from_path_string("main.ts")));
+    assert!(chunker.supports(&FilePeek::from_path_string("component.tsx")));
+    assert!(!chunker.supports(&FilePeek::from_path_string("main.js")));
+    assert!(!chunker.supports(&FilePeek::from_path_string("main.rs")));
 }
 
 #[test]

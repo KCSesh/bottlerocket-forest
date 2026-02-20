@@ -2,7 +2,9 @@
 
 use std::path::PathBuf;
 
-use crate::knowledge::domain::{AbsolutePath, FileType, IndexRelativePath, RepoName, Timestamp};
+use crate::knowledge::domain::{
+    AbsolutePath, FilePeek, FileType, IndexRelativePath, RepoName, Timestamp,
+};
 use bon::Builder;
 use snafu::Snafu;
 
@@ -35,7 +37,7 @@ impl Default for ScanConfig {
 }
 
 /// Metadata for a file discovered during scanning
-#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+#[derive(Debug, Clone, Builder)]
 #[builder(on(_, into))]
 #[non_exhaustive]
 pub struct IndexableFile {
@@ -49,6 +51,8 @@ pub struct IndexableFile {
     pub file_type: FileType,
     /// Last modification timestamp.
     pub last_modified: Timestamp,
+    /// Content-based file identification.
+    pub file_peek: FilePeek,
 }
 
 /// Errors that can occur during file scanning

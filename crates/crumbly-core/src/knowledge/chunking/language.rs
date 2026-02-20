@@ -6,7 +6,7 @@
 use std::any::Any;
 
 use super::{ChunkingError, ChunkingStrategy};
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 use crate::knowledge::storage::StorageError;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -58,6 +58,15 @@ pub trait LanguageSupport: Send + Sync + 'static {
 
     /// File extensions this language handles (e.g. &["rs"], &["java"]).
     fn extensions(&self) -> &'static [&'static str];
+
+    /// Returns true if this language can handle the given file.
+    ///
+    /// Default implementation checks file extension against `extensions()`.
+    /// Override to add content-based detection (e.g., shebang lines).
+    fn matches(&self, peek: &FilePeek) -> bool {
+        peek.extension()
+            .is_some_and(|ext| self.extensions().contains(&ext))
+    }
 
     /// Construct a chunker for this language.
     fn create_chunker(

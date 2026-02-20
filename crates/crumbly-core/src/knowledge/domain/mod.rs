@@ -8,6 +8,7 @@
 
 pub mod chunk;
 pub mod context;
+pub mod file_peek;
 pub mod file_type;
 pub mod hash;
 pub mod indexed_file;
@@ -22,6 +23,7 @@ use crate::knowledge::constants;
 
 pub use chunk::{Chunk, ChunkContent, ChunkContext, ChunkContextError, ChunkSource, Visibility};
 pub use context::{Context, ContextId, ContextIdError};
+pub use file_peek::FilePeek;
 pub use file_type::FileType;
 pub use hash::{ChunkHash, FileHash};
 pub use indexed_file::IndexedFile;

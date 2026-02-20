@@ -1,7 +1,9 @@
 //! Entry processing for file scanning
 
 use super::{FileScanner, IndexableFile, ScanError};
-use crate::knowledge::domain::{AbsolutePath, FileType, IndexRelativePath, RepoName, Timestamp};
+use crate::knowledge::domain::{
+    AbsolutePath, FilePeek, FileType, IndexRelativePath, RepoName, Timestamp,
+};
 use std::path::Path;
 
 impl FileScanner {
@@ -16,7 +18,12 @@ impl FileScanner {
             return Ok(None);
         }
 
-        let Some(file_type) = FileType::from_path(path) else {
+        let file_peek = match FilePeek::from_path(path) {
+            Ok(peek) => peek,
+            Err(_) => return Ok(None),
+        };
+
+        let Some(file_type) = FileType::from_peek(&file_peek) else {
             return Ok(None);
         };
 
@@ -41,6 +48,7 @@ impl FileScanner {
             .repo_name(repo_name)
             .file_type(file_type)
             .last_modified(last_modified)
+            .file_peek(file_peek)
             .build();
 
         if let Some(progress) = &self.progress {

@@ -16,7 +16,6 @@ mod context;
 mod extraction;
 
 use std::any::Any;
-use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 use tree_sitter::Parser;
@@ -26,7 +25,7 @@ use self::extraction::{
 };
 use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 pub use context::{JavaDocContext, JavaItemType, JavaVisibility};
 
 use crate::knowledge::domain::{
@@ -233,12 +232,8 @@ fn get_item_type(kind: &str) -> Option<JavaItemType> {
 }
 
 impl ChunkingStrategy for JavaDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "java")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension() == Some("java")
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {
@@ -380,7 +375,7 @@ mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, FilePeek, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {
@@ -401,10 +396,10 @@ mod test {
     #[test]
     fn test_supports_java_files() {
         let chunker = JavaDocChunker::from_config(&test_config()).unwrap();
-        assert!(chunker.supports(Path::new("Main.java")));
-        assert!(chunker.supports(Path::new("pkg/Util.java")));
-        assert!(!chunker.supports(Path::new("main.rs")));
-        assert!(!chunker.supports(Path::new("Main.java.bak")));
+        assert!(chunker.supports(&FilePeek::from_path_string("Main.java")));
+        assert!(chunker.supports(&FilePeek::from_path_string("pkg/Util.java")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.rs")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("Main.java.bak")));
     }
 
     #[test]

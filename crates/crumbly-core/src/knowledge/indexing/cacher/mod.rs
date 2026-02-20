@@ -18,7 +18,9 @@ use super::indexer::pipeline::EmbeddingPipeline;
 use super::source::ContentSource;
 use super::{BatchConfig, IndexDataProvider, IndexingError, ProgressReporter};
 use crate::knowledge::chunking::{ChunkingDispatcher, ChunkingInput, DispatchError};
-use crate::knowledge::domain::{Chunk, ChunkHash, ChunkSource, ChunkableContent, FileHash};
+use crate::knowledge::domain::{
+    Chunk, ChunkHash, ChunkSource, ChunkableContent, FileHash, FilePeek,
+};
 use crate::knowledge::storage::{ChunkRepository, StorageError};
 
 /// Caches chunks and embeddings without context association.
@@ -67,7 +69,10 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
                 file_hash,
             };
 
-            let chunks = match self.dispatcher.chunk_file(&input) {
+            // Create synthetic FilePeek from path string (content-based detection not available here)
+            let file_peek = FilePeek::from_path_string(&entry.relative_path.to_string());
+
+            let chunks = match self.dispatcher.chunk_file(&input, &file_peek) {
                 Some(Ok(c)) => c,
                 Some(Err(e)) => return Err(e).context(ChunkingFailedSnafu),
                 None => continue,

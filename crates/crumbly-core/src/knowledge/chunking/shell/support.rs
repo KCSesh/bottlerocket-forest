@@ -10,7 +10,7 @@ use super::context::ShellDocContext;
 use crate::knowledge::chunking::{
     ChunkingError, ChunkingStrategy, LanguageConfig, LanguageSupport,
 };
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 use crate::knowledge::storage::StorageError;
 use crate::knowledge::storage::repository::storage_error;
 
@@ -24,6 +24,16 @@ impl LanguageSupport for ShellDocSupport {
 
     fn extensions(&self) -> &'static [&'static str] {
         &["sh"]
+    }
+
+    fn matches(&self, peek: &FilePeek) -> bool {
+        if peek
+            .extension()
+            .is_some_and(|ext| self.extensions().contains(&ext))
+        {
+            return true;
+        }
+        ShellDocChunker::is_shell_shebang(peek.shebang())
     }
 
     fn create_chunker(

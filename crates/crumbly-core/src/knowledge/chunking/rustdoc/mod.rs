@@ -18,7 +18,6 @@
 mod extraction;
 
 use std::any::Any;
-use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use text_splitter::{ChunkConfig, TextSplitter};
@@ -27,7 +26,7 @@ use tokenizers::Tokenizer;
 use super::language::{LanguageConfig, LanguageSupport};
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
 use crate::knowledge::domain::EmbeddingModelConfig;
-use crate::knowledge::domain::{Chunk, DocLineCount, ItemName, Signature, Visibility};
+use crate::knowledge::domain::{Chunk, DocLineCount, FilePeek, ItemName, Signature, Visibility};
 use crate::knowledge::storage::StorageError;
 
 /// Rust item metadata for doc comment context.
@@ -197,12 +196,8 @@ impl RustDocChunker {
 }
 
 impl ChunkingStrategy for RustDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "rs")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension() == Some("rs")
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {

@@ -18,8 +18,6 @@ mod support;
 
 pub use config::{CConfig, CFilter};
 pub use support::CDocSupport;
-
-use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 use tree_sitter::Parser;
@@ -28,7 +26,7 @@ use self::extraction::{
     extract_doc_comment, extract_identifier, find_standalone_comments, get_item_type,
 };
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 pub use context::{CDocContext, CItemType};
 
 use crate::knowledge::domain::{
@@ -218,12 +216,8 @@ impl CDocChunker {
 }
 
 impl ChunkingStrategy for CDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "c" || ext == "h")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension().is_some_and(|ext| ext == "c" || ext == "h")
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {
@@ -270,7 +264,7 @@ mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, FilePeek, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {
@@ -295,12 +289,12 @@ mod test {
 
         // When checking file extension support
         // Then .c and .h files are supported and others are not
-        assert!(chunker.supports(Path::new("main.c")));
-        assert!(chunker.supports(Path::new("header.h")));
-        assert!(chunker.supports(Path::new("src/util.c")));
-        assert!(!chunker.supports(Path::new("main.rs")));
-        assert!(!chunker.supports(Path::new("main.cpp")));
-        assert!(!chunker.supports(Path::new("main.c.bak")));
+        assert!(chunker.supports(&FilePeek::from_path_string("main.c")));
+        assert!(chunker.supports(&FilePeek::from_path_string("header.h")));
+        assert!(chunker.supports(&FilePeek::from_path_string("src/util.c")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.rs")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.cpp")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.c.bak")));
     }
 
     #[test]

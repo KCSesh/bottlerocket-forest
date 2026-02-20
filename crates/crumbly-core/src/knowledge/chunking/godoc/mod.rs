@@ -17,8 +17,6 @@ mod support;
 
 pub use config::{GoConfig, GoFilter};
 pub use support::GoDocSupport;
-
-use std::path::Path;
 use text_splitter::{ChunkConfig, TextSplitter};
 use tokenizers::Tokenizer;
 use tree_sitter::Parser;
@@ -28,7 +26,7 @@ use self::extraction::{
     to_filter_type,
 };
 use super::{ChunkingError, ChunkingInput, ChunkingStrategy};
-use crate::knowledge::domain::EmbeddingModelConfig;
+use crate::knowledge::domain::{EmbeddingModelConfig, FilePeek};
 pub use context::{GoDocContext, GoItemType, GoVisibility};
 
 use crate::knowledge::domain::{
@@ -256,12 +254,8 @@ impl GoDocChunker {
 }
 
 impl ChunkingStrategy for GoDocChunker {
-    fn supports(&self, file_path: &Path) -> bool {
-        file_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "go")
-            .unwrap_or(false)
+    fn supports(&self, peek: &FilePeek) -> bool {
+        peek.extension() == Some("go")
     }
 
     fn chunk(&self, input: &ChunkingInput) -> Result<Vec<Chunk>, ChunkingError> {
@@ -350,7 +344,7 @@ mod test {
     use super::*;
     use crate::knowledge::chunking::ChunkingStrategy;
     use crate::knowledge::domain::{
-        ChunkSource, ChunkableContent, FileHash, IndexRelativePath, RepoName,
+        ChunkSource, ChunkableContent, FileHash, FilePeek, IndexRelativePath, RepoName,
     };
 
     fn test_config() -> EmbeddingModelConfig {
@@ -375,10 +369,10 @@ mod test {
 
         // When checking file extension support
         // Then .go files are supported and others are not
-        assert!(chunker.supports(Path::new("main.go")));
-        assert!(chunker.supports(Path::new("pkg/util.go")));
-        assert!(!chunker.supports(Path::new("main.rs")));
-        assert!(!chunker.supports(Path::new("main.go.bak")));
+        assert!(chunker.supports(&FilePeek::from_path_string("main.go")));
+        assert!(chunker.supports(&FilePeek::from_path_string("pkg/util.go")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.rs")));
+        assert!(!chunker.supports(&FilePeek::from_path_string("main.go.bak")));
     }
 
     #[test]

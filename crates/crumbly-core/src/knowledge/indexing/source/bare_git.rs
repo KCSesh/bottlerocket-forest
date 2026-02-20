@@ -117,7 +117,8 @@ impl BareGitSource {
         let mut entries = Vec::new();
 
         for line in stdout.lines() {
-            let Some(file_type) = FileType::from_path(Path::new(line)) else {
+            let ext = Path::new(line).extension().and_then(|e| e.to_str());
+            let Some(file_type) = ext.and_then(FileType::from_extension) else {
                 continue;
             };
 
