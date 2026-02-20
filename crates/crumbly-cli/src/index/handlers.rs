@@ -3,8 +3,9 @@
 use crate::index::errors::IndexError;
 
 use crate::index::formatting::{
-    OutputFormat, format_build_result, format_file_results_human, format_file_results_json,
-    format_status, format_update_result, parse_output_format, prompt_confirmation,
+    OutputFormat, format_build_result, format_context_header, format_file_results_human,
+    format_file_results_json, format_status, format_update_result, parse_output_format,
+    prompt_confirmation,
 };
 use crate::index::{BuildArgs, ClearArgs, RebuildArgs, SearchArgs, StatusArgs, UpdateArgs};
 use crumbly_core::knowledge::KnowledgeIndex;
@@ -112,7 +113,35 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
         None => KnowledgeIndex::discover(&get_cwd()?).context(KnowledgeIndexSnafu)?,
     };
 
-    let context_id = parse_context_arg(index.index_root(), args.context)?;
+    // --context flag: update single specified context
+    if let Some(context_path) = args.context {
+        let context_id = parse_context_arg(index.index_root(), Some(context_path))?;
+        return update_single_context(&index, context_id);
+    }
+
+    // --all flag: update all contexts
+    if args.all {
+        return update_all_contexts(&index);
+    }
+
+    // No flags: try to resolve from cwd, fall back to all on NoMatchingContext
+    match index
+        .resolve_context(&get_cwd()?)
+        .context(KnowledgeIndexSnafu)
+    {
+        Ok(context) => update_single_context(&index, Some(context.context_id)),
+        Err(IndexError::KnowledgeIndex {
+            source: crumbly_core::knowledge::IndexError::ContextNotFound { .. },
+        }) => update_all_contexts(&index),
+        Err(e) => Err(e),
+    }
+}
+
+fn update_single_context(
+    index: &KnowledgeIndex,
+    context_id: Option<crumbly_core::knowledge::domain::ContextId>,
+) -> Result<(), IndexError> {
+    use super::errors::index_error::*;
 
     let progress = Arc::new(CliProgressReporter::default());
     let result = index
@@ -123,6 +152,33 @@ pub fn handle_update(args: UpdateArgs) -> Result<(), IndexError> {
         .context(KnowledgeIndexSnafu)?;
 
     format_update_result(&result);
+    Ok(())
+}
+
+fn update_all_contexts(index: &KnowledgeIndex) -> Result<(), IndexError> {
+    use super::errors::index_error::*;
+
+    let contexts = index.list_contexts().context(KnowledgeIndexSnafu)?;
+
+    if contexts.is_empty() {
+        println!("No contexts registered. Run `crumbly build --context <path>` to create one.");
+        return Ok(());
+    }
+
+    let multi = contexts.len() > 1;
+    for context in contexts {
+        if multi {
+            format_context_header(context.context_id.as_str());
+        }
+        let progress = Arc::new(CliProgressReporter::default());
+        let result = index
+            .update()
+            .progress(progress)
+            .maybe_context_id(Some(context.context_id))
+            .call()
+            .context(KnowledgeIndexSnafu)?;
+        format_update_result(&result);
+    }
 
     Ok(())
 }

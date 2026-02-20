@@ -47,8 +47,12 @@ pub struct UpdateArgs {
     index_root: Option<PathBuf>,
 
     /// Context path to operate on (defaults to workspace root)
-    #[arg(long)]
+    #[arg(long, conflicts_with = "all")]
     context: Option<PathBuf>,
+
+    /// Update all registered contexts
+    #[arg(long)]
+    all: bool,
 }
 
 /// Arguments for clearing all chunks from the index.

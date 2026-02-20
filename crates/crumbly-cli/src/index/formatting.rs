@@ -31,6 +31,16 @@ pub(super) fn format_build_result(result: &crumbly_core::knowledge::indexing::In
     );
 }
 
+/// Prints a header for a context when updating multiple contexts
+pub(super) fn format_context_header(context_name: &str) {
+    println!(
+        "
+{} {}",
+        theme::label("Updating context:"),
+        theme::value(context_name)
+    );
+}
+
 /// Prints a formatted summary of update operation results
 pub(super) fn format_update_result(result: &crumbly_core::knowledge::indexing::IndexResult) {
     println!("{} Index update complete!", theme::success("✓"));
