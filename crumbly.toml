@@ -4,7 +4,7 @@
 # and provides fine-grained control over what gets indexed.
 
 # File types to index (default: ["markdown", "rust"])
-enabled-file-types = ["markdown", "rust"]
+enabled-file-types = ["markdown", "rust", "shell", "go"]
 
 # Directories to scan
 targets = [
