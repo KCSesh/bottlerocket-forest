@@ -60,6 +60,10 @@ impl EmbeddingPipeline {
         drop(work_rx);
         drop(output_tx);
 
+        // Collector: spawn thread to drain output concurrently with producer
+        // This prevents deadlock when output channel fills before producer finishes
+        let collector_handle = thread::spawn(move || output_rx.iter().collect::<Vec<_>>());
+
         // Producer: send all chunks
         for chunk in chunks {
             // Ignore send errors - workers may have failed
@@ -69,8 +73,8 @@ impl EmbeddingPipeline {
         }
         drop(work_tx); // Signal completion to workers
 
-        // Collector: gather results
-        let results: Vec<IndexedChunk> = output_rx.iter().collect();
+        // Join collector
+        let results = collector_handle.join().unwrap_or_default();
 
         // Join workers and propagate first error
         for handle in handles {
