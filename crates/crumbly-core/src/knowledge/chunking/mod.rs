@@ -9,6 +9,7 @@ pub mod dispatcher;
 pub mod godoc;
 pub mod javadoc;
 pub mod jsdoc;
+pub mod kotlindoc;
 pub mod language;
 pub mod markdown;
 pub mod rustdoc;
