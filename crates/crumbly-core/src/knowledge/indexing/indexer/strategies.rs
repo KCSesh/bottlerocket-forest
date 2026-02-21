@@ -1,8 +1,9 @@
+use super::streaming::stream_index_files;
 use super::*;
-use rayon::prelude::*;
 use std::collections::HashSet;
-use std::path::Path;
 use std::time::Instant;
+
+use crate::knowledge::indexing::IndexableFile;
 
 impl<R: ChunkRepository> Indexer<R> {
     pub(super) fn build(&mut self) -> Result<IndexResult, IndexingError> {
@@ -15,31 +16,35 @@ impl<R: ChunkRepository> Indexer<R> {
             progress.chunking_started(files.len());
         }
 
-        let results: Vec<_> = files
-            .par_iter()
-            .map(|file| {
-                let result = operations::chunk_file_gracefully(file, &self.dispatcher);
-                if let (Ok(chunks), Some(progress)) = (&result, &self.progress) {
-                    progress.file_chunked(Path::new(&file.absolute_path.to_string()), chunks.len());
-                }
-                (file, result)
-            })
-            .collect();
-
-        let mut total_chunks = 0;
-        for (_, result) in &results {
-            if let Ok(chunks) = result {
-                total_chunks += chunks.len();
+        if files.is_empty() {
+            if let Some(progress) = &self.progress {
+                progress.chunking_completed(0);
+                progress.embedding_started(0);
+                progress.embedding_completed();
+                progress.indexing_completed();
             }
+            return Ok(IndexResult::builder()
+                .files_processed(0)
+                .files_added(0)
+                .files_updated(0)
+                .files_removed(0)
+                .files_skipped(0)
+                .chunks_affected(0)
+                .duration(start.elapsed())
+                .build());
         }
 
-        if let Some(progress) = &self.progress {
-            progress.chunking_completed(total_chunks);
-            progress.embedding_started(total_chunks);
-        }
-
-        let (files_added, files_skipped, chunks_affected) =
-            self.index_and_store_chunks(results.into_iter(), &[])?;
+        let file_refs: Vec<&IndexableFile> = files.iter().collect();
+        let (files_added, files_skipped, chunks_affected) = stream_index_files(
+            &file_refs,
+            &[],
+            &self.dispatcher,
+            &mut self.repository,
+            &self.provider,
+            &self.progress,
+            &self.batch_config,
+            &self.context_id,
+        )?;
 
         if let Some(progress) = &self.progress {
             progress.embedding_completed();
@@ -100,34 +105,41 @@ impl<R: ChunkRepository> Indexer<R> {
         }
 
         let files_to_process: Vec<_> = added.iter().chain(modified.iter()).copied().collect();
+
+        if files_to_process.is_empty() {
+            if let Some(p) = &self.progress {
+                p.chunking_started(0);
+                p.chunking_completed(0);
+                p.embedding_started(0);
+                p.embedding_completed();
+                p.indexing_completed();
+            }
+            return Ok(IndexResult::builder()
+                .files_processed(0)
+                .files_added(added.len())
+                .files_updated(modified.len())
+                .files_removed(deleted.len())
+                .files_skipped(0)
+                .chunks_affected(0)
+                .duration(start.elapsed())
+                .build());
+        }
+
         if let Some(p) = &self.progress {
             p.chunking_started(files_to_process.len());
         }
 
-        let results: Vec<_> = files_to_process
-            .par_iter()
-            .map(|file| {
-                let result = operations::chunk_file_gracefully(file, &self.dispatcher);
-                if let (Ok(chunks), Some(p)) = (&result, &self.progress) {
-                    p.file_chunked(Path::new(&file.absolute_path.to_string()), chunks.len());
-                }
-                (*file, result)
-            })
-            .collect();
-
-        let total_chunks: usize = results
-            .iter()
-            .filter_map(|(_, r)| r.as_ref().ok())
-            .map(|c| c.len())
-            .sum();
-        if let Some(p) = &self.progress {
-            p.chunking_completed(total_chunks);
-            p.embedding_started(total_chunks);
-        }
-
         let modified_paths: Vec<_> = modified.iter().map(|f| &f.relative_path).collect();
-        let (files_processed, files_skipped, chunks_affected) =
-            self.index_and_store_chunks(results.into_iter(), &modified_paths)?;
+        let (files_processed, files_skipped, chunks_affected) = stream_index_files(
+            &files_to_process,
+            &modified_paths,
+            &self.dispatcher,
+            &mut self.repository,
+            &self.provider,
+            &self.progress,
+            &self.batch_config,
+            &self.context_id,
+        )?;
 
         if let Some(p) = &self.progress {
             p.embedding_completed();

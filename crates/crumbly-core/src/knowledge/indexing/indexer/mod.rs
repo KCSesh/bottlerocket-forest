@@ -12,10 +12,10 @@
 //! [`IndexDataProvider`], and [`ChunkRepository`] to transform raw documentation
 //! files into searchable indexed chunks.
 
-mod batch;
 mod operations;
 pub(crate) mod pipeline;
 mod strategies;
+mod streaming;
 mod types;
 mod worker;
 
@@ -55,8 +55,6 @@ pub struct Indexer<R: ChunkRepository> {
     batch_config: BatchConfig,
     context_id: ContextId,
 }
-
-type FileResult = Result<Vec<crate::knowledge::domain::Chunk>, Result<(), IndexingError>>;
 
 #[bon::bon]
 impl<R: ChunkRepository> Indexer<R> {

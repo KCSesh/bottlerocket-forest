@@ -7,7 +7,7 @@
 use crossbeam_channel::{Receiver, Sender, bounded};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::thread;
+use std::thread::{self, JoinHandle};
 
 use super::types::IndexingError;
 use super::worker::EmbeddingWorker;
@@ -16,7 +16,45 @@ use crate::knowledge::indexing::{IndexDataProvider, ProgressReporter};
 
 /// Work item sent through the pipeline
 pub(crate) struct WorkItem {
-    pub(super) chunk: Chunk,
+    pub(crate) chunk: Chunk,
+}
+
+/// Handle to a running embedding pipeline
+pub(crate) struct PipelineHandle<F> {
+    work_tx: Sender<WorkItem>,
+    error_rx: Receiver<IndexingError>,
+    collector_handle: JoinHandle<usize>,
+    worker_handles: Vec<JoinHandle<()>>,
+    _sink: std::marker::PhantomData<F>,
+}
+
+impl<F> PipelineHandle<F> {
+    /// Get a reference to the work sender for submitting chunks
+    pub(crate) fn sender(&self) -> &Sender<WorkItem> {
+        &self.work_tx
+    }
+
+    /// Check for pipeline errors without blocking
+    pub(crate) fn check_error(&self) -> Option<IndexingError> {
+        self.error_rx.try_recv().ok()
+    }
+
+    /// Signal completion and wait for pipeline to finish
+    pub(crate) fn join(self) -> Result<usize, IndexingError> {
+        drop(self.work_tx);
+        let error = self.error_rx.try_recv().ok();
+        let count = self.collector_handle.join().unwrap_or(0);
+        for handle in self.worker_handles {
+            let _ = handle.join();
+        }
+        if let Some(e) = error {
+            return Err(e);
+        }
+        if let Ok(e) = self.error_rx.try_recv() {
+            return Err(e);
+        }
+        Ok(count)
+    }
 }
 
 /// Builder for configuring an embedding pipeline
@@ -31,10 +69,10 @@ pub(crate) struct EmbeddingPipeline {
 }
 
 impl EmbeddingPipeline {
-    /// Run the pipeline with the given chunks, returning indexed chunks
-    pub(crate) fn run<I>(self, chunks: I) -> Result<Vec<IndexedChunk>, IndexingError>
+    /// Start the pipeline with a sink callback for processing output chunks
+    pub(crate) fn start_with_sink<F>(self, mut sink: F) -> PipelineHandle<F>
     where
-        I: Iterator<Item = Chunk>,
+        F: FnMut(IndexedChunk) + Send + 'static,
     {
         let worker_count = self.worker_count.get();
         let channel_capacity = worker_count * self.batch_size;
@@ -42,9 +80,10 @@ impl EmbeddingPipeline {
         let (work_tx, work_rx): (Sender<WorkItem>, Receiver<WorkItem>) = bounded(channel_capacity);
         let (output_tx, output_rx): (Sender<IndexedChunk>, Receiver<IndexedChunk>) =
             bounded(channel_capacity * 2);
+        let (error_tx, error_rx): (Sender<IndexingError>, Receiver<IndexingError>) =
+            bounded(worker_count);
 
-        // Spawn workers
-        let mut handles = Vec::with_capacity(worker_count);
+        let mut worker_handles = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
             let worker = EmbeddingWorker::new(
                 work_rx.clone(),
@@ -53,36 +92,66 @@ impl EmbeddingPipeline {
                 self.progress.clone(),
                 self.batch_size,
             );
-            handles.push(thread::spawn(move || worker.run()));
+            let err_tx = error_tx.clone();
+            worker_handles.push(thread::spawn(move || match worker.run() {
+                Ok(()) => {}
+                Err(e) => {
+                    let _ = err_tx.send(e);
+                }
+            }));
         }
 
-        // Drop our copies so workers see channel close
         drop(work_rx);
         drop(output_tx);
+        drop(error_tx);
 
-        // Collector: spawn thread to drain output concurrently with producer
-        // This prevents deadlock when output channel fills before producer finishes
-        let collector_handle = thread::spawn(move || output_rx.iter().collect::<Vec<_>>());
+        let collector_handle = thread::spawn(move || {
+            let mut count = 0;
+            for chunk in output_rx {
+                sink(chunk);
+                count += 1;
+            }
+            count
+        });
 
-        // Producer: send all chunks
+        PipelineHandle {
+            work_tx,
+            error_rx,
+            collector_handle,
+            worker_handles,
+            _sink: std::marker::PhantomData,
+        }
+    }
+
+    /// Run the pipeline with the given chunks, returning indexed chunks
+    #[allow(dead_code)]
+    pub(crate) fn run<I>(self, chunks: I) -> Result<Vec<IndexedChunk>, IndexingError>
+    where
+        I: Iterator<Item = Chunk>,
+    {
+        use std::sync::Mutex;
+
+        let results: Arc<Mutex<Vec<IndexedChunk>>> = Arc::new(Mutex::new(Vec::new()));
+        let results_clone = Arc::clone(&results);
+
+        let handle = self.start_with_sink(move |chunk| {
+            if let Ok(mut guard) = results_clone.lock() {
+                guard.push(chunk);
+            }
+        });
+
         for chunk in chunks {
-            // Ignore send errors - workers may have failed
-            if work_tx.send(WorkItem { chunk }).is_err() {
+            if handle.check_error().is_some() {
+                break;
+            }
+            if handle.sender().send(WorkItem { chunk }).is_err() {
                 break;
             }
         }
-        drop(work_tx); // Signal completion to workers
 
-        // Join collector
-        let results = collector_handle.join().unwrap_or_default();
+        handle.join()?;
 
-        // Join workers and propagate first error
-        for handle in handles {
-            if let Ok(Err(e)) = handle.join() {
-                return Err(e);
-            }
-        }
-
-        Ok(results)
+        let mut guard = results.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(std::mem::take(&mut *guard))
     }
 }
