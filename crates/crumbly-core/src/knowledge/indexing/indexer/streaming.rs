@@ -8,7 +8,9 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
+use crossbeam_channel::{Receiver, Sender, bounded};
 use rayon::prelude::*;
 use snafu::ResultExt;
 
@@ -83,6 +85,102 @@ fn send_chunks_to_pipeline<F>(
     false
 }
 
+/// Item sent from rayon workers to consumer
+struct ChunkedFile {
+    file_idx: usize,
+    result: ChunkResult,
+}
+
+/// Producer state for parallel chunking
+struct ProducerState<'a> {
+    files: &'a [&'a IndexableFile],
+    dispatcher: &'a ChunkingDispatcher,
+    ctx: &'a StreamContext,
+    chunk_count: &'a AtomicUsize,
+    progress: &'a Option<Arc<dyn ProgressReporter>>,
+}
+
+impl ProducerState<'_> {
+    fn run(self, tx: Sender<ChunkedFile>) {
+        self.files
+            .par_iter()
+            .enumerate()
+            .for_each_with(tx, |tx, (idx, file)| self.process_file(idx, file, tx));
+    }
+
+    fn process_file(&self, idx: usize, file: &IndexableFile, tx: &Sender<ChunkedFile>) {
+        if self.ctx.has_error() {
+            return;
+        }
+
+        let result = operations::chunk_file_gracefully(file, self.dispatcher);
+        self.report_progress(file, &result);
+        let _ = tx.send(ChunkedFile {
+            file_idx: idx,
+            result,
+        });
+    }
+
+    fn report_progress(&self, file: &IndexableFile, result: &ChunkResult) {
+        let Ok(chunks) = result else { return };
+        self.chunk_count.fetch_add(chunks.len(), Ordering::Relaxed);
+        if let Some(p) = self.progress {
+            p.file_chunked(Path::new(&file.absolute_path.to_string()), chunks.len());
+        }
+    }
+}
+
+/// Consumer state for processing chunked files
+struct ConsumerState<'a, F, R: ChunkRepository> {
+    files: &'a [&'a IndexableFile],
+    modified_paths: &'a [&'a crate::knowledge::domain::IndexRelativePath],
+    handle: &'a PipelineHandle<F>,
+    ctx: &'a StreamContext,
+    repository: &'a mut R,
+    context_id: &'a ContextId,
+}
+
+impl<F, R: ChunkRepository> ConsumerState<'_, F, R> {
+    fn run(mut self, rx: Receiver<ChunkedFile>) {
+        for chunked in rx {
+            self.process_chunked(chunked);
+        }
+    }
+
+    fn process_chunked(&mut self, chunked: ChunkedFile) {
+        if self.ctx.has_error() {
+            return;
+        }
+
+        let file = self.files[chunked.file_idx];
+        self.ctx.files_added.fetch_add(1, Ordering::Relaxed);
+
+        let is_modified = self
+            .modified_paths
+            .iter()
+            .any(|p| **p == file.relative_path);
+        let processed = process_file_result(
+            file,
+            chunked.result,
+            is_modified,
+            self.handle,
+            self.ctx,
+            self.repository,
+            self.context_id,
+        );
+
+        if self.ctx.has_error() {
+            return;
+        }
+
+        if let Some((chunks, existing)) = processed
+            && !chunks.is_empty()
+        {
+            send_chunks_to_pipeline(chunks, &existing, self.handle, self.ctx);
+        }
+    }
+}
+
 /// Stream chunks from files through the embedding pipeline
 #[allow(clippy::too_many_arguments)]
 pub(super) fn stream_index_files<R: ChunkRepository>(
@@ -116,65 +214,42 @@ pub(super) fn stream_index_files<R: ChunkRepository>(
         }
     });
 
-    let ctx = StreamContext::new();
+    let ctx = Arc::new(StreamContext::new());
+    let chunk_count = Arc::new(AtomicUsize::new(0));
 
-    // Chunk files in parallel
-    let chunked_results: Vec<_> = files
-        .par_iter()
-        .map(|file| {
-            let result = operations::chunk_file_gracefully(file, dispatcher);
-            if let (Ok(chunks), Some(p)) = (&result, progress) {
-                p.file_chunked(Path::new(&file.absolute_path.to_string()), chunks.len());
-            }
-            (*file, result)
-        })
-        .collect();
+    // Channel capacity: 2x rayon thread count for backpressure
+    let channel_capacity = worker_count.get() * 2;
+    let (tx, rx) = bounded::<ChunkedFile>(channel_capacity);
 
-    let chunk_count: usize = chunked_results
-        .iter()
-        .filter_map(|(_, r)| r.as_ref().ok())
-        .map(|c| c.len())
-        .sum();
+    // Use std::thread::scope to allow borrowing
+    thread::scope(|s| {
+        // Producer thread: parallel chunking via rayon
+        let producer = ProducerState {
+            files,
+            dispatcher,
+            ctx: &ctx,
+            chunk_count: &chunk_count,
+            progress,
+        };
+        s.spawn(|| producer.run(tx));
 
-    if let Some(p) = progress {
-        p.chunking_completed(chunk_count);
-        p.embedding_started(chunk_count);
-    }
-
-    // Process results sequentially and send to pipeline
-    for (file, result) in chunked_results {
-        if ctx.has_error() {
-            break;
-        }
-
-        ctx.files_added.fetch_add(1, Ordering::Relaxed);
-
-        let is_modified = modified_paths.iter().any(|p| **p == file.relative_path);
-        let processed = process_file_result(
-            file,
-            result,
-            is_modified,
-            &handle,
-            &ctx,
+        // Consumer: main scope body (borrows repository)
+        let consumer = ConsumerState {
+            files,
+            modified_paths,
+            handle: &handle,
+            ctx: &ctx,
             repository,
             context_id,
-        );
-
-        if ctx.has_error() {
-            break;
-        }
-
-        let Some((chunks, existing)) = processed else {
-            continue;
         };
+        consumer.run(rx);
+    });
 
-        if chunks.is_empty() {
-            continue;
-        }
-
-        if send_chunks_to_pipeline(chunks, &existing, &handle, &ctx) {
-            break;
-        }
+    // Report progress and join pipeline
+    let total_chunks = chunk_count.load(Ordering::Relaxed);
+    if let Some(p) = progress {
+        p.chunking_completed(total_chunks);
+        p.embedding_started(total_chunks);
     }
 
     if let Err(e) = handle.join() {
