@@ -13,31 +13,17 @@ use crate::knowledge::indexing::{IndexDataProvider, ProgressReporter};
 use super::pipeline::WorkItem;
 
 /// Worker that processes chunks from a channel and generates embeddings
+#[derive(bon::Builder)]
 pub(super) struct EmbeddingWorker {
     work_rx: Receiver<WorkItem>,
     output_tx: Sender<IndexedChunk>,
     provider: Arc<dyn IndexDataProvider>,
     progress: Option<Arc<dyn ProgressReporter>>,
     batch_size: usize,
+    thread_pool: Arc<rayon::ThreadPool>,
 }
 
 impl EmbeddingWorker {
-    pub(super) fn new(
-        work_rx: Receiver<WorkItem>,
-        output_tx: Sender<IndexedChunk>,
-        provider: Arc<dyn IndexDataProvider>,
-        progress: Option<Arc<dyn ProgressReporter>>,
-        batch_size: usize,
-    ) -> Self {
-        Self {
-            work_rx,
-            output_tx,
-            provider,
-            progress,
-            batch_size,
-        }
-    }
-
     /// Run the worker loop until the work channel is closed
     pub(super) fn run(self) -> Result<(), IndexingError> {
         use super::types::indexing_error::*;
@@ -67,15 +53,18 @@ impl EmbeddingWorker {
                 break;
             }
 
-            // Generate embeddings for batch
+            // Generate embeddings for batch using dedicated thread pool
             let texts: Vec<&str> = batch
                 .iter()
                 .map(|w| w.chunk.content.text.as_ref())
                 .collect();
             let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
             let embeddings = self
-                .provider
-                .generate_batch_with_progress(&texts, progress_ref)
+                .thread_pool
+                .install(|| {
+                    self.provider
+                        .generate_batch_with_progress(&texts, progress_ref)
+                })
                 .context(IndexDataGenerationFailedSnafu)?;
 
             let timestamp = Timestamp::now();
