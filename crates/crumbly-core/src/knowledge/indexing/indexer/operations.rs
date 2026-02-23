@@ -36,6 +36,8 @@ fn is_skippable_error(error: &IndexingError) -> bool {
         IndexingError::IndexDataGenerationFailed { .. } => false,
         // Storage errors are fatal
         IndexingError::StorageFailed { .. } => false,
+        // Thread pool build errors are fatal - indicate internal problem
+        IndexingError::ThreadPoolBuildFailed { .. } => false,
     }
 }
 

@@ -103,4 +103,15 @@ pub enum IndexingError {
         /// Underlying storage error.
         source: StorageError,
     },
+
+    /// Failed to build rayon thread pool for embedding worker.
+    #[snafu(display("Failed to create thread pool for embedding worker"))]
+    #[diagnostic(
+        code(crumbly::indexing::thread_pool_build_failed),
+        help("This is an internal error - please report it")
+    )]
+    ThreadPoolBuildFailed {
+        /// Underlying rayon error.
+        source: rayon::ThreadPoolBuildError,
+    },
 }

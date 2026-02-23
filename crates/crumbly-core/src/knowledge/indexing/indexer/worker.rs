@@ -20,7 +20,6 @@ pub(super) struct EmbeddingWorker {
     provider: Arc<dyn IndexDataProvider>,
     progress: Option<Arc<dyn ProgressReporter>>,
     batch_size: usize,
-    thread_pool: Arc<rayon::ThreadPool>,
 }
 
 impl EmbeddingWorker {
@@ -28,6 +27,14 @@ impl EmbeddingWorker {
     pub(super) fn run(self) -> Result<(), IndexingError> {
         use super::types::indexing_error::*;
         use snafu::ResultExt;
+
+        // Each worker gets its own single-thread rayon pool to isolate candle's
+        // internal par_iter from the global rayon pool while enabling true N-way
+        // parallelism across N workers.
+        let thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .context(ThreadPoolBuildFailedSnafu)?;
 
         let mut batch: Vec<WorkItem> = Vec::with_capacity(self.batch_size);
 
@@ -59,8 +66,7 @@ impl EmbeddingWorker {
                 .map(|w| w.chunk.content.text.as_ref())
                 .collect();
             let progress_ref = self.progress.as_ref().map(|p| p.as_ref());
-            let embeddings = self
-                .thread_pool
+            let embeddings = thread_pool
                 .install(|| {
                     self.provider
                         .generate_batch_with_progress(&texts, progress_ref)

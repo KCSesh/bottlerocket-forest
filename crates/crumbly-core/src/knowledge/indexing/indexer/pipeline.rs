@@ -70,7 +70,6 @@ pub(crate) struct EmbeddingPipeline {
 
 impl EmbeddingPipeline {
     /// Start the pipeline with a sink callback for processing output chunks
-    #[expect(clippy::expect_used)]
     pub(crate) fn start_with_sink<F>(self, mut sink: F) -> PipelineHandle<F>
     where
         F: FnMut(IndexedChunk) + Send + 'static,
@@ -84,19 +83,6 @@ impl EmbeddingPipeline {
         let (error_tx, error_rx): (Sender<IndexingError>, Receiver<IndexingError>) =
             bounded(worker_count);
 
-        // Dedicated thread pool to isolate candle's internal par_iter from the
-        // global rayon pool, preventing deadlock when multiple workers enter
-        // parallel iterators simultaneously.
-        let thread_count = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4);
-        let thread_pool = Arc::new(
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_count)
-                .build()
-                .expect("rayon thread pool creation should not fail"),
-        );
-
         let mut worker_handles = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
             let worker = EmbeddingWorker::builder()
@@ -105,7 +91,6 @@ impl EmbeddingPipeline {
                 .provider(Arc::clone(&self.provider))
                 .maybe_progress(self.progress.clone())
                 .batch_size(self.batch_size)
-                .thread_pool(Arc::clone(&thread_pool))
                 .build();
             let err_tx = error_tx.clone();
             worker_handles.push(thread::spawn(move || match worker.run() {
