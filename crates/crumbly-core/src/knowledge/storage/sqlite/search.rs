@@ -53,16 +53,16 @@ pub fn search_semantic(
     }
 
     // Use IN subquery to pre-filter at sqlite-vec level
-
+    // Both chunks.chunk_hash and vec_chunks.chunk_hash are TEXT now - simple equality JOIN
     let query = r#"
                 SELECT c.chunk_hash, c.chunk_hash, c.file_hash, '', c.repo_name,
                     c.context_type, c.context_data, c.content, c.token_count, c.last_modified,
                     v.distance
                 FROM vec_chunks v
-                JOIN chunks c ON lower(hex(c.chunk_hash)) = v.chunk_hash
+                JOIN chunks c ON c.chunk_hash = v.chunk_hash
                 WHERE v.embedding MATCH ?1 AND k = ?2
                   AND v.chunk_hash IN (
-                    SELECT lower(hex(c2.chunk_hash))
+                    SELECT c2.chunk_hash
                     FROM chunks c2
                     JOIN indexed_files f ON c2.file_hash = f.file_hash
                     WHERE f.context_id = ?3
@@ -175,15 +175,16 @@ pub fn search_files(
         return Ok(Vec::new());
     }
 
+    // Both chunks.chunk_hash and vec_chunks.chunk_hash are TEXT now - simple equality JOIN
     let query = r#"
         SELECT c.chunk_hash, c.chunk_hash, c.file_hash, '', c.repo_name,
             c.context_type, c.context_data, c.content, c.token_count, c.last_modified,
             v.distance
         FROM vec_chunks v
-        JOIN chunks c ON lower(hex(c.chunk_hash)) = v.chunk_hash
+        JOIN chunks c ON c.chunk_hash = v.chunk_hash
         WHERE v.embedding MATCH ?1 AND k = ?2
           AND v.chunk_hash IN (
-            SELECT lower(hex(c2.chunk_hash))
+            SELECT c2.chunk_hash
             FROM chunks c2
             JOIN indexed_files f ON c2.file_hash = f.file_hash
             WHERE f.context_id = ?3

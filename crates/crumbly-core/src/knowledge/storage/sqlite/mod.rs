@@ -514,11 +514,13 @@ mod test {
         let (_temp, mut repo) = setup_repo();
         let indexed_chunk = build_indexed_chunk("test content for embedding", default_context(), 3);
         repo.save(&indexed_chunk).unwrap();
+        // Both tables now use TEXT for chunk_hash
+        let chunk_hash_str = indexed_chunk.chunk.chunk_hash.to_string();
         let chunk_exists: bool = repo
             .conn
             .query_row(
                 "SELECT 1 FROM chunks WHERE chunk_hash = ?1",
-                rusqlite::params![indexed_chunk.chunk.chunk_hash.as_bytes().as_slice()],
+                rusqlite::params![chunk_hash_str],
                 |_| Ok(true),
             )
             .unwrap();
@@ -527,7 +529,7 @@ mod test {
             .conn
             .query_row(
                 "SELECT 1 FROM vec_chunks WHERE chunk_hash = ?1",
-                rusqlite::params![indexed_chunk.chunk.chunk_hash.to_string()],
+                rusqlite::params![chunk_hash_str],
                 |_| Ok(true),
             )
             .unwrap();

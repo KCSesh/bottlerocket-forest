@@ -15,12 +15,13 @@ use crate::knowledge::storage::repository::{StorageError, storage_error::*};
 /// Persists an indexed chunk to storage.
 pub fn save_chunk(conn: &Connection, chunk: &IndexedChunk) -> Result<(), StorageError> {
     let (context_type, context_data) = serialize_context(&chunk.chunk.context)?;
+    let chunk_hash_str = chunk.chunk.chunk_hash.to_string();
     conn.execute(
     "INSERT OR REPLACE INTO chunks 
     (chunk_hash, file_hash, repo_name, context_type, context_data, content, token_count, last_modified)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
     rusqlite::params![
-      chunk.chunk.chunk_hash.as_bytes(),
+      chunk_hash_str,
       chunk.chunk.file_hash.as_bytes(),
       chunk.chunk.source.repo_name.to_string(),
       context_type,
@@ -60,7 +61,7 @@ pub fn has_chunk(conn: &Connection, chunk_hash: &ChunkHash) -> Result<bool, Stor
     let count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM chunks WHERE chunk_hash = ?1",
-            [chunk_hash.as_bytes()],
+            [chunk_hash.to_string()],
             |row| row.get(0),
         )
         .context(DatabaseSnafu)?;
@@ -73,6 +74,7 @@ pub fn delete_orphaned_chunks(conn: &Connection) -> Result<u64, StorageError> {
     "DELETE FROM chunks WHERE file_hash NOT IN (SELECT DISTINCT file_hash FROM indexed_files)",
     [],
   ).context(DatabaseSnafu)?;
+    // Both chunks.chunk_hash and vec_chunks.chunk_hash are TEXT now - simple comparison
     conn.execute(
         "DELETE FROM vec_chunks WHERE chunk_hash NOT IN (SELECT chunk_hash FROM chunks)",
         [],

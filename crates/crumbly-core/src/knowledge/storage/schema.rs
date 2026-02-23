@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS indexed_files (
 
 const CREATE_CHUNKS: &str = r#"
 CREATE TABLE IF NOT EXISTS chunks (
-    chunk_hash BLOB PRIMARY KEY,
+    chunk_hash TEXT PRIMARY KEY,
     file_hash BLOB NOT NULL,
     repo_name TEXT NOT NULL,
     context_type TEXT NOT NULL,
@@ -82,6 +82,8 @@ const CREATE_INDEX_FILE_HASH: &str =
 const CREATE_INDEX_REPO: &str = "CREATE INDEX IF NOT EXISTS idx_chunks_repo ON chunks(repo_name)";
 const CREATE_INDEX_CONTEXT_TYPE: &str =
     "CREATE INDEX IF NOT EXISTS idx_chunks_context_type ON chunks(context_type)";
+const CREATE_INDEX_INDEXED_FILES_FILE_HASH: &str =
+    "CREATE INDEX IF NOT EXISTS idx_indexed_files_file_hash ON indexed_files(file_hash)";
 
 /// Reads the schema version from the index_metadata table
 ///
@@ -149,6 +151,8 @@ pub fn create_tables(conn: &Connection, config: &EmbeddingModelConfig) -> Result
         .context(SqlExecutionSnafu)?;
     conn.execute(CREATE_INDEX_CONTEXT_TYPE, [])
         .context(SqlExecutionSnafu)?;
+    conn.execute(CREATE_INDEX_INDEXED_FILES_FILE_HASH, [])
+        .context(SqlExecutionSnafu)?;
 
     let create_vec_chunks = format!(
         "CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
@@ -178,15 +182,9 @@ fn migrate_v3_to_v4(conn: &Connection) -> Result<()> {
     let result = (|| -> Result<()> {
         conn.execute(
             r#"CREATE TABLE chunks_new (
-    chunk_hash BLOB PRIMARY KEY,
-    file_hash BLOB NOT NULL,
-    repo_name TEXT NOT NULL,
-    context_type TEXT NOT NULL,
-    context_data TEXT NOT NULL,
-    content TEXT NOT NULL,
-    token_count INTEGER NOT NULL,
-    last_modified INTEGER NOT NULL
-)"#,
+    chunk_hash BLOB PRIMARY KEY, file_hash BLOB NOT NULL, repo_name TEXT NOT NULL,
+    context_type TEXT NOT NULL, context_data TEXT NOT NULL, content TEXT NOT NULL,
+    token_count INTEGER NOT NULL, last_modified INTEGER NOT NULL)"#,
             [],
         )
         .context(SqlExecutionSnafu)?;
@@ -301,19 +299,26 @@ mod test {
             .collect();
         assert_eq!(ctx_cols, vec!["context_id", "created_at", "last_indexed"]);
 
-        // Verify chunks table primary key
-        let chunk_pk: i32 = conn
+        // Verify chunks table primary key is TEXT
+        let chunk_info: Vec<(String, String, i32)> = conn
             .prepare("PRAGMA table_info(chunks)")
             .unwrap()
             .query_map([], |row| {
-                Ok((row.get::<_, String>(1)?, row.get::<_, i32>(5)?))
+                Ok((
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i32>(5)?,
+                ))
             })
             .unwrap()
-            .find(|r| r.as_ref().map(|(n, _)| n == "chunk_hash").unwrap_or(false))
-            .unwrap()
-            .unwrap()
-            .1;
-        assert_eq!(chunk_pk, 1);
+            .map(|r| r.unwrap())
+            .collect();
+        let chunk_hash_info = chunk_info
+            .iter()
+            .find(|(n, _, _)| n == "chunk_hash")
+            .unwrap();
+        assert_eq!(chunk_hash_info.1, "TEXT");
+        assert_eq!(chunk_hash_info.2, 1); // is primary key
 
         // Verify vec_chunks exists
         let exists: bool = conn
@@ -324,6 +329,16 @@ mod test {
             )
             .unwrap();
         assert!(exists);
+
+        // Verify indexed_files file_hash index exists
+        let idx_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_indexed_files_file_hash'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        assert!(idx_exists, "idx_indexed_files_file_hash index should exist");
     }
 
     #[test]
@@ -404,7 +419,7 @@ mod test {
         .unwrap();
         conn.execute(CREATE_INDEX_FILE_HASH, []).unwrap();
         conn.execute(CREATE_INDEX_REPO, []).unwrap();
-        set_schema_version(&conn, 3).unwrap();
+        set_schema_version(conn, 3).unwrap();
     }
 
     #[test]

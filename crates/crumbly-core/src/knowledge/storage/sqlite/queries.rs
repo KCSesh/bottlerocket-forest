@@ -17,6 +17,7 @@ pub fn save(conn: &mut Connection, indexed_chunk: &IndexedChunk) -> Result<(), S
     let chunk = &indexed_chunk.chunk;
     let (context_type, context_data) = serialize_context(&chunk.context)?;
     let embedding_blob = serialize_embedding(&indexed_chunk.embedding);
+    let chunk_hash_str = chunk.chunk_hash.to_string();
 
     conn.execute(
         "INSERT OR REPLACE INTO chunks 
@@ -25,7 +26,7 @@ pub fn save(conn: &mut Connection, indexed_chunk: &IndexedChunk) -> Result<(), S
         VALUES (:chunk_hash, :file_hash, :repo_name, 
                 :context_type, :context_data, :content, :token_count, :last_modified)",
         rusqlite::named_params! {
-            ":chunk_hash": chunk.chunk_hash.as_bytes().as_slice(),
+            ":chunk_hash": chunk_hash_str,
             ":file_hash": chunk.file_hash.as_bytes().as_slice(),
             ":repo_name": chunk.source.repo_name.to_string(),
             ":context_type": context_type,
@@ -39,7 +40,6 @@ pub fn save(conn: &mut Connection, indexed_chunk: &IndexedChunk) -> Result<(), S
 
     // vec0 virtual tables don't support INSERT OR REPLACE/IGNORE
     // Check if embedding already exists before inserting
-    let chunk_hash_str = chunk.chunk_hash.to_string();
     let exists: bool = conn
         .query_row(
             "SELECT 1 FROM vec_chunks WHERE chunk_hash = ?",
@@ -84,7 +84,7 @@ pub fn save_batch(conn: &mut Connection, chunks: &[IndexedChunk]) -> Result<(), 
             VALUES (:chunk_hash, :file_hash, :repo_name, 
                     :context_type, :context_data, :content, :token_count, :last_modified)",
             rusqlite::named_params! {
-                ":chunk_hash": chunk.chunk_hash.as_bytes().as_slice(),
+                ":chunk_hash": chunk_hash_str,
                 ":file_hash": chunk.file_hash.as_bytes().as_slice(),
                 ":repo_name": chunk.source.repo_name.to_string(),
                 ":context_type": context_type,
@@ -158,7 +158,7 @@ pub fn find_by_chunk_hash(
         .context(DatabaseSnafu)?;
 
     stmt.query_row(
-        rusqlite::named_params! { ":chunk_hash": chunk_hash.as_bytes().as_slice() },
+        rusqlite::named_params! { ":chunk_hash": chunk_hash.to_string() },
         |row| {
             indexed_chunk_from_row(row)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
@@ -262,8 +262,6 @@ pub fn get_indexed_files(
     Ok(result)
 }
 
-/// Removes all chunks associated with a specific file path
-///
 /// Removes all chunks associated with a specific file_hash
 #[allow(dead_code)] // Used by indexer in Commit 10
 pub fn delete_by_file_hash(
@@ -271,7 +269,7 @@ pub fn delete_by_file_hash(
     file_hash: &FileHash,
 ) -> Result<usize, StorageError> {
     // First get the chunk_hashes to delete from vec_chunks
-    let chunk_hashes: Vec<Vec<u8>> = {
+    let chunk_hashes: Vec<String> = {
         let mut stmt = conn
             .prepare("SELECT chunk_hash FROM chunks WHERE file_hash = :file_hash")
             .context(DatabaseSnafu)?;
@@ -284,15 +282,11 @@ pub fn delete_by_file_hash(
         .context(DatabaseSnafu)?
     };
 
-    // Delete from vec_chunks using chunk_hash string representation
-    for chunk_hash_bytes in &chunk_hashes {
-        let chunk_hash_hex = chunk_hash_bytes
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
+    // Delete from vec_chunks using chunk_hash directly (both are TEXT now)
+    for chunk_hash_str in &chunk_hashes {
         conn.execute(
             "DELETE FROM vec_chunks WHERE chunk_hash = :chunk_hash",
-            rusqlite::named_params! { ":chunk_hash": chunk_hash_hex },
+            rusqlite::named_params! { ":chunk_hash": chunk_hash_str },
         )
         .context(DatabaseSnafu)?;
     }

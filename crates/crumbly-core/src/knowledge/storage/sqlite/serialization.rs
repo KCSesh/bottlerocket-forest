@@ -7,7 +7,6 @@ use snafu::ResultExt;
 
 use crate::knowledge::constants::EMBEDDING_DIM;
 
-const UUID_BYTE_LENGTH: usize = 16;
 use crate::knowledge::domain::{
     Chunk, ChunkContent, ChunkContext, ChunkHash, ChunkId, ChunkSource, Embedding, FileHash,
     IndexRelativePath, IndexedChunk, RepoName, Timestamp, TokenCount,
@@ -26,18 +25,47 @@ where
         })
 }
 
+/// Parses a hex string into a 32-byte array
+fn parse_hex_hash(hex_str: &str) -> Result<[u8; 32], StorageError> {
+    if hex_str.len() != 64 {
+        return Err(InvalidDataSnafu {
+            message: format!(
+                "chunk_hash hex string must be 64 chars, got {}",
+                hex_str.len()
+            ),
+        }
+        .build());
+    }
+    let mut bytes = [0u8; 32];
+    for (i, chunk) in hex_str.as_bytes().chunks(2).enumerate() {
+        let hex_byte = std::str::from_utf8(chunk).map_err(|_| {
+            InvalidDataSnafu {
+                message: "invalid UTF-8 in hex string".to_string(),
+            }
+            .build()
+        })?;
+        bytes[i] = u8::from_str_radix(hex_byte, 16).map_err(|_| {
+            InvalidDataSnafu {
+                message: format!("invalid hex byte: {}", hex_byte),
+            }
+            .build()
+        })?;
+    }
+    Ok(bytes)
+}
+
 /// Reconstructs an IndexedChunk from a database row
 ///
-/// Expects columns: chunk_hash (for id), chunk_hash, file_hash, file_path, repo_name,
-/// context_type, context_data, content, token_count, last_modified.
+/// Expects columns: chunk_hash (TEXT for id), chunk_hash (TEXT), file_hash (BLOB), file_path,
+/// repo_name, context_type, context_data, content, token_count, last_modified.
 ///
 /// Note: The first column is used to generate a deterministic UUID from the chunk_hash.
 /// The file_path column may be empty string since the new schema doesn't store file_path
 /// in the chunks table.
 pub fn indexed_chunk_from_row(row: &rusqlite::Row) -> Result<IndexedChunk, StorageError> {
-    // Column 0: chunk_hash bytes (used to generate deterministic UUID)
-    let chunk_hash_for_id: Vec<u8> = row.get(0).context(DatabaseSnafu)?;
-    let chunk_hash_bytes: Vec<u8> = row.get(1).context(DatabaseSnafu)?;
+    // Column 0: chunk_hash TEXT (used to generate deterministic UUID)
+    let chunk_hash_for_id: String = row.get(0).context(DatabaseSnafu)?;
+    let chunk_hash_str: String = row.get(1).context(DatabaseSnafu)?;
     let file_hash_bytes: Vec<u8> = row.get(2).context(DatabaseSnafu)?;
     let file_path: String = row.get(3).context(DatabaseSnafu)?;
     let repo_name: String = row.get(4).context(DatabaseSnafu)?;
@@ -47,21 +75,17 @@ pub fn indexed_chunk_from_row(row: &rusqlite::Row) -> Result<IndexedChunk, Stora
     let token_count: i64 = row.get(8).context(DatabaseSnafu)?;
     let last_modified: i64 = row.get(9).context(DatabaseSnafu)?;
 
+    // Parse chunk_hash from hex string
+    let chunk_hash_array = parse_hex_hash(&chunk_hash_for_id)?;
+
     // Generate a deterministic UUID from the chunk_hash bytes
-    let uuid = if chunk_hash_for_id.len() >= UUID_BYTE_LENGTH {
-        let mut bytes = [0u8; UUID_BYTE_LENGTH];
-        bytes.copy_from_slice(&chunk_hash_for_id[..UUID_BYTE_LENGTH]);
+    let uuid = {
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&chunk_hash_array[..16]);
         uuid::Uuid::from_bytes(bytes)
-    } else {
-        uuid::Uuid::nil()
     };
 
-    let chunk_hash_array: [u8; 32] = chunk_hash_bytes.try_into().map_err(|_| {
-        InvalidDataSnafu {
-            message: "chunk_hash must be 32 bytes".to_string(),
-        }
-        .build()
-    })?;
+    let chunk_hash_bytes = parse_hex_hash(&chunk_hash_str)?;
 
     let file_hash_array: [u8; 32] = file_hash_bytes.try_into().map_err(|_| {
         InvalidDataSnafu {
@@ -89,7 +113,7 @@ pub fn indexed_chunk_from_row(row: &rusqlite::Row) -> Result<IndexedChunk, Stora
 
     let chunk = Chunk::builder()
         .id(ChunkId::new(uuid))
-        .chunk_hash(ChunkHash::new(chunk_hash_array))
+        .chunk_hash(ChunkHash::new(chunk_hash_bytes))
         .file_hash(FileHash::new(file_hash_array))
         .source(
             ChunkSource::builder()
