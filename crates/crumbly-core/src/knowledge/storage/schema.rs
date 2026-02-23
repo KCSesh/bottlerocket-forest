@@ -127,11 +127,78 @@ pub fn check_schema_version(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
+    // Attempt known migrations
+    if stored == 6 && SCHEMA_VERSION == 7 {
+        return migrate_v6_to_v7(conn);
+    }
+
     SchemaMismatchSnafu {
         stored,
         expected: SCHEMA_VERSION,
     }
     .fail()
+}
+
+/// Migrates from schema v6 to v7
+///
+/// v7 converts chunks.chunk_hash from BLOB to TEXT (lowercase hex format).
+fn migrate_v6_to_v7(conn: &Connection) -> Result<()> {
+    use schema_error::*;
+
+    conn.execute("BEGIN TRANSACTION", [])
+        .context(SqlExecutionSnafu)?;
+
+    let result = (|| -> Result<()> {
+        // Create new table with TEXT chunk_hash
+        conn.execute(
+            r#"CREATE TABLE chunks_new (
+    chunk_hash TEXT PRIMARY KEY,
+    file_hash BLOB NOT NULL,
+    repo_name TEXT NOT NULL,
+    context_type TEXT NOT NULL,
+    context_data TEXT NOT NULL,
+    content TEXT NOT NULL,
+    token_count INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL
+)"#,
+            [],
+        )
+        .context(SqlExecutionSnafu)?;
+
+        // Copy data, converting BLOB to lowercase hex TEXT
+        conn.execute(
+            "INSERT INTO chunks_new SELECT lower(hex(chunk_hash)), file_hash, repo_name, context_type, context_data, content, token_count, last_modified FROM chunks",
+            [],
+        )
+        .context(SqlExecutionSnafu)?;
+
+        conn.execute("DROP TABLE chunks", [])
+            .context(SqlExecutionSnafu)?;
+        conn.execute("ALTER TABLE chunks_new RENAME TO chunks", [])
+            .context(SqlExecutionSnafu)?;
+
+        // Recreate indexes
+        conn.execute(CREATE_INDEX_FILE_HASH, [])
+            .context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_REPO, [])
+            .context(SqlExecutionSnafu)?;
+        conn.execute(CREATE_INDEX_CONTEXT_TYPE, [])
+            .context(SqlExecutionSnafu)?;
+
+        set_schema_version(conn, 7)?;
+        Ok(())
+    })();
+
+    match result {
+        Ok(_) => {
+            conn.execute("COMMIT", []).context(SqlExecutionSnafu)?;
+            Ok(())
+        }
+        Err(e) => {
+            let _ = conn.execute("ROLLBACK", []);
+            Err(e)
+        }
+    }
 }
 
 /// Initializes database schema including tables and indexes
@@ -164,7 +231,10 @@ pub fn create_tables(conn: &Connection, config: &EmbeddingModelConfig) -> Result
     conn.execute(&create_vec_chunks, [])
         .context(SqlExecutionSnafu)?;
 
-    set_schema_version(conn, SCHEMA_VERSION)?;
+    // Only set schema version for new databases
+    if get_schema_version(conn)?.is_none() {
+        set_schema_version(conn, SCHEMA_VERSION)?;
+    }
 
     Ok(())
 }
