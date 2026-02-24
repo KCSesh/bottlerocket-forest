@@ -114,4 +114,12 @@ pub enum IndexingError {
         /// Underlying rayon error.
         source: rayon::ThreadPoolBuildError,
     },
+
+    /// Pipeline collector thread panicked unexpectedly.
+    #[snafu(display("Pipeline collector thread panicked"))]
+    #[diagnostic(
+        code(crumbly::indexing::collector_panicked),
+        help("This is an internal error - please report it")
+    )]
+    CollectorPanicked,
 }

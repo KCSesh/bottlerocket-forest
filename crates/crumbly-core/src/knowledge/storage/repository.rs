@@ -13,6 +13,11 @@ use crate::knowledge::domain::{
 /// Abstract interface for chunk storage operations
 #[cfg_attr(test, mockall::automock)]
 pub trait ChunkRepository {
+    /// Creates an independent instance connected to the same backing store
+    fn spawn(&self) -> Result<Self, StorageError>
+    where
+        Self: Sized;
+
     /// Persists a single indexed chunk to storage
     fn save(&mut self, chunk: &IndexedChunk) -> Result<(), StorageError>;
 

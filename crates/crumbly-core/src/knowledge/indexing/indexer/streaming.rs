@@ -64,6 +64,63 @@ impl StreamContext {
     }
 }
 
+/// Batched writer that flushes indexed chunks to storage periodically
+struct BatchingSink<R: ChunkRepository> {
+    repository: R,
+    buffer: Vec<IndexedChunk>,
+    batch_size: usize,
+    error: Option<super::types::IndexingError>,
+}
+
+impl<R: ChunkRepository> BatchingSink<R> {
+    fn new(repository: R, batch_size: usize) -> Self {
+        Self {
+            repository,
+            buffer: Vec::with_capacity(batch_size),
+            batch_size,
+            error: None,
+        }
+    }
+
+    fn ingest(&mut self, chunk: IndexedChunk) {
+        if self.error.is_some() {
+            return;
+        }
+        self.buffer.push(chunk);
+        if self.buffer.len() >= self.batch_size {
+            self.flush_batch();
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), super::types::IndexingError> {
+        use super::types::indexing_error::*;
+
+        if let Some(e) = self.error.take() {
+            return Err(e);
+        }
+        if !self.buffer.is_empty() {
+            self.repository
+                .save_batch(&self.buffer)
+                .context(StorageFailedSnafu)?;
+            self.buffer.clear();
+        }
+        Ok(())
+    }
+
+    fn flush_batch(&mut self) {
+        use super::types::indexing_error::*;
+
+        if let Err(e) = self
+            .repository
+            .save_batch(&self.buffer)
+            .context(StorageFailedSnafu)
+        {
+            self.error = Some(e);
+        }
+        self.buffer.clear();
+    }
+}
+
 /// Send chunks to pipeline, returning true if an error occurred
 fn send_chunks_to_pipeline<F>(
     chunks: Vec<crate::knowledge::domain::Chunk>,
@@ -183,7 +240,7 @@ impl<F, R: ChunkRepository> ConsumerState<'_, F, R> {
 
 /// Stream chunks from files through the embedding pipeline
 #[allow(clippy::too_many_arguments)]
-pub(super) fn stream_index_files<R: ChunkRepository>(
+pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
     files: &[&IndexableFile],
     modified_paths: &[&crate::knowledge::domain::IndexRelativePath],
     dispatcher: &ChunkingDispatcher,
@@ -198,9 +255,10 @@ pub(super) fn stream_index_files<R: ChunkRepository>(
     let worker_count = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
     let batch_size = batch_config.batch_size.into_inner();
 
-    let storage_batch: Arc<Mutex<Vec<IndexedChunk>>> =
-        Arc::new(Mutex::new(Vec::with_capacity(batch_size)));
-    let storage_batch_clone = Arc::clone(&storage_batch);
+    // Spawn a separate repository instance for the sink thread
+    let sink_repo = repository.spawn().context(StorageFailedSnafu)?;
+    let batching_sink = Arc::new(Mutex::new(BatchingSink::new(sink_repo, batch_size)));
+    let sink_clone = Arc::clone(&batching_sink);
 
     let pipeline = EmbeddingPipeline::builder()
         .provider(Arc::clone(provider))
@@ -209,8 +267,8 @@ pub(super) fn stream_index_files<R: ChunkRepository>(
         .build();
 
     let handle = pipeline.start_with_sink(move |chunk: IndexedChunk| {
-        if let Ok(mut batch) = storage_batch_clone.lock() {
-            batch.push(chunk);
+        if let Ok(mut sink) = sink_clone.lock() {
+            sink.ingest(chunk);
         }
     });
 
@@ -252,23 +310,21 @@ pub(super) fn stream_index_files<R: ChunkRepository>(
         p.embedding_started(total_chunks);
     }
 
-    if let Err(e) = handle.join() {
+    let join_result = handle.join();
+    let chunks_affected = match join_result {
+        Ok((count, _)) => count,
+        Err(e) => return Err(e),
+    };
+
+    // Flush remaining chunks and surface any errors
+    let mut sink = batching_sink.lock().unwrap_or_else(|p| p.into_inner());
+    if let Err(e) = sink.flush() {
         ctx.set_error(e);
     }
 
     if let Some(e) = ctx.take_error() {
         return Err(e);
     }
-
-    let mut final_batch = storage_batch.lock().unwrap_or_else(|p| p.into_inner());
-    let chunks_affected = final_batch.len();
-
-    if !final_batch.is_empty() {
-        for batch in final_batch.chunks(batch_size) {
-            repository.save_batch(batch).context(StorageFailedSnafu)?;
-        }
-    }
-    final_batch.clear();
 
     Ok((
         ctx.files_added.load(Ordering::Relaxed),

@@ -57,7 +57,7 @@ pub struct Indexer<R: ChunkRepository> {
 }
 
 #[bon::bon]
-impl<R: ChunkRepository> Indexer<R> {
+impl<R: ChunkRepository + Send + 'static> Indexer<R> {
     /// Create an indexer for the specified forest root
     #[builder]
     pub fn new(

@@ -27,7 +27,7 @@ pub use context::SqliteContextRepository;
 
 use rusqlite::Connection;
 use snafu::ResultExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::repository::{ChunkRepository, StorageError};
 use super::schema;
@@ -40,6 +40,8 @@ use crate::knowledge::domain::{
 #[derive(Debug)]
 pub struct SqliteChunkRepository {
     conn: Connection,
+    db_path: PathBuf,
+    config: EmbeddingModelConfig,
 }
 
 impl SqliteChunkRepository {
@@ -97,7 +99,11 @@ impl SqliteChunkRepository {
             .build()
         })?;
 
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            db_path: path.as_ref().to_path_buf(),
+            config: config.clone(),
+        })
     }
 
     /// Opens an existing database and validates model configuration compatibility
@@ -130,6 +136,10 @@ impl SqliteChunkRepository {
 }
 
 impl ChunkRepository for SqliteChunkRepository {
+    fn spawn(&self) -> Result<Self, StorageError> {
+        Self::open(&self.db_path, &self.config)
+    }
+
     fn save(&mut self, chunk: &IndexedChunk) -> Result<(), StorageError> {
         queries::save(&mut self.conn, chunk)
     }

@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use crate::knowledge::indexing::IndexableFile;
 
-impl<R: ChunkRepository> Indexer<R> {
+impl<R: ChunkRepository + Send + 'static> Indexer<R> {
     pub(super) fn build(&mut self) -> Result<IndexResult, IndexingError> {
         use types::indexing_error::*;
 
@@ -183,6 +183,11 @@ mod test {
 
     fn setup_mock_repo_for_build() -> MockChunkRepository {
         let mut r = MockChunkRepository::new();
+        r.expect_spawn().returning(|| {
+            let mut spawned = MockChunkRepository::new();
+            spawned.expect_save_batch().returning(|_| Ok(()));
+            Ok(spawned)
+        });
         r.expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
         r.expect_track_indexed_file().returning(|_, _, _, _| Ok(()));
@@ -194,6 +199,11 @@ mod test {
         indexed: HashMap<IndexRelativePath, Timestamp>,
     ) -> MockChunkRepository {
         let mut r = MockChunkRepository::new();
+        r.expect_spawn().returning(|| {
+            let mut spawned = MockChunkRepository::new();
+            spawned.expect_save_batch().returning(|_| Ok(()));
+            Ok(spawned)
+        });
         r.expect_get_indexed_files()
             .returning(move |_| Ok(indexed.clone()));
         r.expect_has_embedding_batch()
@@ -359,17 +369,22 @@ mod test {
         setup_test_file(&temp_dir, "test-repo/test.md", "# Test\n\nContent");
 
         let mut mock_repo = MockChunkRepository::new();
+        mock_repo.expect_spawn().returning(|| {
+            let mut spawned = MockChunkRepository::new();
+            spawned.expect_save_batch().returning(|_| {
+                Err(StorageError::InvalidData {
+                    message: "test error".to_string(),
+                })
+            });
+            Ok(spawned)
+        });
         mock_repo
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
         mock_repo
             .expect_track_indexed_file()
             .returning(|_, _, _, _| Ok(()));
-        mock_repo.expect_save_batch().returning(|_| {
-            Err(StorageError::InvalidData {
-                message: "test error".to_string(),
-            })
-        });
+        mock_repo.expect_save_batch().returning(|_| Ok(()));
 
         let mock_provider = mock_provider_success();
         let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
@@ -407,6 +422,11 @@ mod test {
 
         let mut mock_repo = MockChunkRepository::new();
         mock_repo.expect_clear().times(1).returning(|| Ok(5));
+        mock_repo.expect_spawn().returning(|| {
+            let mut spawned = MockChunkRepository::new();
+            spawned.expect_save_batch().returning(|_| Ok(()));
+            Ok(spawned)
+        });
         mock_repo
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));

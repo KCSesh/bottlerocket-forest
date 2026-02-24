@@ -136,7 +136,7 @@ impl<S: ContentSource, R: ChunkRepository> ChunkCacher<S, R> {
             send_chunks(chunks, &existing, &handle, &mut embeddings_generated)?;
         }
 
-        handle.join().context(EmbeddingFailedSnafu)?;
+        let (_count, _sink) = handle.join().context(EmbeddingFailedSnafu)?;
 
         let mut final_batch = storage_batch.lock().unwrap_or_else(|p| p.into_inner());
         let chunks_created = final_batch.len();

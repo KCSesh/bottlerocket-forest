@@ -23,9 +23,8 @@ pub(crate) struct WorkItem {
 pub(crate) struct PipelineHandle<F> {
     work_tx: Sender<WorkItem>,
     error_rx: Receiver<IndexingError>,
-    collector_handle: JoinHandle<usize>,
+    collector_handle: JoinHandle<(usize, F)>,
     worker_handles: Vec<JoinHandle<()>>,
-    _sink: std::marker::PhantomData<F>,
 }
 
 impl<F> PipelineHandle<F> {
@@ -39,21 +38,23 @@ impl<F> PipelineHandle<F> {
         self.error_rx.try_recv().ok()
     }
 
-    /// Signal completion and wait for pipeline to finish
-    pub(crate) fn join(self) -> Result<usize, IndexingError> {
+    /// Signal completion and wait for pipeline to finish, returning count and sink
+    pub(crate) fn join(self) -> Result<(usize, F), IndexingError> {
+        use super::types::indexing_error::*;
+
         drop(self.work_tx);
-        let error = self.error_rx.try_recv().ok();
-        let count = self.collector_handle.join().unwrap_or(0);
+        let (count, sink) = match self.collector_handle.join() {
+            Ok(result) => result,
+            Err(_) => return Err(CollectorPanickedSnafu.build()),
+        };
         for handle in self.worker_handles {
             let _ = handle.join();
         }
-        if let Some(e) = error {
-            return Err(e);
-        }
+        // Check for worker errors after all workers have finished
         if let Ok(e) = self.error_rx.try_recv() {
             return Err(e);
         }
-        Ok(count)
+        Ok((count, sink))
     }
 }
 
@@ -111,7 +112,7 @@ impl EmbeddingPipeline {
                 sink(chunk);
                 count += 1;
             }
-            count
+            (count, sink)
         });
 
         PipelineHandle {
@@ -119,7 +120,6 @@ impl EmbeddingPipeline {
             error_rx,
             collector_handle,
             worker_handles,
-            _sink: std::marker::PhantomData,
         }
     }
 
@@ -149,7 +149,7 @@ impl EmbeddingPipeline {
             }
         }
 
-        handle.join()?;
+        let (_count, _sink) = handle.join()?;
 
         let mut guard = results.lock().unwrap_or_else(|e| e.into_inner());
         Ok(std::mem::take(&mut *guard))

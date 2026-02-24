@@ -38,6 +38,8 @@ fn is_skippable_error(error: &IndexingError) -> bool {
         IndexingError::StorageFailed { .. } => false,
         // Thread pool build errors are fatal - indicate internal problem
         IndexingError::ThreadPoolBuildFailed { .. } => false,
+        // Collector panics are fatal - indicate internal problem
+        IndexingError::CollectorPanicked => false,
     }
 }
 
