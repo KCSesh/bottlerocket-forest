@@ -15,6 +15,7 @@ use rayon::prelude::*;
 use snafu::ResultExt;
 
 use super::BatchConfig;
+use super::file_tracker::{FileRegistration, FileTracker};
 use super::operations;
 use super::pipeline::{EmbeddingPipeline, PipelineHandle, WorkItem};
 use super::types::IndexingError;
@@ -25,6 +26,9 @@ use crate::knowledge::storage::ChunkRepository;
 
 pub(super) type ChunkResult =
     Result<Vec<crate::knowledge::domain::Chunk>, Result<(), IndexingError>>;
+
+/// Number of files to buffer before parallel has_embedding_batch queries
+const CONSUMER_BATCH_SIZE: usize = 8;
 
 /// Shared state for streaming pipeline processing
 pub(super) struct StreamContext {
@@ -121,27 +125,6 @@ impl<R: ChunkRepository> BatchingSink<R> {
     }
 }
 
-/// Send chunks to pipeline, returning true if an error occurred
-fn send_chunks_to_pipeline<F>(
-    chunks: Vec<crate::knowledge::domain::Chunk>,
-    existing: &HashSet<ChunkHash>,
-    handle: &PipelineHandle<F>,
-    ctx: &StreamContext,
-) -> bool {
-    for chunk in chunks
-        .into_iter()
-        .filter(|c| !existing.contains(&c.chunk_hash))
-    {
-        if handle.sender().send(WorkItem { chunk }).is_err() {
-            if let Some(e) = handle.check_error() {
-                ctx.set_error(e);
-            }
-            return true;
-        }
-    }
-    false
-}
-
 /// Item sent from rayon workers to consumer
 struct ChunkedFile {
     file_idx: usize,
@@ -187,6 +170,12 @@ impl ProducerState<'_> {
     }
 }
 
+/// Prepared file data after chunking, ready for embedding lookup
+struct PreparedFile {
+    file_idx: usize,
+    chunks: Vec<crate::knowledge::domain::Chunk>,
+}
+
 /// Consumer state for processing chunked files
 struct ConsumerState<'a, F, R: ChunkRepository> {
     files: &'a [&'a IndexableFile],
@@ -195,47 +184,230 @@ struct ConsumerState<'a, F, R: ChunkRepository> {
     ctx: &'a StreamContext,
     repository: &'a mut R,
     context_id: &'a ContextId,
+    reg_tx: &'a Sender<FileRegistration>,
 }
 
-impl<F, R: ChunkRepository> ConsumerState<'_, F, R> {
+impl<F, R: ChunkRepository + Send> ConsumerState<'_, F, R> {
     fn run(mut self, rx: Receiver<ChunkedFile>) {
+        let mut batch: Vec<ChunkedFile> = Vec::with_capacity(CONSUMER_BATCH_SIZE);
+
         for chunked in rx {
-            self.process_chunked(chunked);
+            if self.ctx.has_error() {
+                continue;
+            }
+            batch.push(chunked);
+            if batch.len() >= CONSUMER_BATCH_SIZE {
+                self.process_batch(&mut batch);
+                batch.clear();
+            }
+        }
+
+        // Process remaining files
+        if !batch.is_empty() && !self.ctx.has_error() {
+            self.process_batch(&mut batch);
         }
     }
 
-    fn process_chunked(&mut self, chunked: ChunkedFile) {
+    fn process_batch(&mut self, batch: &mut Vec<ChunkedFile>) {
         if self.ctx.has_error() {
             return;
         }
 
-        let file = self.files[chunked.file_idx];
-        self.ctx.files_added.fetch_add(1, Ordering::Relaxed);
+        // Phase 1: Prepare files and collect all chunk hashes
+        let mut prepared: Vec<PreparedFile> = Vec::with_capacity(batch.len());
+        let mut all_hashes: Vec<ChunkHash> = Vec::new();
 
-        let is_modified = self
-            .modified_paths
-            .iter()
-            .any(|p| **p == file.relative_path);
-        let processed = process_file_result(
-            file,
-            chunked.result,
-            is_modified,
-            self.handle,
-            self.ctx,
-            self.repository,
-            self.context_id,
-        );
+        for chunked in batch.drain(..) {
+            self.ctx.files_added.fetch_add(1, Ordering::Relaxed);
+            let file = self.files[chunked.file_idx];
+            let is_modified = self
+                .modified_paths
+                .iter()
+                .any(|p| **p == file.relative_path);
 
-        if self.ctx.has_error() {
+            let chunks = match chunked.result {
+                Ok(chunks) => chunks,
+                Err(Ok(())) => {
+                    self.ctx.files_skipped.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+                Err(Err(e)) => {
+                    self.ctx.set_error(e);
+                    return;
+                }
+            };
+
+            // Handle modified files
+            if is_modified && let Err(e) = self.remove_modified_file(file) {
+                self.ctx.set_error(e);
+                return;
+            }
+
+            if chunks.is_empty() {
+                // Empty file - track immediately (no chunks flow through pipeline)
+                self.track_empty_file(file)
+                    .unwrap_or_else(|e| self.ctx.set_error(e));
+                continue;
+            }
+
+            all_hashes.extend(chunks.iter().map(|c| c.chunk_hash));
+            prepared.push(PreparedFile {
+                file_idx: chunked.file_idx,
+                chunks,
+            });
+        }
+
+        if prepared.is_empty() {
             return;
         }
 
-        if let Some((chunks, existing)) = processed
-            && !chunks.is_empty()
-        {
-            send_chunks_to_pipeline(chunks, &existing, self.handle, self.ctx);
+        // Phase 2: Parallel has_embedding_batch queries
+        let existing = self.query_existing_parallel(&all_hashes);
+        let existing = match existing {
+            Ok(e) => e,
+            Err(e) => {
+                self.ctx.set_error(e);
+                return;
+            }
+        };
+
+        // Phase 3: Process each file with pre-fetched existing set
+        for prep in prepared {
+            if self.ctx.has_error() {
+                return;
+            }
+            self.finalize_file(prep, &existing);
         }
     }
+
+    fn query_existing_parallel(
+        &self,
+        all_hashes: &[ChunkHash],
+    ) -> Result<HashSet<ChunkHash>, IndexingError> {
+        if all_hashes.is_empty() {
+            return Ok(HashSet::new());
+        }
+
+        let num_connections = CONSUMER_BATCH_SIZE.min(4);
+        let chunk_size = all_hashes.len().div_ceil(num_connections);
+        let hash_chunks: Vec<&[ChunkHash]> = all_hashes.chunks(chunk_size).collect();
+
+        let results = thread::scope(|s| {
+            let handles: Vec<_> = hash_chunks
+                .into_iter()
+                .map(|hashes| {
+                    let repo_result = self.repository.spawn();
+                    s.spawn(move || query_hashes(repo_result, hashes))
+                })
+                .collect();
+            handles.into_iter().map(|h| h.join()).collect::<Vec<_>>()
+        });
+
+        let mut combined = HashSet::new();
+        for result in results {
+            let inner = result.map_err(|_| IndexingError::ThreadPanic)?;
+            combined.extend(inner?);
+        }
+        Ok(combined)
+    }
+
+    fn remove_modified_file(&mut self, file: &IndexableFile) -> Result<(), IndexingError> {
+        use super::types::indexing_error::*;
+        self.repository
+            .remove_indexed_file_from_context(&file.relative_path, self.context_id)
+            .context(StorageFailedSnafu)
+    }
+
+    fn track_empty_file(&mut self, file: &IndexableFile) -> Result<(), IndexingError> {
+        use super::types::indexing_error::*;
+        self.repository
+            .track_indexed_file(
+                &file.relative_path,
+                &FileHash::new([0u8; 32]),
+                Timestamp::from_secs(file.last_modified.as_secs()),
+                self.context_id,
+            )
+            .context(StorageFailedSnafu)
+    }
+
+    fn finalize_file(&mut self, prep: PreparedFile, existing: &HashSet<ChunkHash>) {
+        use super::types::indexing_error::*;
+
+        let file = self.files[prep.file_idx];
+        let file_hash = prep
+            .chunks
+            .first()
+            .map(|c| c.file_hash)
+            .unwrap_or(FileHash::new([0u8; 32]));
+
+        // Count new chunks (not in existing)
+        let new_chunks: Vec<_> = prep
+            .chunks
+            .into_iter()
+            .filter(|c| !existing.contains(&c.chunk_hash))
+            .collect();
+        let new_chunk_count = new_chunks.len();
+
+        let reg = FileRegistration {
+            file_path: file.relative_path.clone(),
+            file_hash,
+            mtime: Timestamp::from_secs(file.last_modified.as_secs()),
+            context_id: self.context_id.clone(),
+            expected_chunks: new_chunk_count,
+        };
+
+        if new_chunk_count == 0 {
+            // All chunks cached - track immediately (no chunks flow through pipeline)
+            let result = self
+                .repository
+                .track_indexed_file(&reg.file_path, &reg.file_hash, reg.mtime, &reg.context_id)
+                .context(StorageFailedSnafu);
+            if let Err(e) = result {
+                self.ctx.set_error(e);
+            }
+            return;
+        }
+
+        // Send registration to collector
+        if self.reg_tx.send(reg).is_err() {
+            if let Some(e) = self.handle.check_error() {
+                self.ctx.set_error(e);
+            }
+            return;
+        }
+
+        if let Some(e) = self.handle.check_error() {
+            self.ctx.set_error(e);
+            return;
+        }
+
+        // Send new chunks to pipeline
+        send_chunks(new_chunks, self.handle, self.ctx);
+    }
+}
+
+fn send_chunks<F>(
+    chunks: Vec<crate::knowledge::domain::Chunk>,
+    handle: &PipelineHandle<F>,
+    ctx: &StreamContext,
+) {
+    for chunk in chunks {
+        if handle.sender().send(WorkItem { chunk }).is_err() {
+            if let Some(e) = handle.check_error() {
+                ctx.set_error(e);
+            }
+            return;
+        }
+    }
+}
+
+fn query_hashes<R: ChunkRepository>(
+    repo_result: Result<R, crate::knowledge::storage::repository::StorageError>,
+    hashes: &[ChunkHash],
+) -> Result<HashSet<ChunkHash>, IndexingError> {
+    use super::types::indexing_error::*;
+    let repo = repo_result.context(StorageFailedSnafu)?;
+    repo.has_embedding_batch(hashes).context(StorageFailedSnafu)
 }
 
 /// Stream chunks from files through the embedding pipeline
@@ -255,10 +427,16 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
     let worker_count = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
     let batch_size = batch_config.batch_size.into_inner();
 
-    // Spawn a separate repository instance for the sink thread
+    // Spawn repository instances for sink and file tracker threads
     let sink_repo = repository.spawn().context(StorageFailedSnafu)?;
+    let tracker_repo = repository.spawn().context(StorageFailedSnafu)?;
     let batching_sink = Arc::new(Mutex::new(BatchingSink::new(sink_repo, batch_size)));
+    let file_tracker = Arc::new(Mutex::new(FileTracker::new(tracker_repo, batch_size)));
     let sink_clone = Arc::clone(&batching_sink);
+    let tracker_clone = Arc::clone(&file_tracker);
+
+    // Channel for file registrations from consumer to collector
+    let (reg_tx, reg_rx) = bounded::<FileRegistration>(worker_count.get() * 2);
 
     let pipeline = EmbeddingPipeline::builder()
         .provider(Arc::clone(provider))
@@ -267,8 +445,24 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
         .build();
 
     let handle = pipeline.start_with_sink(move |chunk: IndexedChunk| {
+        // Drain pending registrations non-blockingly
+        while let Ok(reg) = reg_rx.try_recv() {
+            if let Ok(mut tracker) = tracker_clone.lock() {
+                tracker.expect_file(reg);
+            }
+        }
+
+        let file_path = chunk.chunk.source.file_path.clone();
+
+        // Ingest chunk into BatchingSink
         if let Ok(mut sink) = sink_clone.lock() {
             sink.ingest(chunk);
+        }
+
+        // Record chunk in FileTracker
+        if let Ok(mut tracker) = tracker_clone.lock() {
+            tracker.record_chunk(&file_path);
+            tracker.maybe_flush();
         }
     });
 
@@ -299,6 +493,7 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
             ctx: &ctx,
             repository,
             context_id,
+            reg_tx: &reg_tx,
         };
         consumer.run(rx);
     });
@@ -317,8 +512,15 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
     };
 
     // Flush remaining chunks and surface any errors
+    // BatchingSink MUST flush before FileTracker to maintain crash-safety invariant
     let mut sink = batching_sink.lock().unwrap_or_else(|p| p.into_inner());
     if let Err(e) = sink.flush() {
+        ctx.set_error(e);
+    }
+
+    // Flush FileTracker after BatchingSink
+    let mut tracker = file_tracker.lock().unwrap_or_else(|p| p.into_inner());
+    if let Err(e) = tracker.flush() {
         ctx.set_error(e);
     }
 
@@ -331,81 +533,4 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
         ctx.files_skipped.load(Ordering::Relaxed),
         chunks_affected,
     ))
-}
-
-/// Process a single file result, returning chunks to embed or None if skipped/error
-#[allow(clippy::too_many_arguments)]
-fn process_file_result<F, R: ChunkRepository>(
-    file: &IndexableFile,
-    result: ChunkResult,
-    is_modified: bool,
-    handle: &PipelineHandle<F>,
-    ctx: &StreamContext,
-    repository: &mut R,
-    context_id: &ContextId,
-) -> Option<(Vec<crate::knowledge::domain::Chunk>, HashSet<ChunkHash>)> {
-    use super::types::indexing_error::*;
-
-    let chunks = match result {
-        Ok(chunks) => chunks,
-        Err(Ok(())) => {
-            ctx.files_skipped.fetch_add(1, Ordering::Relaxed);
-            return None;
-        }
-        Err(Err(e)) => {
-            ctx.set_error(e);
-            return None;
-        }
-    };
-
-    if is_modified {
-        let result = repository
-            .remove_indexed_file_from_context(&file.relative_path, context_id)
-            .context(StorageFailedSnafu);
-        if let Err(e) = result {
-            ctx.set_error(e);
-            return None;
-        }
-    }
-
-    if chunks.is_empty() {
-        return Some((Vec::new(), HashSet::new()));
-    }
-
-    let chunk_hashes: Vec<ChunkHash> = chunks.iter().map(|c| c.chunk_hash).collect();
-    let existing = match repository
-        .has_embedding_batch(&chunk_hashes)
-        .context(StorageFailedSnafu)
-    {
-        Ok(e) => e,
-        Err(e) => {
-            ctx.set_error(e);
-            return None;
-        }
-    };
-
-    let file_hash = chunks
-        .first()
-        .map(|c| c.file_hash)
-        .unwrap_or(FileHash::new([0u8; 32]));
-
-    let result = repository
-        .track_indexed_file(
-            &file.relative_path,
-            &file_hash,
-            Timestamp::from_secs(file.last_modified.as_secs()),
-            context_id,
-        )
-        .context(StorageFailedSnafu);
-    if let Err(e) = result {
-        ctx.set_error(e);
-        return None;
-    }
-
-    if let Some(e) = handle.check_error() {
-        ctx.set_error(e);
-        return None;
-    }
-
-    Some((chunks, existing))
 }

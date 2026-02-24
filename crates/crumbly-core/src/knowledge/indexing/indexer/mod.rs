@@ -12,6 +12,7 @@
 //! [`IndexDataProvider`], and [`ChunkRepository`] to transform raw documentation
 //! files into searchable indexed chunks.
 
+mod file_tracker;
 mod operations;
 pub(crate) mod pipeline;
 mod strategies;

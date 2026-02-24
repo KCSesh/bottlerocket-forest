@@ -122,4 +122,12 @@ pub enum IndexingError {
         help("This is an internal error - please report it")
     )]
     CollectorPanicked,
+
+    /// A worker thread panicked during parallel processing.
+    #[snafu(display("Worker thread panicked during parallel processing"))]
+    #[diagnostic(
+        code(crumbly::indexing::thread_panic),
+        help("This is an internal error - please report it")
+    )]
+    ThreadPanic,
 }

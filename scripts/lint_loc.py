@@ -10,6 +10,7 @@ OVERRIDES = {
     "crates/crumbly-core/src/knowledge/chunking/rustdoc/extraction.rs": 575,
     "crates/crumbly-core/src/knowledge/indexing/config.rs": 570,
     "crates/crumbly-core/src/knowledge/search/semantic.rs": 575,
+    "crates/crumbly-core/src/knowledge/storage/schema.rs": 590,
 }
 CRATES = ["crates/brdev", "crates/crumbly-cli", "crates/crumbly-core", "crates/forester"]
 

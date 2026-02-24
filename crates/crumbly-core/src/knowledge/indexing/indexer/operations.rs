@@ -40,6 +40,8 @@ fn is_skippable_error(error: &IndexingError) -> bool {
         IndexingError::ThreadPoolBuildFailed { .. } => false,
         // Collector panics are fatal - indicate internal problem
         IndexingError::CollectorPanicked => false,
+        // Thread panics are fatal - indicate internal problem
+        IndexingError::ThreadPanic => false,
     }
 }
 
