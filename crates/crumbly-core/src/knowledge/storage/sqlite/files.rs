@@ -162,6 +162,44 @@ pub fn remove_indexed_file_from_context(
     Ok(deleted)
 }
 
+/// Inserts multiple indexed file records in a single transaction.
+pub fn track_indexed_file_batch(
+    conn: &mut Connection,
+    files: &[(
+        IndexRelativePath,
+        FileHash,
+        crate::knowledge::domain::Timestamp,
+        ContextId,
+    )],
+) -> Result<(), IndexedFileError> {
+    use indexed_file_error::*;
+
+    if files.is_empty() {
+        return Ok(());
+    }
+
+    let tx = conn.transaction().context(DatabaseSnafu)?;
+    {
+        let mut stmt = tx
+            .prepare_cached(
+                "INSERT OR REPLACE INTO indexed_files (context_id, file_path, file_hash, mtime_ns) VALUES (?, ?, ?, ?)",
+            )
+            .context(DatabaseSnafu)?;
+
+        for (file_path, file_hash, mtime, context_id) in files {
+            stmt.execute(rusqlite::params![
+                context_id.as_str(),
+                file_path.to_string(),
+                file_hash.as_bytes().as_slice(),
+                mtime.as_secs() * 1_000_000_000,
+            ])
+            .context(DatabaseSnafu)?;
+        }
+    }
+    tx.commit().context(DatabaseSnafu)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

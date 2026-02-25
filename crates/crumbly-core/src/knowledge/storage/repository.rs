@@ -95,6 +95,12 @@ pub trait ChunkRepository {
         context_id: &ContextId,
     ) -> Result<(), StorageError>;
 
+    /// Records multiple files as indexed in a single transaction
+    fn track_indexed_file_batch(
+        &mut self,
+        files: &[(IndexRelativePath, FileHash, Timestamp, ContextId)],
+    ) -> Result<(), StorageError>;
+
     /// Removes a file from the specified context
     fn remove_indexed_file_from_context(
         &mut self,

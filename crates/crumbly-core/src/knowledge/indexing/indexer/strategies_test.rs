@@ -29,8 +29,8 @@ fn setup_mock_repo_for_build() -> MockChunkRepository {
         let mut spawned = MockChunkRepository::new();
         spawned.expect_save_batch().returning(|_| Ok(()));
         spawned
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
+            .expect_track_indexed_file_batch()
+            .returning(|_| Ok(()));
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
@@ -38,7 +38,7 @@ fn setup_mock_repo_for_build() -> MockChunkRepository {
     });
     r.expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
-    r.expect_track_indexed_file().returning(|_, _, _, _| Ok(()));
+    r.expect_track_indexed_file_batch().returning(|_| Ok(()));
     r.expect_save_batch().returning(|_| Ok(()));
     r
 }
@@ -51,8 +51,8 @@ fn setup_mock_repo_for_incremental(
         let mut spawned = MockChunkRepository::new();
         spawned.expect_save_batch().returning(|_| Ok(()));
         spawned
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
+            .expect_track_indexed_file_batch()
+            .returning(|_| Ok(()));
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
@@ -64,7 +64,7 @@ fn setup_mock_repo_for_incremental(
         .returning(|_| Ok(HashSet::new()));
     r.expect_remove_indexed_file_from_context()
         .returning(|_, _| Ok(()));
-    r.expect_track_indexed_file().returning(|_, _, _, _| Ok(()));
+    r.expect_track_indexed_file_batch().returning(|_| Ok(()));
     r.expect_save_batch().returning(|_| Ok(()));
     r
 }
@@ -198,8 +198,8 @@ fn test_build_propagates_storage_error() {
             })
         });
         spawned
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
+            .expect_track_indexed_file_batch()
+            .returning(|_| Ok(()));
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
@@ -209,8 +209,8 @@ fn test_build_propagates_storage_error() {
         .expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
     mock_repo
-        .expect_track_indexed_file()
-        .returning(|_, _, _, _| Ok(()));
+        .expect_track_indexed_file_batch()
+        .returning(|_| Ok(()));
     mock_repo.expect_save_batch().returning(|_| Ok(()));
     let mock_provider = mock_provider_success();
     let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);
@@ -241,8 +241,8 @@ fn test_rebuild_clears_then_builds() {
         let mut spawned = MockChunkRepository::new();
         spawned.expect_save_batch().returning(|_| Ok(()));
         spawned
-            .expect_track_indexed_file()
-            .returning(|_, _, _, _| Ok(()));
+            .expect_track_indexed_file_batch()
+            .returning(|_| Ok(()));
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
@@ -252,8 +252,8 @@ fn test_rebuild_clears_then_builds() {
         .expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
     mock_repo
-        .expect_track_indexed_file()
-        .returning(|_, _, _, _| Ok(()));
+        .expect_track_indexed_file_batch()
+        .returning(|_| Ok(()));
     mock_repo.expect_save_batch().returning(|_| Ok(()));
     let mock_provider = mock_provider_success();
     let mut indexer = create_test_indexer(&temp_dir, mock_repo, mock_provider);

@@ -73,6 +73,14 @@ impl SqliteChunkRepository {
 
         let conn = Connection::open(path.as_ref()).context(DatabaseSnafu)?;
 
+        // Enable WAL mode for concurrent readers + writer
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             PRAGMA synchronous=NORMAL;
+             PRAGMA busy_timeout=5000;",
+        )
+        .context(DatabaseSnafu)?;
+
         conn.create_scalar_function(
             "LN",
             1,
@@ -270,6 +278,18 @@ impl ChunkRepository for SqliteChunkRepository {
             )
             .context(DatabaseSnafu)?;
         Ok(())
+    }
+
+    fn track_indexed_file_batch(
+        &mut self,
+        files: &[(IndexRelativePath, FileHash, Timestamp, ContextId)],
+    ) -> Result<(), StorageError> {
+        files::track_indexed_file_batch(&mut self.conn, files).map_err(|e| match e {
+            files::IndexedFileError::Database { source } => StorageError::DatabaseError { source },
+            files::IndexedFileError::InvalidData { message } => {
+                StorageError::InvalidData { message }
+            }
+        })
     }
 
     fn delete_orphaned_chunks(&mut self) -> Result<u64, StorageError> {

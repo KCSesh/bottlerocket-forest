@@ -77,26 +77,37 @@ impl<R: ChunkRepository> FileTracker<R> {
         if let Some(e) = self.error.take() {
             return Err(e);
         }
-        for reg in self.completed.drain(..) {
-            self.repository
-                .track_indexed_file(&reg.file_path, &reg.file_hash, reg.mtime, &reg.context_id)
-                .context(StorageFailedSnafu)?;
+        if self.completed.is_empty() {
+            return Ok(());
         }
+        let batch: Vec<_> = self
+            .completed
+            .drain(..)
+            .map(|reg| (reg.file_path, reg.file_hash, reg.mtime, reg.context_id))
+            .collect();
+        self.repository
+            .track_indexed_file_batch(&batch)
+            .context(StorageFailedSnafu)?;
         Ok(())
     }
 
     fn flush_batch(&mut self) {
         use super::types::indexing_error::*;
 
-        for reg in self.completed.drain(..) {
-            if let Err(e) = self
-                .repository
-                .track_indexed_file(&reg.file_path, &reg.file_hash, reg.mtime, &reg.context_id)
-                .context(StorageFailedSnafu)
-            {
-                self.error = Some(e);
-                return;
-            }
+        if self.completed.is_empty() {
+            return;
+        }
+        let batch: Vec<_> = self
+            .completed
+            .drain(..)
+            .map(|reg| (reg.file_path, reg.file_hash, reg.mtime, reg.context_id))
+            .collect();
+        if let Err(e) = self
+            .repository
+            .track_indexed_file_batch(&batch)
+            .context(StorageFailedSnafu)
+        {
+            self.error = Some(e);
         }
     }
 }
