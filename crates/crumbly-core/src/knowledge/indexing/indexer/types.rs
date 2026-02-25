@@ -23,7 +23,7 @@ impl Default for BatchConfig {
     #[expect(clippy::expect_used)]
     fn default() -> Self {
         Self {
-            batch_size: BatchSize::try_new(100).expect("100 is valid batch size"),
+            batch_size: BatchSize::try_new(500).expect("500 is valid batch size"),
         }
     }
 }

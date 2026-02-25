@@ -19,6 +19,7 @@ mod strategies;
 mod streaming;
 mod types;
 mod worker;
+mod writer;
 
 pub use types::{BatchConfig, IndexResult, IndexingError};
 

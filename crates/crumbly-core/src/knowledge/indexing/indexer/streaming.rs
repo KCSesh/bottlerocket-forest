@@ -19,6 +19,7 @@ use super::file_tracker::{FileRegistration, FileTracker};
 use super::operations;
 use super::pipeline::{EmbeddingPipeline, PipelineHandle, WorkItem};
 use super::types::IndexingError;
+use super::writer::{BatchingSink, CollectorState, WriterMessage, run_writer_thread};
 use crate::knowledge::chunking::ChunkingDispatcher;
 use crate::knowledge::domain::{ChunkHash, ContextId, FileHash, IndexedChunk, Timestamp};
 use crate::knowledge::indexing::{IndexDataProvider, IndexableFile, ProgressReporter};
@@ -65,63 +66,6 @@ impl StreamContext {
 
     pub(super) fn has_error(&self) -> bool {
         self.error_flag.load(Ordering::Relaxed)
-    }
-}
-
-/// Batched writer that flushes indexed chunks to storage periodically
-struct BatchingSink<R: ChunkRepository> {
-    repository: R,
-    buffer: Vec<IndexedChunk>,
-    batch_size: usize,
-    error: Option<super::types::IndexingError>,
-}
-
-impl<R: ChunkRepository> BatchingSink<R> {
-    fn new(repository: R, batch_size: usize) -> Self {
-        Self {
-            repository,
-            buffer: Vec::with_capacity(batch_size),
-            batch_size,
-            error: None,
-        }
-    }
-
-    fn ingest(&mut self, chunk: IndexedChunk) {
-        if self.error.is_some() {
-            return;
-        }
-        self.buffer.push(chunk);
-        if self.buffer.len() >= self.batch_size {
-            self.flush_batch();
-        }
-    }
-
-    fn flush(&mut self) -> Result<(), super::types::IndexingError> {
-        use super::types::indexing_error::*;
-
-        if let Some(e) = self.error.take() {
-            return Err(e);
-        }
-        if !self.buffer.is_empty() {
-            self.repository
-                .save_batch(&self.buffer)
-                .context(StorageFailedSnafu)?;
-            self.buffer.clear();
-        }
-        Ok(())
-    }
-
-    fn flush_batch(&mut self) {
-        use super::types::indexing_error::*;
-
-        if let Err(e) = self
-            .repository
-            .save_batch(&self.buffer)
-            .context(StorageFailedSnafu)
-        {
-            self.error = Some(e);
-        }
-        self.buffer.clear();
     }
 }
 
@@ -427,13 +371,20 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
     let worker_count = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
     let batch_size = batch_config.batch_size.into_inner();
 
-    // Spawn repository instances for sink and file tracker threads
+    // Spawn repository instances for writer thread
     let sink_repo = repository.spawn().context(StorageFailedSnafu)?;
     let tracker_repo = repository.spawn().context(StorageFailedSnafu)?;
-    let batching_sink = Arc::new(Mutex::new(BatchingSink::new(sink_repo, batch_size)));
-    let file_tracker = Arc::new(Mutex::new(FileTracker::new(tracker_repo, batch_size)));
-    let sink_clone = Arc::clone(&batching_sink);
-    let tracker_clone = Arc::clone(&file_tracker);
+
+    // Channel for messages from collector to writer
+    let (writer_tx, writer_rx) = bounded::<WriterMessage>(worker_count.get() * 2);
+
+    // Spawn writer thread BEFORE pipeline - owns BatchingSink and FileTracker directly
+    let sink = BatchingSink::new(sink_repo, batch_size);
+    let tracker = FileTracker::new(tracker_repo, batch_size);
+    let writer_handle = thread::Builder::new()
+        .name("writer".into())
+        .spawn(move || run_writer_thread(writer_rx, sink, tracker))
+        .map_err(|_| IndexingError::ThreadPanic)?;
 
     // Channel for file registrations from consumer to collector
     let (reg_tx, reg_rx) = bounded::<FileRegistration>(worker_count.get() * 2);
@@ -444,25 +395,15 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
         .maybe_progress(progress.clone())
         .build();
 
+    // Collector state wrapped in Arc<Mutex<>> so we can access after pipeline.join()
+    let collector_state = Arc::new(Mutex::new(CollectorState::new(
+        writer_tx, reg_rx, batch_size,
+    )));
+    let collector_clone = Arc::clone(&collector_state);
+
     let handle = pipeline.start_with_sink(move |chunk: IndexedChunk| {
-        // Drain pending registrations non-blockingly
-        while let Ok(reg) = reg_rx.try_recv() {
-            if let Ok(mut tracker) = tracker_clone.lock() {
-                tracker.expect_file(reg);
-            }
-        }
-
-        let file_path = chunk.chunk.source.file_path.clone();
-
-        // Ingest chunk into BatchingSink
-        if let Ok(mut sink) = sink_clone.lock() {
-            sink.ingest(chunk);
-        }
-
-        // Record chunk in FileTracker
-        if let Ok(mut tracker) = tracker_clone.lock() {
-            tracker.record_chunk(&file_path);
-            tracker.maybe_flush();
+        if let Ok(mut state) = collector_clone.lock() {
+            state.ingest(chunk);
         }
     });
 
@@ -505,22 +446,24 @@ pub(super) fn stream_index_files<R: ChunkRepository + Send + 'static>(
         p.embedding_started(total_chunks);
     }
 
+    // Join pipeline - collector thread exits, closure is returned
     let join_result = handle.join();
-    let chunks_affected = match join_result {
-        Ok((count, _)) => count,
+    let (chunks_affected, _) = match join_result {
+        Ok((count, sink)) => (count, sink),
         Err(e) => return Err(e),
     };
 
-    // Flush remaining chunks and surface any errors
-    // BatchingSink MUST flush before FileTracker to maintain crash-safety invariant
-    let mut sink = batching_sink.lock().unwrap_or_else(|p| p.into_inner());
-    if let Err(e) = sink.flush() {
-        ctx.set_error(e);
+    // Flush partial batch and send shutdown to writer
+    {
+        let mut state = collector_state.lock().unwrap_or_else(|p| p.into_inner());
+        state.flush_and_shutdown();
     }
 
-    // Flush FileTracker after BatchingSink
-    let mut tracker = file_tracker.lock().unwrap_or_else(|p| p.into_inner());
-    if let Err(e) = tracker.flush() {
+    // Join writer thread and propagate any errors
+    let writer_result = writer_handle
+        .join()
+        .map_err(|_| IndexingError::ThreadPanic)?;
+    if let Err(e) = writer_result {
         ctx.set_error(e);
     }
 
