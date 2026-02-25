@@ -4,11 +4,13 @@
 //! receiving chunks via bounded channel to prevent SQLite I/O from blocking
 //! embedding workers.
 
+use std::collections::HashSet;
+
 use crossbeam_channel::{Receiver, Sender};
 
 use super::file_tracker::{FileRegistration, FileTracker};
 use super::types::IndexingError;
-use crate::knowledge::domain::IndexedChunk;
+use crate::knowledge::domain::{ChunkHash, IndexedChunk};
 use crate::knowledge::storage::ChunkRepository;
 
 /// Message sent from collector to writer thread
@@ -24,6 +26,8 @@ pub(super) struct BatchingSink<R: ChunkRepository> {
     buffer: Vec<IndexedChunk>,
     batch_size: usize,
     error: Option<IndexingError>,
+    /// Tracks chunk hashes written in this indexing run for cross-batch deduplication
+    written_hashes: HashSet<ChunkHash>,
 }
 
 impl<R: ChunkRepository> BatchingSink<R> {
@@ -33,6 +37,27 @@ impl<R: ChunkRepository> BatchingSink<R> {
             buffer: Vec::with_capacity(batch_size),
             batch_size,
             error: None,
+            written_hashes: HashSet::new(),
+        }
+    }
+
+    /// Checks if a chunk hash is known (either written this run or exists in DB)
+    /// Uses lazy population: queries DB on miss, caches result regardless
+    fn is_known(&mut self, chunk_hash: &ChunkHash) -> bool {
+        if self.written_hashes.contains(chunk_hash) {
+            return true;
+        }
+        // Lazy DB lookup - query once per unique hash
+        let exists = self.repository.has_embedding(chunk_hash).unwrap_or(false);
+        // Cache regardless of result to avoid repeated queries
+        self.written_hashes.insert(*chunk_hash);
+        exists
+    }
+
+    /// Records all chunk hashes in buffer as written
+    fn record_written(&mut self) {
+        for c in &self.buffer {
+            self.written_hashes.insert(c.chunk.chunk_hash);
         }
     }
 
@@ -43,14 +68,21 @@ impl<R: ChunkRepository> BatchingSink<R> {
         if self.error.is_some() {
             return;
         }
+
+        // Skip chunks already written or known to exist in DB
+        if self.is_known(&chunk.chunk.chunk_hash) {
+            return;
+        }
+
         self.buffer.push(chunk);
         if self.buffer.len() >= self.batch_size {
-            if let Err(e) = self
+            let result = self
                 .repository
                 .save_batch(&self.buffer)
-                .context(StorageFailedSnafu)
-            {
-                self.error = Some(e);
+                .context(StorageFailedSnafu);
+            match result {
+                Ok(()) => self.record_written(),
+                Err(e) => self.error = Some(e),
             }
             self.buffer.clear();
         }
@@ -67,6 +99,7 @@ impl<R: ChunkRepository> BatchingSink<R> {
             self.repository
                 .save_batch(&self.buffer)
                 .context(StorageFailedSnafu)?;
+            self.record_written();
             self.buffer.clear();
         }
         Ok(())

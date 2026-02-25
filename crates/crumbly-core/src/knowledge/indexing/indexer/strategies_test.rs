@@ -34,10 +34,12 @@ fn setup_mock_repo_for_build() -> MockChunkRepository {
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
+        spawned.expect_has_embedding().returning(|_| Ok(false));
         Ok(spawned)
     });
     r.expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
+    r.expect_has_embedding().returning(|_| Ok(false));
     r.expect_track_indexed_file_batch().returning(|_| Ok(()));
     r.expect_save_batch().returning(|_| Ok(()));
     r
@@ -56,12 +58,14 @@ fn setup_mock_repo_for_incremental(
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
+        spawned.expect_has_embedding().returning(|_| Ok(false));
         Ok(spawned)
     });
     r.expect_get_indexed_files()
         .returning(move |_| Ok(indexed.clone()));
     r.expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
+    r.expect_has_embedding().returning(|_| Ok(false));
     r.expect_remove_indexed_file_from_context()
         .returning(|_, _| Ok(()));
     r.expect_track_indexed_file_batch().returning(|_| Ok(()));
@@ -203,11 +207,13 @@ fn test_build_propagates_storage_error() {
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
+        spawned.expect_has_embedding().returning(|_| Ok(false));
         Ok(spawned)
     });
     mock_repo
         .expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
+    mock_repo.expect_has_embedding().returning(|_| Ok(false));
     mock_repo
         .expect_track_indexed_file_batch()
         .returning(|_| Ok(()));
@@ -246,11 +252,13 @@ fn test_rebuild_clears_then_builds() {
         spawned
             .expect_has_embedding_batch()
             .returning(|_| Ok(HashSet::new()));
+        spawned.expect_has_embedding().returning(|_| Ok(false));
         Ok(spawned)
     });
     mock_repo
         .expect_has_embedding_batch()
         .returning(|_| Ok(HashSet::new()));
+    mock_repo.expect_has_embedding().returning(|_| Ok(false));
     mock_repo
         .expect_track_indexed_file_batch()
         .returning(|_| Ok(()));

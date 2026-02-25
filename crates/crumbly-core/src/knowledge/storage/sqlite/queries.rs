@@ -69,6 +69,7 @@ pub fn save_batch(conn: &mut Connection, chunks: &[IndexedChunk]) -> Result<(), 
     let tx = conn.transaction().context(DatabaseSnafu)?;
 
     // Track chunk_hashes we've already inserted in this batch to avoid duplicates
+    // Cross-batch deduplication is handled by BatchingSink's written_hashes
     let mut inserted_hashes: HashSet<String> = HashSet::new();
 
     for indexed_chunk in chunks {
@@ -97,27 +98,16 @@ pub fn save_batch(conn: &mut Connection, chunks: &[IndexedChunk]) -> Result<(), 
         .context(DatabaseSnafu)?;
 
         // vec0 virtual tables don't support INSERT OR REPLACE/IGNORE
-        // Skip if we've already inserted this hash in this batch
+        // Skip if we've already inserted this hash in this batch (intra-batch dedup)
         if !inserted_hashes.contains(&chunk_hash_str) {
-            // Check if embedding already exists in database
-            let exists: bool = tx
-                .query_row(
-                    "SELECT 1 FROM vec_chunks WHERE chunk_hash = ?",
-                    [&chunk_hash_str],
-                    |_| Ok(true),
-                )
-                .unwrap_or(false);
-
-            if !exists {
-                tx.execute(
-                    "INSERT INTO vec_chunks (chunk_hash, embedding) VALUES (:chunk_hash, :embedding)",
-                    rusqlite::named_params! {
-                        ":chunk_hash": chunk_hash_str.clone(),
-                        ":embedding": embedding_blob,
-                    },
-                )
-                .context(DatabaseSnafu)?;
-            }
+            tx.execute(
+                "INSERT INTO vec_chunks (chunk_hash, embedding) VALUES (:chunk_hash, :embedding)",
+                rusqlite::named_params! {
+                    ":chunk_hash": chunk_hash_str.clone(),
+                    ":embedding": embedding_blob,
+                },
+            )
+            .context(DatabaseSnafu)?;
             inserted_hashes.insert(chunk_hash_str);
         }
     }
