@@ -44,11 +44,24 @@ impl<R: ChunkRepository> BatchingSink<R> {
     /// Checks if a chunk hash is known (either written this run or exists in DB)
     /// Uses lazy population: queries DB on miss, caches result regardless
     fn is_known(&mut self, chunk_hash: &ChunkHash) -> bool {
+        use super::types::indexing_error::*;
+        use snafu::ResultExt;
+
         if self.written_hashes.contains(chunk_hash) {
             return true;
         }
         // Lazy DB lookup - query once per unique hash
-        let exists = self.repository.has_embedding(chunk_hash).unwrap_or(false);
+        let exists = match self
+            .repository
+            .has_embedding(chunk_hash)
+            .context(StorageFailedSnafu)
+        {
+            Ok(v) => v,
+            Err(e) => {
+                self.error = Some(e);
+                return true; // Skip chunk on error; error surfaces at flush()
+            }
+        };
         // Cache regardless of result to avoid repeated queries
         self.written_hashes.insert(*chunk_hash);
         exists

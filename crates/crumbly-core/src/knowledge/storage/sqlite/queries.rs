@@ -78,35 +78,37 @@ pub fn save_batch(conn: &mut Connection, chunks: &[IndexedChunk]) -> Result<(), 
         let embedding_blob = serialize_embedding(&indexed_chunk.embedding);
         let chunk_hash_str = chunk.chunk_hash.to_string();
 
-        tx.execute(
+        tx.prepare_cached(
             "INSERT OR REPLACE INTO chunks 
             (chunk_hash, file_hash, repo_name, 
              context_type, context_data, content, token_count, last_modified)
             VALUES (:chunk_hash, :file_hash, :repo_name, 
                     :context_type, :context_data, :content, :token_count, :last_modified)",
-            rusqlite::named_params! {
-                ":chunk_hash": chunk_hash_str,
-                ":file_hash": chunk.file_hash.as_bytes().as_slice(),
-                ":repo_name": chunk.source.repo_name.to_string(),
-                ":context_type": context_type,
-                ":context_data": context_data,
-                ":content": chunk.content.text,
-                ":token_count": chunk.content.token_count.into_inner() as i64,
-                ":last_modified": indexed_chunk.indexed_at.as_secs(),
-            },
         )
+        .context(DatabaseSnafu)?
+        .execute(rusqlite::named_params! {
+            ":chunk_hash": chunk_hash_str,
+            ":file_hash": chunk.file_hash.as_bytes().as_slice(),
+            ":repo_name": chunk.source.repo_name.to_string(),
+            ":context_type": context_type,
+            ":context_data": context_data,
+            ":content": chunk.content.text,
+            ":token_count": chunk.content.token_count.into_inner() as i64,
+            ":last_modified": indexed_chunk.indexed_at.as_secs(),
+        })
         .context(DatabaseSnafu)?;
 
         // vec0 virtual tables don't support INSERT OR REPLACE/IGNORE
         // Skip if we've already inserted this hash in this batch (intra-batch dedup)
         if !inserted_hashes.contains(&chunk_hash_str) {
-            tx.execute(
+            tx.prepare_cached(
                 "INSERT INTO vec_chunks (chunk_hash, embedding) VALUES (:chunk_hash, :embedding)",
-                rusqlite::named_params! {
-                    ":chunk_hash": chunk_hash_str.clone(),
-                    ":embedding": embedding_blob,
-                },
             )
+            .context(DatabaseSnafu)?
+            .execute(rusqlite::named_params! {
+                ":chunk_hash": chunk_hash_str.clone(),
+                ":embedding": embedding_blob,
+            })
             .context(DatabaseSnafu)?;
             inserted_hashes.insert(chunk_hash_str);
         }
