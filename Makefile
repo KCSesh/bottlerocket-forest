@@ -35,7 +35,8 @@ integ: check
 	# Integration tests require --release on ARM64 Linux.
 	# The candle ML framework depends on gemm, which uses f16 SIMD instructions.
 	# In debug mode, gemm-f16 emits fullfp16 instructions that aren't available
-	# on all ARM64 CPUs (e.g., Graviton). Release mode optimizes these away.
+	# on all ARM64 CPUs (e.g., Graviton). The gemm crates are compiled with
+	# opt-level=1 in dev profile (see Cargo.toml) to avoid this issue.
 	# See: https://github.com/sarah-quinones/gemm/issues/31
 	cargo test --workspace --release --locked --quiet -- --ignored
 

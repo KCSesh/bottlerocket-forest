@@ -115,11 +115,24 @@ expect_used = "deny"
 [workspace.lints.rust]
 missing_docs = "deny"
 
-[patch.crates-io]
-gemm = { path = "/tmp/gemm-patch/gemm" }
-gemm-common = { path = "/tmp/gemm-patch/gemm-common" }
-gemm-f16 = { path = "/tmp/gemm-patch/gemm-f16" }
-gemm-f32 = { path = "/tmp/gemm-patch/gemm-f32" }
-gemm-f64 = { path = "/tmp/gemm-patch/gemm-f64" }
-gemm-c32 = { path = "/tmp/gemm-patch/gemm-c32" }
-gemm-c64 = { path = "/tmp/gemm-patch/gemm-c64" }
+# Compile gemm crates with opt-level=1 in dev profile to avoid fullfp16 issues on ARM64
+[profile.dev.package.gemm]
+opt-level = 1
+
+[profile.dev.package.gemm-common]
+opt-level = 1
+
+[profile.dev.package.gemm-f16]
+opt-level = 1
+
+[profile.dev.package.gemm-f32]
+opt-level = 1
+
+[profile.dev.package.gemm-f64]
+opt-level = 1
+
+[profile.dev.package.gemm-c32]
+opt-level = 1
+
+[profile.dev.package.gemm-c64]
+opt-level = 1
